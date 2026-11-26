@@ -4,8 +4,9 @@ name: Video xəbər (Facebook, Instagram)
 # Seçim və paylaşma: .github/scripts/sosial-video.cjs, video: .github/scripts/video-xeber.cjs, sənəd: docs/sosial-video.md.
 # Gündəlik hava videosu (sahib, 2026-11-23): eyni iş, ayrıca qayda — Bakı vaxtı HAVA_VAXT-dan (20:45) sonrakı ilk pəncərədə gündə bir dəfə
 # sabahkı proqnoz (Open-Meteo + Pixabay + SARA, .github/scripts/video-hava.cjs). Eyni axınla FB/IG Reels, TikTok, YouTube Shorts-a gedir.
-# Maraqlı videolar (sahib, 2026-11-24: «əsas odur onlar kimi sən də tap o cür maraqlı videolar»): Vikipediyanın faktları + Pixabay
-# görüntüsü + SARA (.github/scripts/video-maraqli.cjs), xəbər videosu ilə növbələşir (MARAQLI_GUNDE, MARAQLI_ARA_MIN; söndürmə MARAQLI_VIDEO=0).
+# Maraqlı videolar (sahib, 2026-11-24; Vikipediyanın faktları + Pixabay görüntüsü, .github/scripts/video-maraqli.cjs) 2026-11-26-dan
+# söndürülüb (sahib: «nə heyvan nə təbiət nə kosmos»): susmaya görə hazırlanmır və paylaşılmır, PR nümunəsi (sınaq yolu) qalır.
+# Yalnız Variables-da MARAQLI_VIDEO=1 açır; söndürülmüş halda «tur: maraqli» yalnız önizləmədir (paylas=false).
 # Xəbər axınından (update.yml) və şəkilli paylaşmadan (social.yml) ayrıdır: düşsə də, gecikse də onlara təsir etmir. Repoya
 # yazmır; video fayl yalnız şəbəkələrə və 3 günlük artefakta gedir.
 
@@ -26,7 +27,7 @@ on:
         required: false
         default: ''
       tur:
-        description: 'Video: avtomatik (cədvəl üzrə), hava (gündəlik hava proqnozu, dərhal), xeber (yalnız xəbər), maraqli (maraqlı video, dərhal), dunya (dünya videosu tərcümə ilə, dərhal) və ya x (X-in ən çox baxılan videosu, dərhal)'
+        description: 'Video: avtomatik (cədvəl üzrə), hava (gündəlik hava proqnozu, dərhal), xeber (yalnız xəbər), maraqli (söndürülüb: yalnız önizləmə, «Paylaş»-ı götürün), dunya (dünya videosu tərcümə ilə, dərhal) və ya x (X-in ən çox baxılan videosu, dərhal)'
         type: choice
         options: [avtomatik, hava, xeber, maraqli, dunya, x]
         default: avtomatik
@@ -79,7 +80,8 @@ jobs:
     # Video «video-xeber» artefaktındadır: video.mp4 + video.json (xəbərin sahələri, own: true).
     outputs:
       hazir: ${{ steps.sec.outputs.hazir }}
-      paylas: ${{ steps.sec.outputs.hazir == '1' && github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.paylas) && '1' || '0' }}
+      # Maraqlı video (söndürülüb, 2026-11-26) TikTok və YouTube-a da getmir: yalnız MARAQLI_VIDEO=1 açır.
+      paylas: ${{ steps.sec.outputs.hazir == '1' && github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.paylas) && (steps.sec.outputs.tur != 'maraqli' || vars.MARAQLI_VIDEO == '1') && '1' || '0' }}
       yoxlandi: ${{ steps.yoxla.outcome == 'success' && '1' || '0' }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -171,6 +173,7 @@ jobs:
           VIDEO_GUNDE: ${{ vars.VIDEO_GUNDE }}
           VIDEO_MIN_SOURCES: ${{ vars.VIDEO_MIN_SOURCES }}
           SOCIAL_MIN_SOURCES: ${{ vars.SOCIAL_MIN_SOURCES }}
+          # Maraqlı video 2026-11-26-dan söndürülüb: yalnız MARAQLI_VIDEO=1 açır (boş — söndürülüb).
           MARAQLI_VIDEO: ${{ vars.MARAQLI_VIDEO }}
           MARAQLI_GUNDE: ${{ vars.MARAQLI_GUNDE }}
           MARAQLI_ARA_MIN: ${{ vars.MARAQLI_ARA_MIN }}
@@ -205,6 +208,15 @@ jobs:
           }
           ffmpeg -hide_banner -filters | grep -qw ass
           fc-list : family style | grep -i roboto | sort | head -12
+      # «Çox baxılan» X videosu (sahib, 2026-11-26: «Bu video 4 milyondan çox dəfə izlənib — nəyə lazımdır?»): baxış sayı deyilmir.
+      # Paylaşımın mətnində əlavə fakt yoxdursa Gemini videonun kadrlarında açıq görünən 1–2 faktı yazır (video-dunya.cjs xKadrMetn;
+      # kadrları ffmpeg çıxarır — ona görə bu addım ffmpeg-dən sonradır). Alınmasa mətn izah qalır; kadrda ölüm, qan, meyit görünürsə
+      # iş dayanır (video paylaşılmır).
+      - name: 'X: kadrlardan mətn'
+        if: steps.sec.outputs.hazir == '1' && steps.sec.outputs.tur == 'x'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: node .github/scripts/sosial-video.cjs x-kadr video-out
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         if: steps.sec.outputs.hazir == '1' && (vars.VIDEO_SES || '1') != '0'
         with:
@@ -317,8 +329,9 @@ jobs:
         continue-on-error: true
         run: node .github/scripts/veb-video.cjs hazirla video-out/video.mp4 video-out/veb.mp4
       - name: Paylaş
-        if: steps.sec.outputs.hazir == '1' && github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.paylas)
+        if: steps.sec.outputs.hazir == '1' && github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.paylas) && (steps.sec.outputs.tur != 'maraqli' || vars.MARAQLI_VIDEO == '1')
         env:
+          MARAQLI_VIDEO: ${{ vars.MARAQLI_VIDEO }}   # paylas maraqlı videonu yalnız 1 olanda göndərir (2026-11-26)
           FB_PAGE_ID: ${{ vars.FB_PAGE_ID || '1470250006171917' }}
           FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
           IG_USER_ID: ${{ vars.IG_USER_ID }}

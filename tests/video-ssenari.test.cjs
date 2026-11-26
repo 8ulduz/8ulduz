@@ -570,7 +570,8 @@ test("sosial-video: protocol news is skipped, and when Gemini says stock footage
   const NOW = Date.parse("2026-11-22T10:00:00Z");
   const art = (c, title, min) => ({ id: c.repeat(16), title, summary: SOURCE, category: "cemiyyet", lang: "az", source: "APA", sourceUrl: `https://apa.az/${c}`,
     publishedAt: new Date(NOW - min * 60e3).toISOString(), alts: [{ source: "Report" }, { source: "Oxu.az" }, { source: "Trend" }] });
-  const qebul = art("a", "Nazir Fransa səfirini qəbul edib", 5), bayanat = art("b", "Deputat Bakıda 12 yeni məktəbin açılışında çıxış edib", 10), mekteb = art("c", "Bakıda 12 yeni məktəb açılıb", 15);
+  // Protokol başlığında zəif söz (2026-11-26: «səfir», «görüş») olmasın: sıra dəyişməsin, qayda (protokol) özü yoxlansın.
+  const qebul = art("a", "Nazir Fransa nümayəndəsini qəbul edib", 5), bayanat = art("b", "Deputat Bakıda 12 yeni məktəbin açılışında çıxış edib", 10), mekteb = art("c", "Bakıda 12 yeni məktəb açılıb", 15);
   const page = `<html><body>${SOURCE.split(". ").map(s => `<p>${s}. Bakıda yeni məktəblər haqqında ətraflı məlumat.</p>`).join("")}</body></html>`;
   const asked = [];
   const f = async (u, o = {}) => {

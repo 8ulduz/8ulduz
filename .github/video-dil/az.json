@@ -8,20 +8,36 @@
   "x": {
     "bolme": "Çox baxılan",
     "min_baxis": 100000,
-    "movzular": { "maraqli": 1.3, "kino": 1.3, "tebiet": 1.2, "elm": 1.1, "xeber": 1, "texnika": 1, "idman": 1, "yemek": 0.8 },
+    "movzular": { "maraqli": 1.3, "kino": 1.3, "idman": 1.3, "xeber": 1.1, "texnika": 1.1, "elm": 1, "yemek": 0.8 },
     "qadagan": "^(FoxNews|BBC\\w*|CNN\\w*|SkyNews\\w*|NatGeo\\w*|Discovery\\w*|AnimalPlanet|Disney\\w*|netflix\\w*|HBO\\w*|Marvel\\w*|redbull\\w*|IGN|GameSpot)$",
     "kenar": "(?<![\\p{L}])(raket|bombard|hava zərbəsi|zərbə endir|zərbənin|dron zərbəsi|döyüş|cəbhə|edam|baş kəs|meyit|cəsəd|terror aktı)",
-    "baxis_mln": "Bu video {n} milyondan çox dəfə izlənib.",
-    "baxis_min": "Bu video {n} mindən çox dəfə izlənib."
+    "cixar": "(?<![\\p{L}\\p{N}])(?:heyvan|pişik|it(?:i|in|ə|dən|lə|lər|ləri|lərin|lərə|lərdən)?(?![\\p{L}])|köpək|şir(?:i|ə|lər|ləri|dən)?(?![\\p{L}])|pələng|bəbir|canavar|tülkü|fil(?:i|in|ə|lər|ləri)?(?![\\p{L}])|zürafə|meymun|qorilla|panda|koala|kenquru|delfin|balina|akula|timsah|ilan(?:ı|ın|lar|ları)?(?![\\p{L}])|tısbağa|qartal|quş(?:u|un|lar|ları|ların)?(?![\\p{L}])|tutuquşu|pinqvin|[iİ]nək|dovşan|siçan|sincab|kəpənək|hörümçək|ahtapot|zoopark|akvarium|vəhşi təbiət|vəhşi heyvan|yırtıcı|təbiət|şəlalə|gün batımı|şimal parıltı|aurora|kosmos|kosmik|kosmonavt|astronavt|planet|qalaktika|asteroid|kometa|teleskop|NASA|SpaceX|Mars(?:da|a|ın|dan)?(?![\\p{L}])|Yupiter|Saturn|Günəş sistemi|qara dəlik|orbit|raket buraxıl|peyk|Ay(?:ın)? səth|Ay tutul|Günəş tutul)"
   },
   "lent": {
     "dil": "az",
     "min_menbe": 4,
     "ceki": {
       "bolme": { "medeniyyet": 1.4, "idman": 1.3, "cemiyyet": 1.15, "bolgeler": 1.1, "heyat": 1.1, "dunya": 0.9, "iqtisadiyyat": 0.8, "sosial": 0.8, "siyaset": 0.8 },
-      "zeif": "sammit|zirvə|forum|konfrans|simpozium|təqdimat|memorandum|saziş|anlaşma|əməkdaşlıq|günü münasibətilə|günüdür|ildönümü|[iİ]l tamam|hava necə olacaq|hava proqnozu",
+      "zeif": "sammit|zirvə|forum|konfrans|simpozium|təqdimat|memorandum|saziş|anlaşma|əməkdaşlıq|günü münasibətilə|günüdür|ildönüm|[iİ]l tamam|yubiley|hava necə olacaq|hava proqnozu|rəsmi səfər|işgüzar səfər|səfər çərçivəsində|səfərə gəl|ilə görüşüb|ilə görüşdü|ilə görüşəcək|görüş keçir|səfir|nümayəndə heyəti|bəyanat|statistik|neftin qiymət|neft qiymət|Brent(?![\\p{L}])|barel",
       "zeif_emsal": 0.6,
-      "video_emsal": 1.3
+      "video_emsal": 1.3,
+      "guclu": [
+        { "ad": "ordu", "emsal": 1.5, "soz": "(?<![\\p{L}\\p{N}])(?:şəhid|qazi(?:miz|lər|lərimiz|lərin|lərə|ni|nin|yə)?(?![\\p{L}])|hərbçi|hərbi qulluqçu|əsgər|zabit|ordu(?:muz|muzun|nun|da|dan|ya)?(?![\\p{L}])|silahlı qüvvələr|hərbi hissə|zəfər yürüşü|sərhədçi)" },
+        { "ad": "taninmis", "emsal": 1.6, "soz": "(?<![\\p{L}\\p{N}])(?:vəfat|dünyasını dəyiş|həyatını itir|dəfn|vida mərasim|son mənzil|xalq artist|əməkdar artist|tanınmış|məşhur|aktyor|aktrisa|müğənni|teleaparıcı|aparıcısı|bloger|blogger|reper|meyxanaçı|komediyaçı)" },
+        { "ad": "insan", "emsal": 1.5, "soz": "(?<![\\p{L}\\p{N}])(?:[iİ]tkin|axtarılan (?:uşaq|qız|oğlan|kişi|qadın)|tapıldı|tapılıb|xeyirxah|qəhrəman|kömək əli|yardım əli|təsirli|kövrək|duyğulandır|göz yaşı|evlilik təklifi|sürpriz|əkiz|həmyerlimiz|qeyri-adi|ürəkaçan|sevindir)" },
+        { "ad": "polis", "emsal": 1.5, "soz": "(?<![\\p{L}\\p{N}])(?:polis|saxlanıl|həbs|narkotik|dələduz|oğurla|oğurluq|oğru|quldur|soyğun|cinayət|qətl|öldürül|qətlə yetir|bıçaqla|atəş aç|güllələ|cibgir|rüşvət|axtarışa veril|məhkum|hökm oxun|[iİ]stintaq|prokuror|zərərçəkmiş|zorakılıq|döyül|xuliqan)" },
+        { "ad": "firildaq", "emsal": 1.4, "soz": "(?<![\\p{L}\\p{N}])(?:fırıldaq|aldadıl|aldadaraq|saxta|kart məlumat|kartından|bank kart|şifrə|SMS|diqqətli olun|ehtiyatlı olun|istehlakçı|keyfiyyətsiz|vaxtı keçmiş|zəhərlən|AQTA|[iİ]şə düzəlt|tələ(?:yə|ni|si)?(?![\\p{L}])|onlayn satış)" },
+        { "ad": "qeza", "emsal": 1.5, "x": 1.7, "soz": "(?<![\\p{L}\\p{N}])(?:qəza|toqquş|aşaraq|devril|piyadanı vur|piyada vurul|yol-nəqliyyat|zəncirvari|təyyarə düş|helikopter düş|məcburi eniş|relsdən çıx|gəmi batdı|batdı|batıb|bərə(?:si|nin|də)?(?![\\p{L}])|yanğın|yandı|alovlan|partlayış|partladı|partlayıb|uçqun|çökdü|çöküb|həlak|xəsarət|yaralan|ölüb|öldü|ölən|faciə|minaya düş|mina partla|qaz partla|dəm qaz|boğul)" },
+        { "ad": "seher", "emsal": 1.4, "soz": "(?<![\\p{L}\\p{N}])(?:şikayət|sakinlər|sakini|narazı|su bas|su altında|gölməçə|çala-çuxur|çuxur|bərbad|asfalt|avtobus|marşrut|tıxac|[iİ]şıq(?:lar)? (?:kəsil|sönüb|söndü|yoxdur|verilmir)|işıqsız|elektrik (?:enerjisi )?kəsil|qaz(?:ın)? (?:kəsil|verilmir|yoxdur)|qazsız|qaz təchizat|susuz|su(?:yun)? (?:kəsil|verilmir|yoxdur)|içməli su|zibil|kanalizasiya|lift|metro(?:da|nun|ya)?(?![\\p{L}])|[iİ]cra başçı)" },
+        { "ad": "hava", "emsal": 1.3, "soz": "(?<![\\p{L}\\p{N}])(?:qar yağ(?:ır|dı|ıb|ması|an)|qar örtüy|güclü qar|qar(?:ın)? altında|qar topa|leysan|sel(?:lər|ə|in|i)?(?![\\p{L}])|daşqın|dolu yağ|sürüşmə|güclü külək|külək(?:in)? (?:ağac|dam|qopar|aşırdı|zərər)|ağac(?:lar)? (?:aşdı|qırıldı|yıxıldı)|buz bağla|buzlaşma|tufan|qasırğa|tornado|zəlzələ|yer silkin)" },
+        { "ad": "yerli_idman", "emsal": 1.3, "soz": "[«\"“](?:Qarabağ|Sabah|Neftçi|Zirə|Sumqayıt|Turan Tovuz|Araz-Naxçıvan|Kəpəz|Şamaxı|[iİ]mişli|Qəbələ|Səbail|Mil-Muğan|Kür-Araz)[»\"”]|(?<![\\p{L}\\p{N}])(?:Qarabağ FK|Neftçi PFK|Sabah FK|millimiz|milli komandamız|yığmamız|Azərbaycan millisi|Azərbaycan yığması|Premyer Liqa|güləşçi|cüdoçu|boksçu|gimnast|Toral Bayramov|Rəşad Sadıqov)" },
+        { "ad": "xarici_futbol", "emsal": 1.2, "x": 1.7, "soz": "(?<![\\p{L}\\p{N}])(?:Çempionlar Liqası|Avropa Liqası|Konfrans Liqası|UEFA|FIFA|dünya çempionatı|La Liqa|Seriya A|Bundesliqa|Liqa 1|Süper Liq|Real Madrid|Barselona|Barcelona|Mançester|Manchester|Liverpul|Liverpool|Arsenal|Çelsi|Chelsea|Bavariya|Bayern|PSJ|PSG|Yuventus|Juventus|Milan|[iİ]nter(?![\\p{L}])|Atletiko|Qalatasaray|Fənərbağça|Beşiktaş|Trabzonspor|Messi|Ronaldo|Mbappe|Mbappé|Holand|Haaland|Arda Güler|Yamal|Mourinyo|Mourinho|Qvardiola|Guardiola|Ançelotti|Ancelotti)" },
+        { "ad": "avto_yaris", "emsal": 1.2, "x": 1.7, "soz": "(?<![\\p{L}\\p{N}])(?:Formula[- ]?1|F1(?![\\p{L}\\p{N}])|MotoGP|ralli|rally|drift|motokross|motocross|NASCAR|Dakar|Ferstappen|Verstappen|Hamilton|Leklerk|Leclerc|Norris|Piastri|pit-stop|Qran-pri|Qran Pri|Grand Prix|Bakı şəhər halqası|avtoyarış|yarış qəza|yarış avtomobil|motosiklet yarış)" },
+        { "ad": "konsert", "emsal": 1.3, "soz": "(?<![\\p{L}\\p{N}])(?:konsert|şou|festival|səhnəyə|albom|Avroviziya|Eurovision|mahnı|klip(?:ini|i)? (?:təqdim|yayım|çək)|premyera|tamaşa|rəqs|O Ses|Bayraq meydanı|toy(?:u|da|unda|una)(?![\\p{L}]))" },
+        { "ad": "turkiye", "emsal": 1.25, "soz": "(?<![\\p{L}\\p{N}])(?:Türkiyə|türkiyəli|[iİ]stanbul|Ankara|[iİ]zmir|Antalya|Bursa|Konya|Trabzon|Adana|Mersin|Qaziantep|Ərzurum|[iİ]ğdır|Qars|Alanya|Bodrum)" },
+        { "ad": "texnologiya", "emsal": 1.2, "soz": "(?<![\\p{L}\\p{N}])(?:GTA|PlayStation|Xbox|Nintendo|[iİ]Phone|Samsung|Apple|Tesla|süni intellekt|robot|smartfon|ChatGPT|OpenAI|Google|Microsoft|[iİ]nstagram|TikTok|WhatsApp|Telegram|YouTube|kompüter oyun|video oyun|oyun konsol|elektromobil|elektrikli avtomobil|yeni model)" },
+        { "ad": "ekstremal", "emsal": 1.5, "x": 1.7, "soz": "(?<![\\p{L}\\p{N}])(?:xilas|canını qurtar|ölümdən qurtar|son anda|ölümdən dönən|möcüzə|təhlükəli an|dəhşət|həyəcanlı an|qorxunc|şok(?:edici| olub| oldu)?(?![\\p{L}])|rekord|Ginnes|Guinness|ekstremal|uçurum|təbii fəlakət|vulkan|tsunami|qasırğa|tornado|zəlzələ|daşqın|hücum etdi|hücum edib|hücumuna məruz|hücum çəkdi|sahibsiz it)" }
+      ]
     },
     "yayim": "(?<![\\p{L}\\p{N}])(klip|klipi|treyler|treyleri|trailer|fraqment|serial|serialın|трейлер|клип)(?![\\p{L}\\p{N}])"
   },

@@ -129,10 +129,12 @@ test("maraqlı: hazırlama — fakt, mətn və görüntü; klip azdırsa növbə
   assert.deepEqual(require("../.github/scripts/video-ssenari.cjs").EHTIYAT.maraqli, []);
 });
 
-test("maraqlı: seçim — xəbər videosu ilə növbələşir, gündəlik həddi var, uyğun xəbər olmayanda pəncərəni doldurur", async () => {
-  const now = Date.parse("2026-11-24T08:00:00Z"), env = { ...ENV, VIDEO_ACAR: "1" }, sec = now / 1000;
-  const mo = SV.maraqliOptions({});
+// Sahib, 2026-11-26: rubrika susmaya görə söndürülüb (tests/video-movzu.test.cjs). Bu test açılmış halın (MARAQLI_VIDEO=1) qaydasıdır.
+test("maraqlı: seçim (MARAQLI_VIDEO=1 ilə) — xəbər videosu ilə növbələşir, gündəlik həddi var, uyğun xəbər olmayanda pəncərəni doldurur", async () => {
+  const now = Date.parse("2026-11-24T08:00:00Z"), env = { ...ENV, VIDEO_ACAR: "1", MARAQLI_VIDEO: "1" }, sec = now / 1000;
+  const mo = SV.maraqliOptions({ MARAQLI_VIDEO: "1" });
   assert.deepEqual(mo, { on: true, perDay: 10, gapMin: 60 });
+  assert.equal(SV.maraqliOptions({}).on, false, "susmaya görə söndürülüb (sahib, 2026-11-26)");
   const st = SV.readState("/yoxdur", now);
   assert.equal(SV.maraqliDue(st, now, mo), "");
   st.m = { gepard: sec - 20 * 60 };

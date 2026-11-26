@@ -523,8 +523,8 @@ test("tiktok: hooked to the video module — main only, real posting runs only, 
   assert.match(job, /uses: \.\/\.github\/workflows\/tiktok\.yml\n\s+with:\n\s+artifact: video-xeber\n/);
   assert.ok(!/secrets: inherit|FB_PAGE_TOKEN/.test(job), "Facebook açarı TikTok işinə getmir");
   assert.deepEqual([...job.matchAll(/(TIKTOK_\w+): \$\{\{ secrets\.(TIKTOK_\w+) \}\}/g)].map(m => m[1] === m[2] && m[1]), ["TIKTOK_CLIENT_KEY", "TIKTOK_CLIENT_SECRET", "TIKTOK_REFRESH_TOKEN"]);
-  // paylas: PR və paylas=false önizləməsində 0; yoxlandi: «Videonu yoxla» addımı keçəndə 1.
-  assert.match(wf, /paylas: \$\{\{ steps\.sec\.outputs\.hazir == '1' && github\.event_name != 'pull_request' && \(github\.event_name != 'workflow_dispatch' \|\| inputs\.paylas\) && '1' \|\| '0' \}\}/);
+  // paylas: PR və paylas=false önizləməsində 0; yoxlandi: «Videonu yoxla» addımı keçəndə 1. Söndürülmüş maraqlı video (2026-11-26) da 0.
+  assert.match(wf, /paylas: \$\{\{ steps\.sec\.outputs\.hazir == '1' && github\.event_name != 'pull_request' && \(github\.event_name != 'workflow_dispatch' \|\| inputs\.paylas\) && \(steps\.sec\.outputs\.tur != 'maraqli' \|\| vars\.MARAQLI_VIDEO == '1'\) && '1' \|\| '0' \}\}/);
   assert.match(wf, /yoxlandi: \$\{\{ steps\.yoxla\.outcome == 'success' && '1' \|\| '0' \}\}/);
   assert.match(wf, /- name: Videonu yoxla\n\s+id: yoxla\n/);
   // Seçim TikTok açarı ilə də işləyir (YouTube açarı ilə də: youtube.yml); FB/IG addımı açarı əvvəlki kimi alır.

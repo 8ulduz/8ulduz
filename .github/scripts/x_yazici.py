@@ -378,14 +378,23 @@ Paylaşımlar:
 # Özünə qəsd və ölüm anı göstərilmir: belə hadisədən yalnız xilasetmə anı (sahibin «körpüdən atmaq istəyir» nümunəsi).
 # Sahib 2026-11-22: «maraqlı videolar x də olur-müharibələrə aid (rusiya ukrayna və sair) x də yayımlanır. deməli olar.» Müharibə
 # videoları lentə düşür; qan, meyit, yaralı, insanın vurulduğu an və əsir görüntüsü düşmür (Gemini düşəndə qısa video yazılmır).
+# Sahib 2026-11-26 («nə heyvan nə təbiət nə kosmos ... eyni məsələni neçə dəfə demək olar?», sonra «hamısına bəli»): «hadise»-də
+# heyvanlar və təbiət hadisəsi yoxdur; böyük Azərbaycan Instagram hesablarının ən çox baxılan Reels istiqamətləri yazılıb, önə
+# qəzalar, ekstremal anlar, xarici futbol, avto yarışlar və yarış qəzaları keçir (docs/sosial-video.md «Video mövzuları»).
 REELS_PROMPT = """Sən 8ulduz.az saytının qısa video lentinin redaktorusan. Aşağıda X hesablarının videolu paylaşımları var (baxış sayı ilə).
 Azərbaycan oxucusu üçün ən maraqlı ən çox {n} videonu seç və hər birini iki sinifdən birinə ayır:
-«hadise» (lentin 60%-i): təzə və maraqlı hadisələr — ekstremal və gözlənilməz anlar (xilasetmə, son anda qurtulma, təhlükəli an,
-təbiət hadisəsi, rekord); yeniliklər (ən son avtomobil modeli, təqdimat, reklam çarxı, telefon və texnika, robot, təyyarə, Türkiyə
-müdafiə sənayesinin yenilikləri); avtoyarış, drift, yolsuzluq (off-road); sürətli çəkilmiş yemək hazırlanması; xəbər mahiyyətli videolar
-(dünyada baş verən hadisənin anı); müharibələrin görüntüləri (Rusiya–Ukrayna və başqa münaqişələr: cəbhə, dron, texnika, hava hücumundan
-müdafiə, dağıntı, təxliyə); siyasətin kadr arxası (xarici liderlərin gözlənilməz, maraqlı anları); futbolun, döyüş idmanının və
-güləşin yaddaqalan anları; yumor, heyvanlar — Azərbaycan insanlarının maraqla baxdığı nə varsa.
+«hadise» (lentin 60%-i): təzə və maraqlı hadisələr, ƏN ÇOX BAXILAN istiqamətlər əvvəl — avto və digər qəzalar (yol, təyyarə, qatar,
+gəmi, yanğın, partlayış, uçqun); ekstremal və gözlənilməz anlar (xilasetmə, son anda qurtulma, təhlükəli an, təbii fəlakətin anı,
+rekord); xarici futbolun yaddaqalan anları (Çempionlar Liqası, böyük klublar, Türkiyə futbolu, ulduz futbolçular); avto yarışlar və
+yarış qəzaları (Formula 1, MotoGP, ralli, drift, motokross), yolsuzluq (off-road); sonra polis və cinayət anı (kamera görüntüsü,
+saxlanılma, oğurluq), insan hekayəsi və xeyirxahlıq, tanınmış adamların anları, Türkiyədən viral hadisə, konsert və şou, faktiki hava
+hadisəsi (qar, sel, sürüşmə, külək zərəri), fırıldaq və istehlakçı xəbərdarlığı; texnologiya, oyun və yeniliklər (ən son avtomobil modeli,
+təqdimat, reklam çarxı, telefon və texnika, robot, təyyarə, Türkiyə müdafiə sənayesinin yenilikləri); sürətli çəkilmiş yemək
+hazırlanması; xəbər mahiyyətli videolar (dünyada baş verən hadisənin anı); müharibələrin görüntüləri (Rusiya–Ukrayna və başqa
+münaqişələr: cəbhə, dron, texnika, hava hücumundan müdafiə, dağıntı, təxliyə); siyasətin kadr arxası (xarici liderlərin gözlənilməz,
+maraqlı anları); döyüş idmanının və güləşin yaddaqalan anları; yumor — Azərbaycan insanlarının maraqla baxdığı nə varsa.
+Heyvan faktı, təbiət və kosmos sənədli kadrı «hadise» deyil: heyvan yalnız insan hadisəsinin içində ola bilər (məsələn şəhərdə qaçan
+şir, iti buzdan xilas edən yanğınsöndürənlər).
 «usta» (lentin 40%-i): «Tamir & Tadilat» kimi — bir işin necə görüldüyü: təmir, tikinti, bərpa, dülgərlik, dəmirçilik, zavodda istehsal,
 sənətkarlıq, maşın və mexanizm işi, kənd təsərrüfatı, təmizlik, aşpazın texnikası, faydalı ev ixtiraları; sahələr çox müxtəlif olsun.
 ƏN BİRİNCİ birinci dərəcəli maraqlı hadisələr: nadir, heyrətamiz, gözlənilməz anlar; çox baxılan (baxış sayı) və «seçilmiş mənbə»

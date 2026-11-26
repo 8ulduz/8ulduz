@@ -155,7 +155,7 @@ test("mənbə videosu: the post text credits the footage the montage really used
 });
 
 // --- Dünya videoları ------------------------------------------------------------------------------------------------------------
-const M1 = { ad: "Sınaq TV", dil: "en", lent: "https://tv.example/rss", nov: "mrss", istiqamet: [1, 2], sertler: "sınaq" };
+const M1 = { ad: "Sınaq TV", dil: "en", lent: "https://tv.example/rss", nov: "mrss", istiqamet: [3, 15], sertler: "sınaq" };
 const RSS = `<rss><channel>
 <item><title><![CDATA[Dog rescued from frozen lake &amp; reunited]]></title><link>https://tv.example/v/1</link><pubDate>Thu, 26 Nov 2026 08:00:00 GMT</pubDate>
 <description>&lt;p&gt;Firefighters pulled a dog from a frozen lake in Oslo after 2 hours on the ice. The dog was returned to its owner, a 70-year-old woman who had searched all night. Crews used a ladder and ropes to reach the animal, officials said.&lt;/p&gt;</description>
@@ -171,6 +171,8 @@ test("dünya videosu: source list schema; RSS/MRSS, Atom, video sitemap, HTML li
   assert.match(VD.kecerli({ ...M1, nov: "json" }), /JSON/);
   assert.match(VD.kecerli({ ...M1, sertler: "" }), /şərt/);
   assert.match(VD.kecerli({ ...M1, istiqamet: [7] }), /istiqamət/);
+  // Sahibin 15 istiqaməti (2026-11-26): yerli istiqamətlər (1 ordu, 7 sakin şikayəti, 9 yerli idman) dünya videosunda yoxdur.
+  for (const n of [0, 1, 9, 16]) assert.match(VD.kecerli({ ...M1, istiqamet: [n] }), /istiqamət/, String(n));
   // Repodakı siyahı: hər mənbə sxemdən keçir, adlar təkrarsızdır, «say kifayətdən artıq» (sahib).
   const all = JSON.parse(read(".github/video-dunya.json")).menbeler;
   for (const m of all) assert.equal(VD.kecerli(m), "", `${m.ad}: sxem`);
@@ -211,11 +213,11 @@ test("dünya videosu: one Gemini call picks by direction and translates; the sit
   assert.equal(pool[0].a.category, "dunya");
   // Prompt: istiqamətlər, tərcümə dili, namizədin mətni.
   let prompt = "";
-  const good = { sec: 1, istiqamet: 4, basliq: "Osloda donmuş göldən it xilas edildi.", text: AZ, etiket: ["xilasetmə", "Oslo", "#heyvanlar"] };
+  const good = { sec: 1, istiqamet: 15, basliq: "Osloda donmuş göldən it xilas edildi.", text: AZ, etiket: ["xilasetmə", "Oslo", "#heyvanlar"] };
   const s = await VD.sec(pool, { env: { GEMINI_API_KEY: "g" }, fetch: gem(p => { prompt = p; return JSON.stringify(good); }), policy: leadership, log: () => {} });
   assert.match(prompt, /insan hekayəsi/); assert.match(prompt, /Azərbaycan ədəbi dilində/); assert.match(prompt, /\[1\] Mənbə: Sınaq TV \(en\)\nDog rescued/);
   assert.equal(s.title, "Osloda donmuş göldən it xilas edildi", "başlığın sonundakı nöqtə atılır");
-  assert.equal(s.text, AZ); assert.equal(s.istiqamet, 4); assert.deepEqual(s.etiket, ["xilasetmə", "Oslo", "heyvanlar"]);
+  assert.equal(s.text, AZ); assert.equal(s.istiqamet, 15); assert.deepEqual(s.etiket, ["xilasetmə", "Oslo", "heyvanlar"]);
   // Mənbədə olmayan rəqəm, qaydadan keçməyən tərcümə, uyğun video yoxdur, Gemini cavab vermir.
   const opt = j => ({ env: { GEMINI_API_KEY: "g" }, fetch: gem(j), policy: leadership, log: () => {} });
   assert.match((await VD.sec(pool, opt({ ...good, text: AZ.replace("2 saat", "5 saat") }))).yox, /mənbədə olmayan rəqəm: 5/);
@@ -308,20 +310,23 @@ test("X: the most-watched recent videos, weighted by the Instagram directions, l
     xi(100010, { c: "Qısa izah." }), xi(100011, { v: 700000, c: "Azərbaycan haqqında xarici mənbənin yaydığı video sosial şəbəkələrdə müzakirə olunur." }), xi("x12")];
   const policy = a => /Azərbaycan/.test(`${a.title} ${a.summary}`) || !/^https:\/\/x\.com\//.test(a.sourceUrl);
   const pool = VD.xNamizedler(items, { state: { xv: {}, v: {}, skip: {} }, now: NOW, policy });
-  // Liqaların oyun kadrı (sahib 2026-11-26: «liqaların oyun kadrını niyə götürmürük?» → «3 et»): 5 000 000 × 1 (idman) birincidir;
-  // 500 000 × 1,3 = 650 000 (maraqlı) > 600 000 × 1 (xəbər) > 450 000 × 1,2 = 540 000 (təbiət). Fox News, treyler, müharibə kadrı yoxdur.
-  assert.deepEqual(pool.map(c => c.x.id), ["100003", "100001", "100002", "100009"]);
-  assert.equal(VD.xBasliq(pool[1].c), "Yenidoğulmuş əkizlərin bir-birinə sarılaraq yatdığı anlar", "başlıq: izahın birinci cümləsi, nöqtəsiz");
+  // Liqaların oyun kadrı (sahib 2026-11-26: «liqaların oyun kadrını niyə götürmürük?» → «3 et»). Sıra baxış × qrup × güclü istiqamət
+  // (X əmsalı; sahib, 2026-11-26): 5 000 000 × 1,3 (idman) × 1,7 (xarici futbol: Arda Güler) birincidir; 600 000 × 1,1 (xəbər) × 1,7
+  // (qəza/xilasetmə) = 1 122 000 > 500 000 × 1,3 (maraqlı) × 1,5 (insan hekayəsi: əkizlər) = 975 000. Təbiət qrupu (fil) çıxıb
+  // («nə heyvan nə təbiət nə kosmos»). Fox News, treyler, müharibə kadrı yoxdur.
+  assert.deepEqual(pool.map(c => c.x.id), ["100003", "100002", "100001"]);
+  assert.deepEqual(pool.map(c => c.ist), ["xarici_futbol", "qeza", "insan"]);
+  assert.equal(VD.xBasliq(pool[2].c), "Yenidoğulmuş əkizlərin bir-birinə sarılaraq yatdığı anlar", "başlıq: izahın birinci cümləsi, nöqtəsiz");
   // Liqa və idman yayımçıları qadağan siyahısında deyil; media şirkətləri qalır.
   const deny = new RegExp(require("../.github/video-dil/az.json").x.qadagan, "i");
   for (const h of ["NBA", "ChampionsLeague", "premierleague", "trtspor", "F1", "ufc", "ESPNNBA", "WWE"]) assert.equal(deny.test(h), false, h);
   for (const h of ["FoxNews", "BBCWorld", "netflix", "redbull", "IGN"]) assert.equal(deny.test(h), true, h);
   // Eyni mövzu dalbadal getmir: son X videosu idmandırsa idman sona keçir (başqa mövzu yoxdursa yenə gedir).
   const sec = NOW / 1000;
-  assert.deepEqual(VD.xNamizedler(items, { state: { xm: { idman: sec - 600, maraqli: sec - 9000 } }, now: NOW, policy }).map(c => c.x.id), ["100001", "100002", "100009", "100003"]);
+  assert.deepEqual(VD.xNamizedler(items, { state: { xm: { idman: sec - 600, maraqli: sec - 9000 } }, now: NOW, policy }).map(c => c.x.id), ["100002", "100001", "100003"]);
   assert.deepEqual(VD.xNamizedler([xi(100003, { m: "idman", a: "trtspor", v: 5000000, c: items[2].c })], { state: { xm: { idman: sec } }, now: NOW, policy }).map(c => c.x.id), ["100003"]);
   // İşlənmiş video bir də getmir.
-  assert.deepEqual(VD.xNamizedler(items, { state: { xv: { [VD.xId("100001")]: NOW / 1000 } }, now: NOW, policy }).map(c => c.x.id), ["100003", "100002", "100009"]);
+  assert.deepEqual(VD.xNamizedler(items, { state: { xv: { [VD.xId("100001")]: NOW / 1000 } }, now: NOW, policy }).map(c => c.x.id), ["100003", "100002"]);
   assert.deepEqual(VD.xOptions({}), { on: true, perDay: 6, gapMin: 120, minV: 100000, maxAgeH: 36 });
   assert.match(VD.xDue({ xv: { a: NOW / 1000 - 3600 } }, NOW, VD.xOptions({})), /60 dəq əvvəl \(ara 120 dəq\)/);
   assert.equal(VD.xDue({ xv: {} }, NOW, VD.xOptions({})), "");
@@ -336,7 +341,8 @@ test("X: the picked video becomes a «Çox baxılan» entry — the clip leads (
   const x = await VD.xHazirla({ now: NOW, state: { skip: {} }, env: {}, policy: () => false, dir, log: () => {}, file, deps: { indir: async (u, f, _f, ref) => { got.push([u, ref]); fs.writeFileSync(f, mp4()); return ""; } } });
   assert.deepEqual({ tur: x.tur, kind: x.kind, title: x.title, bolme: x.bolme, source: x.source, sourceUrl: x.sourceUrl, baxis: x.baxis, klip_boyu: x.klip_boyu, kredit: x.menbeVideo.kredit, category: x.category },
     { tur: "x", kind: "x", title: "Yenidoğulmuş əkizlərin bir-birinə sarılaraq yatdığı anlar", bolme: "Çox baxılan", source: "Figen (X)", sourceUrl: "https://x.com/TheFigen_/status/100001", baxis: 500000, klip_boyu: 30, kredit: "@TheFigen_ (X)", category: "dunya" });
-  assert.equal(x.text, `${xi(100001).c} Bu video 500 mindən çox dəfə izlənib.`, "açarsız: izah və baxış sayı");
+  assert.equal(x.text, xi(100001).c, "açarsız: yalnız izah — baxış sayı deyilmir (sahib, 2026-11-26)");
+  assert.deepEqual([x.izah, x.metn], [xi(100001).c, "basliq"], "kadrlardan mətn addımı üçün (xKadrMetn)");
   assert.deepEqual(got, [[xi(100001).u, "https://x.com/"]]);
   // Fayl alınmasa növbəti ən çox baxılan sınanır.
   const st = { skip: {} };
@@ -371,18 +377,15 @@ test("X: the picked video becomes a «Çox baxılan» entry — the clip leads (
   } finally { if (old === undefined) delete process.env.GITHUB_OUTPUT; else process.env.GITHUB_OUTPUT = old; }
 });
 
-// Sahib, 2026-11-26: «Bəli, uzat» — X-in izahı bir cümlədir, 30 saniyəlik videoda səs ~4 saniyə oxuyurdu.
-test("X: the voice reads the caption, 1–2 facts from the post's own text (Gemini, checked like the world text) and the view count; nothing invented", async () => {
-  // Baxış sayı aşağı yuvarlaqlaşır (say yalnız artır); səsdə «X» deyilmir.
-  assert.equal(VD.xBaxis(2110507), "Bu video 2 milyondan çox dəfə izlənib.");
-  assert.equal(VD.xBaxis(560000), "Bu video 500 mindən çox dəfə izlənib.");
-  assert.equal(VD.xBaxis(94000), "Bu video 94 mindən çox dəfə izlənib.");
-  assert.equal(VD.xBaxis(999), ""); assert.equal(VD.xBaxis(undefined), "");
+// Sahib, 2026-11-26: «Bəli, uzat» — X-in izahı bir cümlədir, 30 saniyəlik videoda səs ~4 saniyə oxuyurdu. Həmin gün: «Bu video 4 milyondan
+// çox dəfə izlənib — nəyə lazımdır?» — baxış sayı səsdən və altyazıdan çıxıb (kadrlarda görünən faktlar: tests/video-movzu.test.cjs).
+test("X: the voice reads the caption and 1–2 facts from the post's own text (Gemini, checked like the world text); no view count; nothing invented", async () => {
+  assert.equal(VD.xBaxis, undefined, "baxış sayı cümləsi yoxdur");
+  assert.ok(!("baxis_mln" in require("../.github/video-dil/az.json").x), "profildə də yoxdur");
   const IZAH = "Yenidoğulmuş əkizlərin bir-birinə sarılaraq yatdığı anlar.";
   const c = { id: VD.xId("100001"), x: xi(100001, { c: IZAH, v: 2110507 }), c: IZAH };
   const POST = "Newborn twins in Brazil keep hugging each other after birth, just like they did in the womb. Their mother filmed them in Sao Paulo https://t.co/abc #twins @someone";
   const ELAVE = "Əkizlər Braziliyada doğulandan sonra da bir-birini qucaqlamağa davam edirlər. Onları San-Pauluda anaları çəkib.";
-  const BAXIS = "Bu video 2 milyondan çox dəfə izlənib.";
   let prompt = "", asked = [], logs = [];
   const fx = (elave, post = POST) => async (url, o = {}) => {
     asked.push(url);
@@ -392,11 +395,11 @@ test("X: the voice reads the caption, 1–2 facts from the post's own text (Gemi
     return { ok: false, status: 404 };
   };
   const opt = (elave, post) => ({ env: { GEMINI_API_KEY: "g" }, fetch: fx(elave, post), policy: a => /Azərbaycan/.test(`${a.title} ${a.summary}`), log: s => logs.push(s) });
-  assert.equal(await VD.xMetn(c, opt(ELAVE)), `${IZAH} ${ELAVE} ${BAXIS}`);
+  assert.equal(await VD.xMetn(c, opt(ELAVE)), `${IZAH} ${ELAVE}`);
   assert.match(prompt, /İzah: Yenidoğulmuş əkizlərin/); assert.match(prompt, /Azərbaycan ədəbi dilində/); assert.match(prompt, /ƏLAVƏ faktlar/);
   assert.match(prompt, /Paylaşım \(@TheFigen_\): Newborn twins in Brazil .* in Sao Paulo twins someone$/, "keçid atılır, heşteq və @ işarəsiz");
-  // Yoxlamadan keçməyən əlavə atılır: izah və baxış sayı qalır (səbəb jurnalda).
-  const yalniz = `${IZAH} ${BAXIS}`;
+  // Yoxlamadan keçməyən əlavə atılır: izah qalır (səbəb jurnalda; sonra kadrlara baxılır — xKadrMetn).
+  const yalniz = IZAH;
   const red = async (elave, re) => { logs = []; assert.equal(await VD.xMetn(c, opt(elave)), yalniz, elave); assert.ok(logs.some(s => re.test(s)), `${elave}: ${logs.join(" | ")}`); };
   await red("Əkizlər 3 kiloqram çəki ilə Braziliyada doğulublar və bir-birini qucaqlayırlar.", /mənbədə olmayan rəqəm: 3/);
   await red("Əkizlərin videosu Azərbaycanda da çox yayılıb və hamı tərəfindən bəyənilib.", /saytın qaydasından keçmir/);
@@ -414,7 +417,8 @@ test("X: the voice reads the caption, 1–2 facts from the post's own text (Gemi
   fs.writeFileSync(file, JSON.stringify({ items: [c.x] }));
   const x = await VD.xHazirla({ now: NOW, state: { skip: {} }, env: { GEMINI_API_KEY: "g" }, fetch: fx(ELAVE), policy: () => false, dir, log: () => {}, file,
     deps: { indir: async (u, f) => (fs.writeFileSync(f, mp4()), "") } });
-  assert.equal(x.text, `${IZAH} ${ELAVE} ${BAXIS}`);
+  assert.equal(x.text, `${IZAH} ${ELAVE}`);
+  assert.deepEqual([x.izah, x.metn], [IZAH, "paylasim"], "paylaşımın faktı var — kadrlara baxılmır");
   assert.equal(x.title, "Yenidoğulmuş əkizlərin bir-birinə sarılaraq yatdığı anlar", "başlıq izahdır");
 });
 

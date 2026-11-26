@@ -1,7 +1,10 @@
 // Dünya videoları Azərbaycan dilində (sahib, 2026-11-26: «dünya saytlarından lazım olan tipli videoları götürüb tərcümə ilə azərbaycan
 // dilində verilsin», «müəyyən etdiyin istiqamətlərə ən uyğun və keyfiyyətli dünya mənbələrinin tapılmasını, qoşulmasını, istifadəni
-// təmin et. Say kifayətdən artıq olsun»). İstiqamətlər baku.ws_official təhlilindəndir (docs/sosial-video.md «Rəqib təhlili»): insan
-// hekayəsi, hadisənin öz görüntüsü, məşhurlar və mədəniyyət, heyvanlar və təbiət, elm və kosmos, idman anı.
+// təmin et. Say kifayətdən artıq olsun»). İstiqamətlər (sahib, 2026-11-26, «hamısına bəli»; docs/sosial-video.md «Video mövzuları»)
+// böyük Azərbaycan Instagram hesablarının ən çox baxılan Reels-lərinin 15 istiqamətidir, nömrələr eynidir (ISTIQAMET). Dünya videosunda
+// yerli olmayanlar: önə qəzalar, ekstremal hadisələr, xarici futbol, avto yarışlar və yarış qəzaları, sonra polis, insan hekayəsi,
+// tanınmış adamlar, Türkiyə, konsert, hava hadisəsi, texnologiya, fırıldaq. Heyvan, təbiət, kosmos yoxdur («nə heyvan nə təbiət nə
+// kosmos»): heyvan yalnız insan hadisəsinin içində (şəhərdə qaçan şir — hadisədir), heyvan faktı və sənədli kadr yox.
 //
 // Mənbələr: .github/video-dunya.json — hər biri yoxlanmış siyahı ünvanı (RSS, MRSS, Atom, video sayt xəritəsi, HTML siyahı, JSON)
 // və birbaşa video faylı verən sayt. Yeni mənbə = fayla bir sətir, kod dəyişmir.
@@ -16,9 +19,21 @@ const fs = require("fs"), path = require("path"), crypto = require("crypto");
 const S = require("./social.cjs");
 const VS = require("./video-ssenari.cjs");
 const M = require("./video-menbe.cjs");
-const { dil } = require("./video-dil.cjs");
+const { dil, istiqamet, cixarilir } = require("./video-dil.cjs");
 
 const FAYL = path.join(__dirname, "..", "video-dunya.json");
+// İstiqamətlər sahibin nömrələri ilə (2026-11-26; xəbər videosunda profilin lent.ceki.guclu siyahısı eyni sıradadır). Dünya videosunda
+// yerli istiqamətlər (1 ordu, 7 sakin şikayəti, 9 yerli idman) yoxdur; DUNYA_ISTIQAMET — Gemini-yə vaciblik sırası.
+const ISTIQAMET = {
+  1: "ordu, şəhid, qazi", 2: "tanınmış adamın həyatı və itkisi (vəfat, dəfn, qəza)", 3: "insan hekayəsi, xeyirxahlıq, itkin tapıldı",
+  4: "polis və cinayət (saxlanılma, oğurluq, dələduzluq, kamera görüntüsü)", 5: "fırıldaq və istehlakçı xəbərdarlığı",
+  6: "avto və digər qəzalar (yol, təyyarə, qatar, gəmi, yanğın, partlayış, uçqun)", 7: "sakin şikayəti və şəhər problemi",
+  8: "faktiki hava hadisəsi (qar, sel, sürüşmə, külək zərəri; proqnoz yox)", 9: "yerli idman",
+  10: "xarici futbol (Çempionlar Liqası, böyük klublar, Türkiyə futbolu, ulduz futbolçular)",
+  11: "avto yarışlar və yarış qəzaları (Formula 1, MotoGP, ralli, drift, motokross)", 12: "konsert və şou", 13: "Türkiyədən viral hadisə",
+  14: "texnologiya və oyun", 15: "ekstremal hadisələr (xilasetmə, son anda qurtulma, təhlükəli an, təbii fəlakətin anı, rekord)",
+};
+const DUNYA_ISTIQAMET = [6, 15, 10, 11, 4, 3, 2, 13, 12, 8, 14, 5];
 const UA = "Mozilla/5.0 (compatible; 8ulduz-bot; +https://8ulduz.az/)";
 const NOVLER = ["rss", "mrss", "atom", "sitemap", "html", "json"];
 const MENBE_SAY = 6, MENBE_NAMIZED = 4, NAMIZED_MAX = 10, SEHIFE_SAY = 12, MAX_AGE_H = 96, SOURCE_MAX = 3500;
@@ -27,7 +42,7 @@ const num = (v, d) => (Number.isFinite(Number(v)) && String(v ?? "").trim() !== 
 
 // --- Mənbə siyahısı --------------------------------------------------------------------------------------------------------------
 // { ad, dil, lent, nov, sec? (HTML siyahıda və sayt xəritəsində video səhifəsinin ünvan nümunəsi), json? (JSON-un sahələri),
-//   istiqamet: [1..6], sertler (istifadə şərti, saytın özündə yazıldığı kimi), aktiv? (false — söndürülüb) }.
+//   istiqamet: [DUNYA_ISTIQAMET-dən nömrələr], sertler (istifadə şərti, saytın özündə yazıldığı kimi), aktiv? (false — söndürülüb) }.
 // Mənbəyə xas (yoxlamada lazım olub): fayl: "jsonld" — fayl səhifənin JSON-LD contentUrl-idir (səhifədə başqa videoların faylı da var);
 //   atla — bu nümunəyə uyğun fayl götürülmür (saytın hər səhifəsindəki fayl, həddən iri keyfiyyət); deyis: [a, b] — fayl ünvanında
 //   a → b (daha iri keyfiyyət eyni yolda); sehife: false — fayl yalnız siyahıdan (səhifədə başqa xəbərin videosu görünür).
@@ -42,7 +57,7 @@ function kecerli(m) {
   if (m.deyis != null && !(Array.isArray(m.deyis) && m.deyis.length === 2 && m.deyis.every(x => typeof x === "string" && x))) return "deyis [a, b]";
   if (m.nov === "html" && !m.sec) return "HTML siyahıda sec lazımdır";
   if (m.nov === "json" && !(m.json && clean(m.json.siyahi) && clean(m.json.kecid))) return "JSON sahələri (siyahi, kecid)";
-  if (!Array.isArray(m.istiqamet) || !m.istiqamet.length || m.istiqamet.some(n => !(n >= 1 && n <= 6))) return "istiqamət";
+  if (!Array.isArray(m.istiqamet) || !m.istiqamet.length || m.istiqamet.some(n => !DUNYA_ISTIQAMET.includes(n))) return "istiqamət";
   if (!clean(m.sertler)) return "şərtlər";
   return "";
 }
@@ -177,14 +192,13 @@ async function namizedler({ list, state, now, fetch: f, policy, log, deps = {} }
 const PROMPT = `Sən 8ulduz.az xəbər saytının video redaktorusan. Aşağıda dünya saytlarının {n} videosu var (başlıq və mətn mənbənin dilindədir).
 Qısa şaquli video (Reels, Shorts) üçün ən uyğun BİR videonu seç və onun üçün {dil} başlıq və diktor mətni yaz.
 
-Seçim. Tamaşaçının ən çox baxdığı istiqamətlər, vaciblik sırası ilə:
-1) insan hekayəsi (qeyri-adi insan, yaxşılıq, ailə, sevindirən və ya təsirləndirən hadisə);
-2) hadisənin öz görüntüsü (xilasetmə, qəza, yanğın, sel, qasırğa, təbii fəlakət, şahidin çəkdiyi görüntü);
-3) məşhurlar, mədəniyyət, əyləncə;
-4) heyvanlar, təbiət;
-5) elm, kosmos, texnologiya;
-6) idman anı (qol, oyunun yaddaqalan anı, rekord, idmançının hərəkəti, azarkeş).
-Uyğun DEYİL: sammit, görüş, bəyanat, mətbuat konfransı, siyasi çıxış, müharibənin gedişi, tok-şou, Azərbaycan və onun rəhbərliyi, Ermənistan–Azərbaycan mövzusu.
+Seçim. Tamaşaçının ən çox baxdığı istiqamətlər (nömrə ilə), vaciblik sırası ilə — birincilər önə keçir:
+{istiqametler}
+Hadisənin öz görüntüsü (şahidin, kameranın çəkdiyi an) üstündür.
+Uyğun DEYİL: heyvan faktı, təbiət və kosmos sənədli kadrı, planet, ulduz, kosmik teleskop görüntüsü — heyvan yalnız insan hadisəsinin
+içində ola bilər (məsələn şəhərdə qaçan şir, iti buzdan xilas edən yanğınsöndürənlər); ölüm anı, qan, meyit görünən video; sammit,
+görüş, bəyanat, mətbuat konfransı, siyasi çıxış, müharibənin gedişi, tok-şou, statistika, ildönümü; Azərbaycan və onun rəhbərliyi,
+Ermənistan–Azərbaycan mövzusu.
 Heç biri uyğun deyilsə {"sec": 0} qaytar.
 
 Mətn qaydaları:
@@ -195,14 +209,15 @@ Mətn qaydaları:
 - basliq: 40–90 simvol, hadisəni deyən sadə cümlə; sonda nöqtə olmasın, «video» sözü olmasın.
 - etiket: 3 mövzu etiketi ({etiket_dili}, «#»-siz, boşluqsuz).
 
-Yalnız JSON qaytar: {"sec": <videonun nömrəsi və ya 0>, "istiqamet": <1–6>, "basliq": "...", "text": "...", "etiket": ["...", "...", "..."]}
+Yalnız JSON qaytar: {"sec": <videonun nömrəsi və ya 0>, "istiqamet": <yuxarıdakı istiqamətin nömrəsi>, "basliq": "...", "text": "...", "etiket": ["...", "...", "..."]}
 
 Videolar:
 {videolar}`;
 function promptOf(list, D = dil()) {
   const s = D.ssenari;
   const yad = s.yad_herf_adi ? `${s.yad_herf_adi[0].toLocaleUpperCase(D.locale)}${s.yad_herf_adi.slice(1)}, ` : "";
-  return PROMPT.replace("{n}", String(list.length)).replace(/\{dil\}/g, s.dil).replace("{yad}", yad)
+  const ist = DUNYA_ISTIQAMET.map(n => `${n}) ${ISTIQAMET[n]};`).join("\n");
+  return PROMPT.replace("{istiqametler}", () => ist).replace("{n}", String(list.length)).replace(/\{dil\}/g, s.dil).replace("{yad}", yad)
     .replace("{nisbi}", s.nisbi_gun_misal).replace("{etiket_dili}", s.etiket_dili)
     .replace("{videolar}", list.map((c, i) => `[${i + 1}] Mənbə: ${c.a.source} (${c.m.dil})\n${c.source}`).join("\n\n"));
 }
@@ -219,11 +234,14 @@ async function sec(list, { env = process.env, fetch: f = globalThis.fetch, polic
   if (!c) return { yox: i === 0 ? "istiqamətə uyğun video yoxdur" : "cavab JSON deyil" };
   const title = VS.dilLatin(clean(j.basliq)).replace(/[.!?…]+$/, ""), text = VS.dilLatin(clean(j.text));
   const az = { ...c.a, title, summary: text, lang: dil().lent.dil };
+  // Heyvan, təbiət, kosmos (sahib, 2026-11-26): Gemini seçsə də kodla yoxlanır — tərcümədə heyvan və ya kosmos sözü var, insan hadisəsi
+  // (güclü istiqamət, x.cixar) yoxdursa video götürülmür.
   const why = title.length < BASLIQ_MIN || title.length > BASLIQ_MAX ? `başlıq ${title.length} simvol` : dil().re.yadHerf?.test(title) ? "başlıqda yad hərf"
-    : policy(az) ? "tərcümə saytın qaydasından keçmir" : VS.checkText(text, c.source, az, policy);
+    : policy(az) ? "tərcümə saytın qaydasından keçmir" : cixarilir(`${title}. ${text}`) ? "heyvan, təbiət və ya kosmos mövzusu (insan hadisəsi yoxdur)"
+    : VS.checkText(text, c.source, az, policy);
   if (why) return { yox: why, c };
-  const etiket = VS.hashtags(j.etiket);
-  return { c, title, text, istiqamet: Number(j.istiqamet) || 0, ...(etiket.length && !policy({ ...az, summary: etiket.join(" ") }) ? { etiket } : {}) };
+  const etiket = VS.hashtags(j.etiket), ist = Number(j.istiqamet);
+  return { c, title, text, istiqamet: DUNYA_ISTIQAMET.includes(ist) ? ist : 0, ...(etiket.length && !policy({ ...az, summary: etiket.join(" ") }) ? { etiket } : {}) };
 }
 
 // --- Tezlik ---------------------------------------------------------------------------------------------------------------------
@@ -271,8 +289,10 @@ async function hazirla({ now = Date.now(), state, env = process.env, fetch: f = 
 // Sahib, 2026-11-26: «X qoş… həm sayt həm də sos şəbəkələrdə "çox baxılan" videolar verilməsini təmin et», «instagramda müəyyən
 // etdiyimiz çox baxılan istiqamətlərini X-ə tətbiq et». Saytın Videolenti (data/reels.json, x_yazici/oz_x.py) hər videonun X-dəki
 // baxış sayını (v), mövzusunu (m) və Azərbaycan dilində izahını (c) saxlayır. Sosial video üçün son X_MAX_SAAT (36) saatın ən çox
-// baxılanı seçilir: sıra = baxış × mövzunun əmsalı (profil x.movzular — Instagram təhlilinin istiqamətləri: heyrətamiz/insan
-// hekayəsi və məşhurlar 1,3, heyvan və təbiət 1,2, elm 1,1, hadisə görüntüsü 1). Görüntü X videosunun özüdür, mətn onun izahıdır.
+// baxılanı seçilir: sıra = baxış × mövzunun əmsalı (profil x.movzular) × izahın güclü istiqaməti (lent.ceki.guclu, X əmsalı ilə:
+// xarici futbol, avto yarış və yarış qəzaları, qəzalar, ekstremal hadisələr 1,7). 2026-11-26 (sahib: «nə heyvan nə təbiət nə
+// kosmos»): heyvan və təbiət qrupu (tebiet) çıxıb, izahında heyvan, təbiət və ya kosmos olan video (x.cixar) yalnız insan hadisəsi
+// (güclü istiqamət) varsa götürülür. Görüntü X videosunun özüdür, mətn onun izahıdır.
 // İdman (liqaların oyun kadrı) sahibin qərarı ilə götürülür (2026-11-26: «liqaların oyun kadrını niyə götürmürük?» → «3 et»: bütün
 // şəbəkələrdə; «Xəbərdarlıq gəlsə sənə deyərəm»). Eyni mövzu dalbadal getmir (state.xm: mövzu → son vaxt): ən çox baxılanlar
 // idman olsa da hər ikinci video başqa mövzudandır. Götürülmür: oyun qrupu (oyun treylerləri), böyük yayımçıların hesabları
@@ -302,8 +322,10 @@ function xNamizedler(items, { state = {}, now = Date.now(), policy, o = xOptions
     if (!(k > 0) || !(Number(x.v) >= o.minV) || !Number.isFinite(at) || now - at > o.maxAgeH * 3600e3 || at - now > 600e3) continue;
     if (c.length < X_IZAH_MIN || c.length > X_IZAH_MAX || (deny && deny.test(x.a)) || (kenar && kenar.test(c)) || M.yayim({ title: c }, D)) continue;
     if (state.xv?.[id] || state.v?.[id] || state.skip?.[id]) continue;
+    const ist = istiqamet(c, D, { x: true });
+    if (!ist && D.re.cixar?.test(c)) continue;   // heyvan, təbiət, kosmos — insan hadisəsi olmadan yox
     if (policy({ id, kind: "x", title: c, summary: c, category: "dunya", lang: D.lent.dil, source: clean(x.n) || x.a, sourceUrl: `https://x.com/${x.a}/status/${x.id}` })) continue;
-    out.push({ x, id, c, at, bal: Number(x.v) * k });
+    out.push({ x, id, c, at, ist: ist?.ad || "", bal: Number(x.v) * k * (ist?.emsal || 1) });
   }
   out.sort((a, b) => b.bal - a.bal || b.at - a.at);
   // Ən son X videosunun mövzusu (state.xm) başqa mövzu olduqca sona keçir: eyni mövzu dalbadal getmir.
@@ -313,19 +335,18 @@ function xNamizedler(items, { state = {}, now = Date.now(), policy, o = xOptions
 // Başlıq: izahın birinci cümləsi (sonda nöqtəsiz), uzundursa söz sərhədində kəsilir.
 const xBasliq = c => S.cut((c.split(/(?<=[.!?…])\s+(?=[\p{Lu}\d«"“])/u)[0] || c).replace(/[.…]+$/, ""), X_BASLIQ_MAX);
 
-// Səs mətni 2–4 cümlə (sahib, 2026-11-26: «Bəli, uzat» — izah həmişə bir cümlədir, 30 saniyəlik videoda səs ~4 saniyə oxuyurdu):
-// 1) izah; 2) paylaşımın öz mətnindən (api.fxtwitter.com, açarsız — x_yazici.py FX_STATUS) Gemini-nin yazdığı 1–2 cümlə: yalnız
-// oradakı əlavə faktlar, rəqəm mənbədə olmalıdır, saytın qaydası və x.kenar tətbiq olunur; paylaşımda əlavə fakt yoxdursa, cavab
-// gəlmirsə və ya yoxlamadan keçmirsə bu hissə olmur; 3) baxış sayı (profil x.baxis_mln, x.baxis_min): aşağı yuvarlaqlaşır — say
-// yalnız artır, «… -dan çox» həmişə doğrudur. Səsdə «X» deyilmir (hərf kimi oxunur).
+// Səs mətni 1–3 cümlə (sahib, 2026-11-26: «Bəli, uzat» — izah həmişə bir cümlədir, 30 saniyəlik videoda səs ~4 saniyə oxuyurdu;
+// həmin gün: «Bu video 4 milyondan çox dəfə izlənib — nəyə lazımdır? başqa mənalı nəsə deyə bilməz?»):
+//   1) izah;
+//   2) paylaşımın öz mətnindən (api.fxtwitter.com, açarsız — x_yazici.py FX_STATUS) Gemini-nin yazdığı 1–2 cümlə: yalnız oradakı əlavə
+//      faktlar, rəqəm mənbədə olmalıdır, saytın qaydası və x.kenar tətbiq olunur (xMetn, seçimdə);
+//   3) paylaşımda əlavə fakt yoxdursa — videonun öz kadrlarında AÇIQ GÖRÜNƏN 1–2 fakt (xKadrMetn; kadrları ffmpeg çıxarır, ona görə
+//      ffmpeg quraşdırılandan sonra ayrıca addımdır: sosial-video.yml «X: kadrlardan mətn»): uydurma yox, rəqəm heç yox, eyni yoxlama.
+//   Alınmasa və ya heç nə yoxdursa yalnız izah (başlıq). Baxış sayı səsdə və altyazıda deyilmir (2026-11-26-dək sonuncu cümlə idi).
+// Səsdə «X» deyilmir (hərf kimi oxunur).
 const FX_STATUS = (a, id) => `https://api.fxtwitter.com/${a}/status/${id}`;
 const X_ESLI_MIN = 25, X_ESLI_MAX = 1500, X_HED = { min: 60, max: 330, sentMin: 2, sentMax: 3 };
-function xBaxis(v, D = dil()) {
-  const n = Number(v), x = D.x || {};
-  if (!(n >= 1000)) return "";
-  if (n >= 1e6) return x.baxis_mln ? x.baxis_mln.replace("{n}", String(Math.floor(n / 1e6))) : "";
-  return x.baxis_min ? x.baxis_min.replace("{n}", String(n >= 1e5 ? Math.floor(n / 1e5) * 100 : Math.floor(n / 1e3))) : "";
-}
+const xIzah = c => (/[.!?…]$/.test(c) ? c : `${c}.`);
 const X_PROMPT = `Sən 8ulduz.az xəbər saytının video redaktorusan. Qısa şaquli video (Reels, Shorts) X-dəki videodandır. Aşağıda bizim izahımız
 (diktorun birinci cümləsi) və X paylaşımının öz mətni (mənbənin dilində) var. İzahdan sonra oxunacaq 1–2 cümlə yaz: paylaşımın mətnindəki
 ƏLAVƏ faktlar — kim, harada, necə, nəticə.
@@ -353,20 +374,83 @@ async function xEsli(x, f) {
   return clean(String(j?.tweet?.text || "").replace(/https?:\/\/\S+/g, " ").replace(/[#@](?=[\p{L}\p{N}_])/gu, "")).slice(0, X_ESLI_MAX);
 }
 async function xMetn(c, { env = process.env, fetch: f = globalThis.fetch, policy, log = console.log, D = dil() } = {}) {
-  const izah = /[.!?…]$/.test(c.c) ? c.c : `${c.c}.`;
-  const metn = elave => [izah, elave, xBaxis(c.x.v, D)].filter(Boolean).join(" ");
+  const izah = xIzah(c.c);
+  const metn = elave => [izah, elave].filter(Boolean).join(" ");
   if (!env.GEMINI_API_KEY) return metn("");
   const esli = await xEsli(c.x, f);
-  if (esli.length < X_ESLI_MIN) { log(`X videosu: paylaşımın mətni ${esli ? "qısadır" : "alınmadı"} — yalnız izah və baxış sayı`); return metn(""); }
+  if (esli.length < X_ESLI_MIN) { log(`X videosu: paylaşımın mətni ${esli ? "qısadır" : "alınmadı"} — izah (kadrlara sonra baxılır)`); return metn(""); }
   const raw = await VS.gemini(xPromptOf(izah, esli, c.x.a, D), env.GEMINI_API_KEY, f, log, env);
   let elave = "";
   try { elave = VS.dilLatin(clean(JSON.parse(String(raw ?? "").replace(/^```(?:json)?\s*|\s*```$/g, ""))?.elave)); } catch {}
-  if (!elave) { log(`X videosu: paylaşımda əlavə fakt yoxdur${raw == null ? " (Gemini cavab vermir)" : ""} — yalnız izah və baxış sayı`); return metn(""); }
+  if (!elave) { log(`X videosu: paylaşımda əlavə fakt yoxdur${raw == null ? " (Gemini cavab vermir)" : ""} — izah (kadrlara sonra baxılır)`); return metn(""); }
   const kenar = D.x?.kenar ? new RegExp(D.x.kenar, "iu") : null;
   const a = { id: c.id, kind: "x", title: xBasliq(c.c), category: "dunya", lang: D.lent.dil, source: clean(c.x.n) || c.x.a, sourceUrl: `https://x.com/${c.x.a}/status/${c.x.id}` };
   const why = kenar?.test(elave) ? "müharibə və ya zorakılıq sözü" : VS.checkText(`${izah} ${elave}`, `${esli} ${izah}`, a, policy, X_HED);
-  if (why) { log(`X videosu: əlavə mətn götürülmədi (${why}) — yalnız izah və baxış sayı`); return metn(""); }
+  if (why) { log(`X videosu: əlavə mətn götürülmədi (${why}) — izah (kadrlara sonra baxılır)`); return metn(""); }
   return metn(elave);
+}
+
+// Kadrlarda görünən faktlar (sahib, 2026-11-26). Kadrları montaj redaktoru və video arxivi kimi Gemini görür (video-arxiv.cjs kadrlar:
+// klipin 10%-dən sonuna 4 rəngli kadr, 512 px). Sərt qayda: yalnız kadrda açıq görünən, uydurma yox, rəqəm yox; mətn checkText və saytın
+// qaydası (xarici mənbə qaydası, xariciPozur) və x.kenar ilə yoxlanır. qan: true — kadrda ölüm anı, qan, meyit görünür (x_yazici.py-ın
+// qaydası: belə video seçilmir) — video paylaşılmır.
+const X_KADR_SAY = 4;
+const X_KADR_PROMPT = `Sən 8ulduz.az xəbər saytının video redaktorusan. Qısa şaquli video (Reels, Shorts) X-dəki videodandır. Aşağıda bizim
+izahımız (diktorun birinci cümləsi) və videonun {n} kadrı var (əvvəlindən sonuna). İzahdan sonra oxunacaq 1–2 qısa cümlə yaz: kadrlarda
+AÇIQ GÖRÜNƏN faktlar — kim (adsız: «sürücü», «yanğınsöndürənlər», «futbolçu»), harada (görünən yer: yol, küçə, stadion, dəniz sahili),
+nə baş verir, necə bitir.
+
+Sərt qaydalar:
+- Yalnız kadrda açıq görünən. Görünməyəni — ad, ölkə, şəhər, tarix, səbəb, niyyət, hiss — təxmin etmə, uydurma. Əmin deyilsənsə yazma.
+- Heç bir rəqəm yazma (say, il, saat, sürət, yaş, hesab) — nə rəqəmlə, nə sözlə.
+- Kadrın üstündəki yazıdan, loqodan, su nişanından və hesab adından fakt götürmə.
+- İzahda deyiləni təkrarlama. Şərh və qiymət yazma («maraqlı», «heyrətamiz», «dəhşətli» yox).
+- {dil} yaz. {yad}nida və sual işarəsi, keçid, emoji, heşteq, @hesab olmasın. {nisbi} yazma.
+- Hər cümlə 30–140 simvol.
+- Kadrlarda izahdan artıq açıq görünən fakt yoxdursa "gorunen": "" qaytar.
+- "qan": true — yalnız kadrda ölüm anı, qan, meyit və ya ağır yaralı açıq görünürsə; onda "gorunen": "".
+
+Yalnız JSON qaytar: {"qan": false, "gorunen": "..."}
+
+İzah: {izah}`;
+function xKadrPromptOf(izah, n, D = dil()) {
+  const s = D.ssenari;
+  const yad = s.yad_herf_adi ? `${s.yad_herf_adi[0].toLocaleUpperCase(D.locale)}${s.yad_herf_adi.slice(1)}, ` : "";
+  return X_KADR_PROMPT.replace("{n}", String(n)).replace(/\{dil\}/g, s.dil).replace("{yad}", yad).replace("{nisbi}", s.nisbi_gun_misal).replace("{izah}", () => izah);
+}
+// Videonun kadrları (jpg buferləri): video arxivinin yolu ilə (ffprobe + ffmpeg).
+function xKadrlar(file) {
+  const VA = require("./video-arxiv.cjs"), p = VA.probe(file);
+  return VA.kadrlar(file, p.dur, p.w, p.h).jpg;
+}
+// xeber.json-un X girişi → { text, metn: "paylasim" | "kadr" | "basliq" } və ya { dayan: səbəb } (video paylaşılmır).
+async function xKadrMetn(x, { dir, env = process.env, fetch: f = globalThis.fetch, policy, log = console.log, D = dil(), deps = {} } = {}) {
+  if (typeof policy !== "function") throw new Error("X videosu: saytın qaydası (policyViolation) verilməyib");
+  if (!x?.izah) return { text: x?.text || "", metn: x?.metn || "" };
+  const izah = xIzah(clean(x.izah));
+  if (x.metn === "paylasim" && clean(x.text) !== izah) return { text: x.text, metn: "paylasim" };   // paylaşımın öz faktları var
+  const basliq = why => { log(`X videosu: kadrlardan mətn yoxdur (${why}) — yalnız izah`); return { text: izah, metn: "basliq" }; };
+  if (!env.GEMINI_API_KEY) return basliq("GEMINI_API_KEY yoxdur");
+  let jpg = [];
+  try { jpg = ((deps.kadrlar || xKadrlar)(path.join(dir, M.FAYL)) || []).slice(0, X_KADR_SAY); }
+  catch (e) { return basliq(`kadrlar alınmadı: ${String(e?.message || e).slice(0, 120)}`); }
+  if (!jpg.length) return basliq("kadr yoxdur");
+  const parts = [{ text: xKadrPromptOf(izah, jpg.length, D) }];
+  jpg.forEach((b, i) => parts.push({ text: `Kadr ${i + 1}:` }, { inline_data: { mime_type: "image/jpeg", data: Buffer.from(b).toString("base64") } }));
+  const raw = await VS.gemini(parts, env.GEMINI_API_KEY, f, log, env);
+  if (raw == null) return basliq("Gemini cavab vermir");
+  let j = null;
+  try { j = JSON.parse(String(raw).replace(/^```(?:json)?\s*|\s*```$/g, "")); } catch {}
+  if (!j || typeof j !== "object") return basliq("cavab JSON deyil");
+  if (j.qan === true) return { dayan: "kadrda ölüm anı, qan və ya meyit görünür" };
+  const gorunen = VS.dilLatin(clean(j.gorunen));
+  if (!gorunen) return basliq("kadrlarda izahdan artıq açıq görünən fakt yoxdur");
+  const kenar = D.x?.kenar ? new RegExp(D.x.kenar, "iu") : null;
+  const a = { id: x.id, kind: "x", title: clean(x.title), category: "dunya", lang: D.lent.dil, source: clean(x.source), sourceUrl: x.sourceUrl };
+  const why = /\d/.test(gorunen) ? "rəqəm" : kenar?.test(gorunen) ? "müharibə və ya zorakılıq sözü" : VS.checkText(`${izah} ${gorunen}`, izah, a, policy, X_HED);
+  if (why) return basliq(`yoxlamadan keçmədi: ${why}`);
+  log(`X videosu: kadrlardan — ${gorunen}`);
+  return { text: `${izah} ${gorunen}`, metn: "kadr" };
 }
 // Ən çox baxılan X videosu → xeber.json-un girişi (sosial-video.cjs xSec yazır) və ya null.
 async function xHazirla({ now = Date.now(), state, env = process.env, fetch: f = globalThis.fetch, policy, dir, log = console.log, file = REELS, deps = {} }) {
@@ -382,14 +466,15 @@ async function xHazirla({ now = Date.now(), state, env = process.env, fetch: f =
     const { x } = c, sehife = `https://x.com/${x.a}/status/${x.id}`;
     const err = await (deps.indir || M.indir)(x.u, path.join(dir, M.FAYL), f, "https://x.com/").catch(e => String(e?.message || e).slice(0, 120));
     if (err) { (state.skip ||= {})[c.id] = t; log(`X videosu: fayl alınmadı (${err}) — @${x.a}`); continue; }
-    const ad = clean(x.n) || x.a, text = await xMetn(c, { env, fetch: f, policy, log, D });
-    log(`X videosu: @${x.a} — ${x.v} baxış, mövzu ${x.m} → ${xBasliq(c.c)}`);
-    return { id: c.id, tur: "x", kind: "x", title: xBasliq(c.c), summary: "", text, category: "dunya", bolme: clean(D.x.bolme), source: `${ad} (X)`, sourceUrl: sehife,
-      publishedAt: new Date(c.at).toISOString(), alts: [], baxis: Number(x.v), movzu: x.m, klip_boyu: X_KLIP_BOYU,
-      menbeVideo: { file: M.FAYL, url: x.u, sehife, kredit: `@${x.a} (X)` } };
+    const ad = clean(x.n) || x.a, izah = xIzah(c.c), text = await xMetn(c, { env, fetch: f, policy, log, D });
+    log(`X videosu: @${x.a} — ${x.v} baxış, mövzu ${x.m}${c.ist ? `, istiqamət ${c.ist}` : ""} → ${xBasliq(c.c)}`);
+    // izah, metn: kadrlardan mətn addımı (xKadrMetn) bunlara baxır — paylaşımın faktı yoxdursa kadrlarda görünən əlavə olunur.
+    return { id: c.id, tur: "x", kind: "x", title: xBasliq(c.c), summary: "", text, izah, metn: text !== izah ? "paylasim" : "basliq", category: "dunya",
+      bolme: clean(D.x.bolme), source: `${ad} (X)`, sourceUrl: sehife, publishedAt: new Date(c.at).toISOString(), alts: [], baxis: Number(x.v), movzu: x.m,
+      ...(c.ist ? { istiqamet: c.ist } : {}), klip_boyu: X_KLIP_BOYU, menbeVideo: { file: M.FAYL, url: x.u, sehife, kredit: `@${x.a} (X)` } };
   }
   return null;
 }
 
-module.exports = { FAYL, NOVLER, kecerli, menbeler, oxuSiyahi, fayllar, novbe, namizedler, promptOf, sec, options, due, hazirla, idOf, MENBE_SAY, NAMIZED_MAX, MAX_AGE_H,
-  REELS, xOptions, xDue, xNamizedler, xHazirla, xBasliq, xId, xBaxis, xMetn, xPromptOf, FX_STATUS };
+module.exports = { FAYL, NOVLER, ISTIQAMET, DUNYA_ISTIQAMET, kecerli, menbeler, oxuSiyahi, fayllar, novbe, namizedler, promptOf, sec, options, due, hazirla, idOf,
+  MENBE_SAY, NAMIZED_MAX, MAX_AGE_H, REELS, xOptions, xDue, xNamizedler, xHazirla, xBasliq, xId, xMetn, xPromptOf, xKadrMetn, xKadrPromptOf, X_KADR_PROMPT, FX_STATUS };

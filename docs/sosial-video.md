@@ -10,6 +10,7 @@ Sahibin göstərişi (2026-11-22): «Facebook-da video xəbərlər verilsin. Bun
 - Video Facebook səhifəsinə Reels, Instagram-a Reels kimi gedir. Facebook mətnində saytdakı həmin xəbərin keçidi var, Instagram-da «Ətraflı: 8ulduz.az (keçid profildədir)». Hər mətndə keçid sətrindən sonra abunə çağırışı var ([«Abunə çağırışı»](#abunə-çağırışı)).
 - 30 dəqiqədən bir (hər yoxlama pəncərəsi), Bakı vaxtı ilə 08:00–23:59 arası, gündə ən çox 30 video (sahib, 2026-11-24: «öz video sayımızı 10 dəfə artırmaq lazımdır»; 10 qat — 80 — Facebook-un API həddini, 24 saatda 30 Reels, keçir, ona görə hər platforma öz həddinə qədər; əvvəl 2 saatdan bir, gündə 8). Hamısı GitHub Actions-da işləyir, kompüterdən asılı deyil.
 - Görüntü (sahibin qərarı, 2026-11-26): xəbərin mənbə saytındakı öz videosu, mənbə göstərilməklə; yoxdursa video bankının klipləri. Dünya saytlarının videoları Azərbaycan dilində tərcümə ilə verilir. X-in ən çox baxılan videoları «Çox baxılan» rubrikası ilə gedir. Xəbərin fotosu və musiqi videoya düşmür (aşağıda «Görüntünün mənbəyi»).
+- Mövzu (sahibin qərarı, 2026-11-26): heyvan, təbiət, kosmos yoxdur — «Maraqlı» rubrikası söndürülüb. Xəbər, X və dünya videosunun seçimi böyük Azərbaycan Instagram hesablarının 15 istiqaməti ilə gedir (aşağıda «Video mövzuları»).
 
 ## Araşdırma: Azərbaycan mediası necə edir (2026-11-22)
 
@@ -103,7 +104,7 @@ Bəyənmənin mövzu üzrə medianı ümumi medianın 0,8–0,9 qatıdır: dövl
 **Etdiklərimiz (2026-11-26)**
 
 - **Video seçimində tamaşaçı marağı nəzərə alınır** (`sosial-video.cjs` `cekisi`, profil `lent.ceki`).
-  - Sıra belə hesablanır: mənbə sayı × bölmə əmsalı × zəif mövzu əmsalı.
+  - Sıra belə hesablanır: mənbə sayı × bölmə əmsalı × zəif mövzu əmsalı (həmin gün sonra × güclü istiqamət əmsalı də əlavə olundu: aşağıda «Video mövzuları»).
   - Bölmə əmsalı baku.ws-in mövzu medianlarının ümumi mediana nisbətidir, 0,8–1,4 arası:
     - mədəniyyət 1,4 (1,9 idi, kəsilib);
     - idman 1,3;
@@ -112,7 +113,7 @@ Bəyənmənin mövzu üzrə medianı ümumi medianın 0,8–0,9 qatıdır: dövl
     - dünya 0,9;
     - iqtisadiyyat, sosial müdafiə və siyasət 0,8;
     - qalan bölmələrdə (Prezident bölməsi də) əmsal yoxdur.
-  - Başlıqda sammit, zirvə, forum, konfrans, təqdimat, memorandum, saziş, əməkdaşlıq, «günü münasibətilə», ildönümü, «il tamam», «hava necə olacaq», «hava proqnozu» olanda əmsal ×0,6-dır.
+  - Başlıqda sammit, zirvə, forum, konfrans, təqdimat, memorandum, saziş, əməkdaşlıq, «günü münasibətilə», ildönümü, «il tamam», «hava necə olacaq», «hava proqnozu» olanda əmsal ×0,6-dır. Sahibin siyahısı ilə rəsmi səfər və görüş, bəyanat, statistika, neft qiyməti və yubiley də əlavə olundu («Video mövzuları»).
   - Mənbə həddi (4) dəyişmir: az mənbəli xəbər yenə video olmur.
   - Facebook və Instagram şəkilli postlarının seçimi dəyişmir.
 - **Instagram şəkilli postları 18 yox, 120 dəqiqədən bir gedir** (gündə ≤12; Variables `IG_MIN_GAP_MIN`). Facebook-un arası əvvəlki kimidir (18 dəq). Instagram-ın API kvotası Reels-ə qalır.
@@ -133,6 +134,48 @@ Bəyənmənin mövzu üzrə medianı ümumi medianın 0,8–0,9 qatıdır: dövl
 - **Hava videosu.** Yalnız hadisəli günlərdə (qar, güclü külək, xəbərdarlıq) hazırlana bilər.
 - **Bir həftədən sonra ölçü.** Eyni üsulla öz Reels baxışlarımız müqayisə olunacaq: bölmə əmsalları baku.ws-in auditoriyasından götürülüb, bizimkini öz rəqəmlərimiz təsdiqləməlidir.
 
+## Video mövzuları (sahibin qərarı, 2026-11-26)
+
+Sahib: «nə heyvan nə təbiət nə kosmos ... eyni məsələni neçə dəfə demək olar?» Səbəb «Maraqlı» rubrikası idi: gündə 10-a qədər heyvan, təbiət, kosmos faktı, xəbər videosundan əvvəl. Sonra sahib böyük Azərbaycan Instagram hesablarının təhlilinə görə təklifə «hamısına bəli» dedi (həmçinin: «xarici futbola avto yarışlara da maraq var», «avto və ya digər qəzalara da, ekstremal hadisələrə də», «yarış qəzaları da»).
+
+**Instagram təhlili (2026-11-26, qısa).** Sahibin girişi ilə, yalnız baxış. 1 mln+ izləyicili hesablar: baku.es (1,8 mln), maraqli.tv (1,6 mln), baku.ws_official (1,4 mln); müqayisə üçün oxuaz (297 min) və crossmedia_azerbaijan (106 min). Hər hesabın son ~80 Reels-i: median baxış maraqli.tv 118 min, baku.es 94 min, oxuaz 17,6 min, crossmedia 1,6 min.
+- Ən çox baxılanlar: ordu və şəhid («Allah bütün əsgərlərimizi qorusun» 1 mln), tanınmış adamın faciəsi (Ada Süleymanovanın qəzası: baku.es 445 min, oxuaz 208 min), insan hekayəsi (polislə zarafatlaşan balaca 670 min), polis (narkotik satanlar saxlanıldı 569 min), fırıldaq xəbərdarlığı (566 min), yerli qəza (Dubay–Bakı reysi oxuaz-da 157 min — median×9), sakin şikayəti (Xəzər rayonunda yağış fəsadı 309 min), yerli idman («Barselona» Bakıda 325 min), konsert (Bayraq meydanı 311 min), Türkiyədən hadisə (İstanbulda itkin şir 383 min), texnologiya (GTA 6 257 min).
+- Ən az baxılanlar hamısında eynidir: rəsmi səfər və görüş (oxuaz-da 1–2 min), nazir görüşü, bəyanat, neft qiyməti, statistika, ildönümü və yubiley.
+- ~340 Reels-də heyvan faktı, təbiət sənədli kadrı və kosmos faktı yoxdur. Yeganə heyvan İstanbulda qaçan şirdir — xəbər hadisəsi. Bizim «Maraqlı» rubrikası bu hesabların heç birində olmayan formatdır.
+
+**Nə edildi:**
+- **«Maraqlı» rubrikası söndürülüb.** Kod qalır, susmaya görə işləmir: yalnız Variables-da `MARAQLI_VIDEO=1` açır. Əl ilə «tur: maraqli» yalnız önizləmədir (`paylas=false`); `paylas` hazır maraqlı videonu göndərmir, iş axınında «Paylaş», TikTok və YouTube addımları bağlıdır. PR-dakı nümunə video (sınaq yolu) qalır.
+- **Heyvan, təbiət, kosmos çıxıb.** Heyvan yalnız insan hadisəsinin içində ola bilər (şəhərdə qaçan şir, iti buzdan xilas edən yanğınsöndürənlər); heyvan faktı və sənədli kadr yox.
+  - X: heyvan və təbiət qrupu (`x.movzular`-da `tebiet`) çıxıb. İzahda heyvan, təbiət və ya kosmos sözü (`x.cixar`) varsa, video yalnız güclü istiqamət də varsa götürülür. X-in seçicisində (`x_yazici.py` `REELS_PROMPT`, saytın Videolenti də) «hadise»-dən «heyvanlar» və «təbiət hadisəsi» çıxıb. Yazılıb: heyvan faktı və sənədli kadr «hadise» deyil.
+  - Dünya: istiqamətlərdən «heyvanlar, təbiət» və «kosmos» çıxıb. Kosmos mənbələri (ESO, ESA/Hubble, ESA/Webb, NOIRLab) siyahıdan çıxarılıb. Gemini seçsə də tərcümə kodla yoxlanır (`cixarilir`).
+  - Xəbər videosu: belə xəbər insan hadisəsi olmadan zəif sayılır (×0,6).
+- **15 istiqamət** (`.github/video-dil/az.json` `lent.ceki.guclu`; nömrələr sahibin sırasıdır). Başlıq və xülasədə uyğun gələn istiqamətlərin ən böyük əmsalı götürülür. Söz siyahısı və əmsallar profildədir, kodda deyil.
+
+| № | İstiqamət | Söz nümunələri | Əmsal | X və dünya |
+|---|---|---|---|---|
+| 1 | ordu, şəhid, qazi | şəhid, qazi, əsgər, hərbçi, ordumuz | 1,5 | 1,5 |
+| 2 | tanınmış adamın həyatı və itkisi | vəfat, dəfn, dünyasını dəyişdi, xalq artisti, müğənni, aktyor | 1,6 | 1,6 |
+| 3 | insan hekayəsi, xeyirxahlıq, itkin tapıldı | itkin, tapıldı, xeyirxah, qəhrəman, evlilik təklifi, əkiz | 1,5 | 1,5 |
+| 4 | polis və cinayət | polis, saxlanıldı, narkotik, dələduz, oğurluq, cibgir | 1,5 | 1,5 |
+| 5 | fırıldaq və istehlakçı xəbərdarlığı | fırıldaq, saxta, kart məlumatı, işə düzəltmə, AQTA, zəhərlənmə | 1,4 | 1,4 |
+| 6 | avto və digər qəzalar (yerli və xarici) | qəza, toqquşdu, aşaraq, yanğın, partlayış, uçqun, həlak, təyyarə düşdü | 1,5 | **1,7** |
+| 7 | sakin şikayəti və şəhər problemi | şikayət, sakinlər, su basdı, çuxur, avtobus, işıq və qaz kəsilməsi | 1,4 | 1,4 |
+| 8 | faktiki hava hadisəsi (proqnoz yox) | qar yağdı, sel, sürüşmə, güclü külək, ağac aşdı, zəlzələ | 1,3 | 1,3 |
+| 9 | yerli idman | «Qarabağ», «Sabah», «Neftçi», millimiz, güləşçi | 1,3 | 1,3 |
+| 10 | xarici futbol | Çempionlar Liqası, Real Madrid, Barselona, Qalatasaray, Arda Güler | 1,2 | **1,7** |
+| 11 | avto yarışlar və yarış qəzaları | Formula 1, MotoGP, ralli, drift, motokross | 1,2 | **1,7** |
+| 12 | konsert və şou | konsert, şou, festival, Avroviziya, Bayraq meydanı | 1,3 | 1,3 |
+| 13 | Türkiyədən viral hadisə | Türkiyə, İstanbul, Ankara, İzmir | 1,25 | 1,25 |
+| 14 | texnologiya və oyun | GTA, PlayStation, iPhone, süni intellekt, robot | 1,2 | 1,2 |
+| 15 | ekstremal hadisələr | xilas, son anda, təhlükəli an, rekord, təbii fəlakət, hücum etdi | 1,5 | **1,7** |
+
+- **Zəif mövzu** (×0,6; sahibin siyahısı əlavə olunub). Başlıqda rəsmi səfər və görüş («ilə görüşüb», «görüş keçirib», səfir, nümayəndə heyəti), bəyanat, statistika, neft qiyməti (Brent, barel), ildönümü, yubiley olanda. Əvvəlki sözlər də qalır: sammit, forum, memorandum, «günü münasibətilə», hava proqnozu və s. Zəif söz varsa xəbər rəsmi tədbirdir: güclü istiqamət əmsalı verilmir («Şəhid ailələri ilə görüş keçirilib» — 0,6).
+- **Sıra.** Xəbər videosunda sıra belədir: mənbə sayı × bölmə əmsalı × (zəif 0,6 və ya ən güclü istiqamət) × videolu xəbər 1,3. Məsələn, 4 mənbəli «Xırdalanda avtobus çuxura düşdü» (4×1,4 = 5,6) 6 mənbəli «Bakıda beynəlxalq sammit keçiriləcək»dən (6×0,6 = 3,6) öndədir. Mənbə həddi (4) dəyişmir.
+- **X** (`video-dunya.cjs` `xNamizedler`): sıra baxış × qrup əmsalı × istiqamətin X əmsalıdır. Qrup əmsalları belədir: maraqlı 1,3, məşhurlar və kino 1,3, idman 1,3 (əvvəl 1), xəbər 1,1, texnika 1,1, elm 1 (kosmos sözləri süzülür), yemək 0,8.
+- **Dünya** (`video-dunya.cjs` `PROMPT`, `ISTIQAMET`): Gemini-yə istiqamətlər sahibin nömrələri ilə və vaciblik sırası ilə verilir: 6 qəzalar, 15 ekstremal, 10 xarici futbol, 11 avto yarışlar və yarış qəzaları, 4 polis, 3 insan hekayəsi, 2 tanınmış adam, 13 Türkiyə, 12 konsert, 8 hava hadisəsi, 14 texnologiya, 5 fırıldaq. Yerli istiqamətlər (1, 7, 9) dünya videosunda yoxdur. Mənbələrin istiqamətləri (`video-dunya.json` `istiqamet`) eyni nömrələrlədir.
+- **Ölüm anı, qan, meyit göstərilmir** (`x_yazici.py`-dakı qayda qalır, dünya göstərişinə də yazılıb). X videosunun kadrında belə şey görünsə video paylaşılmır (aşağıda «X videoları»).
+- Yoxlama: `tests/video-movzu.test.cjs`.
+
 ## Seçimlərimiz
 
 | Nə | Nə etdik | Niyə |
@@ -148,7 +191,7 @@ Bəyənmənin mövzu üzrə medianı ümumi medianın 0,8–0,9 qatıdır: dövl
 | Facebook mətni | Başlıq, izah (≤900 simvol), «Ətraflı: https://www.8ulduz.az/<nömrə>?h=<saat>», 3 heşteq; eyni keçid ilk şərhdə də | Sahibin göstərişi (keçid basılan olsun). Meta keçidsiz mətni üstün tutur — ona görə keçid ilk şərhdə də var; yayılma zəif olarsa mətndəki keçidi götürmək bir sətirlik dəyişiklikdir |
 | Instagram mətni | Başlıq, izah, «Ətraflı: 8ulduz.az (keçid profildədir)», 4 heşteq | Instagram keçidi basılan etmir; profildəki keçid 8ulduz.az/ig/ səhifəsinə aparır |
 | Tezlik | 30 dəqiqədən bir, 08–23 Bakı vaxtı, gündə ≤30 (2026-11-24-dək 2 saatdan bir, ≤8) | Rəqiblər gündə ~6 Reels (baku.ws ~30); Facebook API həddi 30; Instagram həddi 100 (şəkilli postlar 2026-11-26-dan gündə ≤12, həddi kod hər videodan əvvəl yoxlayır) |
-| Mövzu | social.cjs seçimi: 4+ mənbəli xəbər, Prezident bölməsi; sıra mənbə sayı × tamaşaçı marağı (2026-11-26-dan, aşağıda «Rəqib təhlili»); eyni mövzu 24 saatda bir dəfə | Əvvəl sıra yalnız mənbə sayı idi: ən çox yazılan xəbər çox vaxt rəsmi tədbirdir və ən az baxılır |
+| Mövzu | social.cjs seçimi: 4+ mənbəli xəbər, Prezident bölməsi; sıra mənbə sayı × tamaşaçı marağı (2026-11-26-dan: bölmə, zəif mövzu və 15 istiqamət — yuxarıda «Rəqib təhlili» və «Video mövzuları»); eyni mövzu 24 saatda bir dəfə | Əvvəl sıra yalnız mənbə sayı idi: ən çox yazılan xəbər çox vaxt rəsmi tədbirdir və ən az baxılır |
 
 Götürmədiklərimiz: başqasının kadrları (aşağıda), musiqi (Meta-nın lisenziyalı musiqisi API ilə əlçatan deyil, başqa musiqi müəllif hüququ riskidir), «❗️⚡️» kimi təcili işarələr (hər xəbərdə olsa mənasını itirir; istəsəniz Prezident və ya 10+ mənbəli xəbərə əlavə etmək olar).
 
@@ -262,43 +305,51 @@ Qalan risk sahibə məlumdur: böyük yayımçıların görüntüsünü platform
 - 2026-11-26 yoxlaması: Bizim.Media, İnterPress, Konkret.az (bax.tv), İki Sahil (newstube.az) faylı açıq verir. Publika.az da bu siyahıda idi, amma səhv idi: tapılan fayl sonrakı köhnə xəbərin TRT faylı idi. Saytların çoxu (Lent.az, Modern.az, Qol.az, Xəzər Xəbər, Teleqraf və s.) YouTube pəncərəsi qoyur — onlardan götürülmür.
 
 **Dünya videoları** (`.github/scripts/video-dunya.cjs`, mənbələr `.github/video-dunya.json`).
-- İstiqamətlər «Rəqib təhlili»ndəndir: insan hekayəsi; hadisənin öz görüntüsü; məşhurlar və mədəniyyət; heyvanlar və təbiət; elm və kosmos; idman anı.
+- İstiqamətlər (2026-11-26, sahibin qərarı): «Video mövzuları»ndakı 15 istiqamətdən yerli olmayanlardır, eyni nömrələrlə. Önə qəzalar (6), ekstremal hadisələr (15), xarici futbol (10), avto yarışlar və yarış qəzaları (11) keçir. Heyvan, təbiət, kosmos yoxdur. Əvvəl 6 istiqamət idi: insan hekayəsi; hadisənin öz görüntüsü; məşhurlar və mədəniyyət; heyvanlar və təbiət; elm və kosmos; idman anı.
 - Hər dövrədə növbə ilə 6 mənbənin təzə (96 saat) videoları oxunur, faylı tapılan 10-a qədər namizəd toplanır.
-- Bir Gemini sorğusu istiqamətə ən uyğununu seçir, Azərbaycan dilində başlıq və 4–6 cümləlik diktor mətni yazır. Sammit, görüş, bəyanat, müharibənin gedişi seçilmir.
+- Bir Gemini sorğusu istiqamətə ən uyğununu seçir, Azərbaycan dilində başlıq və 4–6 cümləlik diktor mətni yazır. Sammit, görüş, bəyanat, müharibənin gedişi seçilmir. Heyvan faktı, təbiət və kosmos kadrı, ölüm anı, qan, meyit də seçilmir. Tərcümədə heyvan və ya kosmos sözü olub insan hadisəsi olmayan video kodla da atılır.
 - Yoxlama: mətndəki hər rəqəm mənbədə olmalıdır; kiril, keçid, nida yoxdur; saytın qaydası (qırmızı xətt 2) həm mənbənin mətninə, həm tərcüməyə tətbiq olunur. Qaydasız çağırış xətadır.
 - Tezlik: gündə ən çox 8, arası 90 dəqiqə; ümumi gündəlik həddə (30) və fasiləyə sayılır. Vaxtı çatanda xəbər videosundan əvvəl hazırlanır.
 - Post mətnində keçid saytın «Dünya» bölməsinədir (bu videoların saytda ayrıca xəbər səhifəsi yoxdur).
 - Yeni mənbə = `video-dunya.json`-a bir sətir: ad, dil, siyahının ünvanı və növü (rss, mrss, atom, sitemap, html, json), istiqamətlər, saytın istifadə şərti. Söndürmək: `"aktiv": false`.
 - **Qayda (qırmızı xətt 2).** Bu mənbələr lentin mənbə siyahısında deyil, ona görə `policyViolation` onları bütünlüklə rədd edir. Dünya və X videoları xarici mənbə qaydasından keçir (`topics.cjs` `xariciPozur`): mətndə Azərbaycan və rəhbərliyi olmamalı, ünvan bağlı sayt olmamalıdır. Eyni qayda seçimdə, montajda və YouTube/TikTok yükləyicilərində işləyir.
 
-**Mənbələr (2026-11-26).** 105 sayt sınandı, 40-ı birbaşa fayl verir, 25-i qoşulub, 5-i yoxlanıb söndürülmüş saxlanır. Canlı sınaqda 25-dən 24-ü bizim kodla namizəd verdi (NOIRLab həmin günlərdə yeni video verməmişdi).
+**Mənbələr (2026-11-26).** 105 sayt sınandı, 40-ı birbaşa fayl verir, 25-i qoşulmuşdu, 5-i yoxlanıb söndürülmüş saxlanır. Canlı sınaqda 25-dən 24-ü bizim kodla namizəd verdi (NOIRLab həmin günlərdə yeni video verməmişdi). Həmin gün sahibin qərarı ilə («nə heyvan nə təbiət nə kosmos») 4 kosmos mənbəyi (ESO, ESA/Hubble, ESA/Webb, NOIRLab; CC BY 4.0) çıxarıldı: indi 21 mənbə qoşulub. İstiqamətlər «Video mövzuları»nın nömrələri ilədir.
 
 | Dil | Mənbələr | Əsas istiqamət |
 |---|---|---|
-| İngilis | Independent TV, Daily Mail, Metro, New York Post, ABC News Australia | insan hekayəsi, hadisə görüntüsü, heyvanlar |
-| İngilis | TMZ | məşhurlar |
-| İngilis | DVIDS, UNifeed | xilasetmə, fəlakət görüntüsü (DVIDS ictimai mülkiyyətdir, UNifeed yenidən yayıma icazə verir) |
-| İngilis | ESO, ESA/Hubble, ESA/Webb, NOIRLab | kosmos (CC BY 4.0) |
-| İngilis | Xinhua, ECNS | mədəniyyət, heyvanlar, texnologiya |
-| Türk | Anadolu Ajansı, TRT Haber, A Haber, Sabah, Takvim, Mynet, TGRT Haber, Türkiye Gazetesi | hadisə görüntüsü, insan hekayəsi, məşhurlar |
-| Rus | 5-tv.ru, İzvestiya, 360.ru | insan hekayəsi, hadisə görüntüsü |
+| İngilis | Independent TV, Daily Mail, Metro, New York Post, ABC News Australia | qəzalar (6), ekstremal hadisə (15), insan hekayəsi (3), polis (4), tanınmış adamlar (2) |
+| İngilis | TMZ | tanınmış adamlar (2), şou (12) |
+| İngilis | DVIDS, UNifeed | xilasetmə, fəlakət anı (15), qəza (6) (DVIDS ictimai mülkiyyətdir, UNifeed yenidən yayıma icazə verir) |
+| İngilis | Xinhua, ECNS | texnologiya (14), şou (12), insan hekayəsi (3) |
+| Türk | Anadolu Ajansı, TRT Haber, A Haber, Sabah, Takvim, Mynet, TGRT Haber, Türkiye Gazetesi | Türkiyədən hadisə (13), qəzalar (6), insan hekayəsi (3), tanınmış adamlar (2) |
+| Rus | 5-tv.ru, İzvestiya, 360.ru | qəzalar (6), insan hekayəsi (3), polis (4) |
 
 Söndürülmüş saxlananlar və səbəbi: Euronews No Comment (sayt Node sorğusuna 406 qaytarır, qoruma aşılmır), DW (səhifədə yalnız HLS), KP.ru (uzun studiya verilişləri), Anadolu Agency EN (əsasən diplomatiya). Alınmayan 65 sayt (YouTube və ya HLS pəncərəsi, giriş və ya bot qoruması) siyahıya düşməyib. İstifadə şərti hər mənbənin `sertler` sahəsində saytda yazıldığı kimidir; xəbər saytlarının çoxunda «bütün hüquqlar qorunur» yazılıb.
 
 **X videoları: «Çox baxılan»** (`video-dunya.cjs` `xHazirla`, məlumat `data/reels.json`).
 - Saytın Videolenti hər X videosunun baxış sayını (`v`), mövzusunu (`m`) və Azərbaycan dilində izahını (`c`) saxlayır. Sosial video üçün son 36 saatın 100 min+ baxışlı videoları götürülür.
-- Sıra = baxış × mövzunun əmsalı (profil `x.movzular`). Əmsallar Instagram təhlilinin istiqamətləridir: heyrətamiz və insan hekayəsi 1,3; məşhurlar 1,3; heyvan və təbiət 1,2; elm 1,1; hadisə (xəbər) və texnika 1; yemək 0,8.
-- İdman (liqaların oyun kadrı) əmsalı 1-dir: baxış sayı qərar verir. Eyni mövzu dalbadal getmir (`state.xm`): ən çox baxılanlar idman olsa da hər ikinci video başqa mövzudandır.
-- Götürülmür: oyun qrupu (treylerlər), böyük media şirkətləri (`x.qadagan`), film və klip kadrı (`lent.yayim`), müharibə və zorakılıq görüntüsü (`x.kenar`), xarici mənbə qaydasından keçməyən izah.
+- Sıra = baxış × mövzunun əmsalı (profil `x.movzular`) × izahın güclü istiqaməti (X əmsalı ilə, «Video mövzuları»). 2026-11-26-dan qrup əmsalları: heyrətamiz və insan hekayəsi 1,3; məşhurlar 1,3; idman 1,3 (əvvəl 1); xəbər 1,1; texnika 1,1; elm 1; yemək 0,8. Heyvan və təbiət qrupu çıxıb (əvvəl 1,2). Xarici futbol, avto yarışlar və yarış qəzaları, qəzalar, ekstremal hadisələr ×1,7 ilə önə keçir.
+- Eyni mövzu dalbadal getmir (`state.xm`): ən çox baxılanlar idman olsa da hər ikinci video başqa mövzudandır.
+- Götürülmür: oyun qrupu (treylerlər), böyük media şirkətləri (`x.qadagan`), film və klip kadrı (`lent.yayim`), müharibə və zorakılıq görüntüsü (`x.kenar`), xarici mənbə qaydasından keçməyən izah. Heyvan, təbiət və ya kosmos izahı (`x.cixar`) yalnız insan hadisəsinin içində götürülür (2026-11-26).
 - Video: yuxarıda «ÇOX BAXILAN» nişanı, başlıq izahın birinci cümləsidir, video klipin uzunluğu qədər (ən çox 30 s) davam edir (`klip_boyu`), «Görüntü: @hesab (X)».
-- Səs (sahib, 2026-11-26: «Bəli, uzat»; əvvəl yalnız bir cümləlik izah oxunurdu və 30 saniyənin çoxu səssiz keçirdi) 2–4 cümlədir (`video-dunya.cjs` `xMetn`):
+- Səs (sahib, 2026-11-26: «Bəli, uzat»; əvvəl yalnız bir cümləlik izah oxunurdu və 30 saniyənin çoxu səssiz keçirdi) 1–3 cümlədir:
   1. izah;
-  2. paylaşımın öz mətnindən 1–2 cümlə. Mətn `api.fxtwitter.com`-dan alınır (açarsız, `x_yazici.py` ilə eyni). Gemini yalnız oradakı əlavə faktları yazır; dünya videosunun yoxlaması tətbiq olunur: rəqəm mənbədə olmalıdır, saytın qaydası və `x.kenar` keçilməlidir. Paylaşımda əlavə fakt yoxdursa, Gemini cavab vermirsə və ya mətn yoxlamadan keçmirsə bu hissə olmur;
-  3. baxış sayı: «Bu video 2 milyondan çox dəfə izlənib.» (profil `x.baxis_mln`, `x.baxis_min`). Say aşağı yuvarlaqlaşır: baxış yalnız artır, «… -dan çox» həmişə doğrudur. Səsdə «X» deyilmir, çünki hərf kimi oxunur.
+  2. paylaşımın öz mətnindən 1–2 cümlə (`video-dunya.cjs` `xMetn`, seçimdə). Mətn `api.fxtwitter.com`-dan alınır (açarsız, `x_yazici.py` ilə eyni). Gemini yalnız oradakı əlavə faktları yazır; dünya videosunun yoxlaması tətbiq olunur: rəqəm mənbədə olmalıdır, saytın qaydası və `x.kenar` keçilməlidir;
+  3. paylaşımda əlavə fakt yoxdursa, Gemini cavab vermirsə və ya mətn yoxlamadan keçmirsə — **videonun kadrlarında açıq görünən 1–2 fakt** (`xKadrMetn`, 2026-11-26). Kadrları ffmpeg çıxarır (video arxivinin yolu: klipin 10%-dən sonuna 4 kadr, 512 px), ona görə bu ayrıca addımdır: «X: kadrlardan mətn», ffmpeg quraşdırılandan sonra, montajdan əvvəl (`sosial-video.cjs x-kadr`). Gemini kadrları görür. Sərt qayda belədir:
+     - yalnız kadrda açıq görünən yazılır; ad, ölkə, şəhər, səbəb təxmin edilmir;
+     - heç bir rəqəm olmur (rəqəm olan cümlə atılır);
+     - üst yazı və su nişanından fakt götürülmür;
+     - mətn `checkText`, xarici mənbə qaydası (`xariciPozur`, qırmızı xətt 2) və `x.kenar` ilə yoxlanır.
+
+     Alınmasa və ya kadrda əlavə fakt yoxdursa yalnız izah (başlıq) oxunur. Kadrda ölüm anı, qan və ya meyit görünürsə iş dayanır, video paylaşılmır.
+  - **Baxış sayı deyilmir** (sahib, 2026-11-26: «Bu video 4 milyondan çox dəfə izlənib — nəyə lazımdır? başqa mənalı nəsə deyə bilməz?»). Əvvəl 3-cü cümlə «Bu video 2 milyondan çox dəfə izlənib.» idi (profil `x.baxis_mln`, `x.baxis_min` — çıxarılıb). Say `xeber.json`-da (`baxis`) yalnız sıra üçün qalır. Səsdə «X» deyilmir, çünki hərf kimi oxunur.
 - Tezlik: gündə ən çox 6, arası 120 dəqiqə; vaxtı çatanda birinci hazırlanır. Dəyişənlər: `X_VIDEO=0`, `X_GUNDE`, `X_ARA_MIN`, `X_MIN_BAXIS`.
 - 2026-11-26 ölçüsü: 1000 videodan 123-ü bütün süzgəclərdən keçdi; birincilər: sarılıb yatan əkizlər (2,1 mln baxış), oğrulara tələ quran mağaza sahibi (1,7 mln), itdən qaçan qadın (1,2 mln).
 
-## Maraqlı videolar (sahib, 2026-11-24)
+## Maraqlı videolar (sahib, 2026-11-24) — 2026-11-26-dan söndürülüb
+
+**Söndürülüb** (sahib, 2026-11-26: «nə heyvan nə təbiət nə kosmos ... eyni məsələni neçə dəfə demək olar?»; yuxarıda «Video mövzuları»). Kod və PR nümunəsi qalır, susmaya görə heç nə hazırlanmır və paylaşılmır. Yalnız Variables-da `MARAQLI_VIDEO=1` açır. Aşağıdakı qayda açılmış halındır.
 
 Sahibin sözləri, X-in «Sizin üçün» lentindən 20 ekran şəkli ilə: «bu kimi həm xəbər tipli, həm də digər çox maraqlı videolar», «mənə maraqlı deyil sən haradan tapacaqsan», «əsas odur onlar kimi sən də tap o cür maraqlı videolar».
 
@@ -321,7 +372,7 @@ Ona görə X videoları yalnız saytda (Videolent) oynayır. Video X-in öz serv
 - Son maraqlı videodan **MARAQLI_ARA_MIN** (60) dəqiqə keçibsə və 24 saatda **MARAQLI_GUNDE** (10) dolmayıbsa, pəncərədə əvvəl maraqlı video hazırlanır. Alınmasa xəbər videosu gedir.
 - Uyğun xəbər olmayan pəncərədə də maraqlı video hazırlanır. Bu halda öz fasiləsi gözlənmir, yalnız gündəlik hədd yoxlanır.
 - Ümumi fasiləyə və gündəlik həddə (`VIDEO_MIN_GAP_MIN`, `VIDEO_GUNDE` — Facebook-un 24 saatda 30 Reels həddi) sayılır. Xəbər mövzularının siyahısına düşmür.
-- Söndürmək üçün Variables-da `MARAQLI_VIDEO=0` yazılır. Əl ilə işə salmaq: «Video xəbər» işi, `tur: maraqli`.
+- 2026-11-26-dan susmaya görə söndürülüb: açmaq üçün Variables-da `MARAQLI_VIDEO=1` yazılır (əvvəl `MARAQLI_VIDEO=0` söndürürdü). Əl ilə: «Video xəbər» işi, `tur: maraqli` — söndürülmüş halda yalnız «Paylaş» götürülmüş önizləmə.
 
 **Paylaşma mətni:** başlıq, mətn, «Daha çox: https://8ulduz.az/», «Məlumat: Vikipediya — <məqalənin keçidi>», «Görüntü: Pixabay» və etiketlər (mövzunun etiketləri, #maraqlı, #bilirdinizmi, #8ulduz).
 
@@ -386,7 +437,8 @@ Profildə olanlar:
 | Bölmə | Nə | Kim işlədir |
 |---|---|---|
 | `kod`, `locale`, `herf` | dilin kodu, böyük/kiçik hərf qaydası, mətnin bu dildə olduğunu tanıdan hərflər | hamısı |
-| `lent` | lentdən hansı dildə xəbər seçilir (`dil`), ən az neçə mənbə (`min_menbe`; Variables yenə üstələyir), videonun sırası üçün tamaşaçı marağı (`ceki`: `bolme` — bölmə → əmsal, `zeif` — başlıqda zəif mövzu sözləri, `zeif_emsal`; hər dilin auditoriyası öz rəqəmi ilə) | `sosial-video.cjs` (`cekisi`), `social.cjs candidates` |
+| `lent` | lentdən hansı dildə xəbər seçilir (`dil`), ən az neçə mənbə (`min_menbe`; Variables yenə üstələyir), videonun sırası üçün tamaşaçı marağı (`ceki`: `bolme` — bölmə → əmsal, `zeif` — başlıqda zəif mövzu sözləri, `zeif_emsal`, `guclu` — 15 istiqamət: ad, söz, əmsal, X və dünya əmsalı `x`; hər dilin auditoriyası öz rəqəmi ilə) | `sosial-video.cjs` (`cekisi`), `social.cjs candidates`, `video-dunya.cjs` (X, dünya) |
+| `x` | X videosu: rubrikanın adı, ən az baxış, mövzu qrupunun əmsalı (`movzular`), qadağan hesablar, müharibə sözləri (`kenar`), heyvan, təbiət və kosmos sözləri (`cixar`) | `video-dunya.cjs` |
 | `video` | ekrandakı yazılar: nişanlar («Xəbər», «BİLİRDİNİZMİ?»), bölmə adları (`bolmeler`; boşdursa saytın öz adları), abunə ipucu (`abune_ipucu`), «Mənbə», «Görüntü», «Ətraflı:», aylar, altyazını bölən bağlayıcılar | `video-xeber.cjs` |
 | `abune` | hər video növünün vədi və səsə gedən çağırış | video, səs, bütün paylaşım mətnləri |
 | `ses` | Edge səsi (`edge`), temp pillələri (`temp`), `vaxtlar.json` adı (`motor`), jurnaldakı ad (`ad`), mətnin hazırlanması (`metn`: `az_text` — rəqəm sözə; başqa dəyər — olduğu kimi), ehtiyat (`ehtiyat`: `sara` — yalnız azərbaycanca) | `video_ses.py` |
@@ -742,6 +794,7 @@ Açar `FB_PAGE_TOKEN` artıq var (social.yml ilə eyni sirr). Açar yoxdursa iş
 | `DUNYA_VIDEO` | (açıq) | `0` — dünya videoları hazırlanmır |
 | `DUNYA_GUNDE`, `DUNYA_ARA_MIN` | 8, 90 | dünya videosu: 24 saatda ən çox və iki video arası dəqiqə |
 | `X_VIDEO`, `X_GUNDE`, `X_ARA_MIN`, `X_MIN_BAXIS` | (açıq), 6, 120, 100000 | X-in ən çox baxılan videoları: söndürmə, 24 saatda ən çox, arası (dəq), ən az baxış |
+| `MARAQLI_VIDEO`, `MARAQLI_GUNDE`, `MARAQLI_ARA_MIN` | (bağlı), 10, 60 | «Maraqlı» rubrikası 2026-11-26-dan söndürülüb (sahibin qərarı): yalnız `1` açır. İstiqamətlərin söz və əmsalları Variables-da yox, profildədir (`lent.ceki.guclu`) |
 | `IG_MIN_GAP_MIN` | 120 | Instagram şəkilli postları arası, dəqiqə (social.yml; 2026-11-26-dək 18). Bölmə əmsalları və zəif mövzu sözləri Variables-da yox, profildədir: `.github/video-dil/az.json` `lent.ceki` |
 | `VIDEO_SES` | (açıq) | `0` — səssiz video (model quraşdırılmır) |
 | `VIDEO_FACEBOOK`, `VIDEO_INSTAGRAM` | (açıq) | `0` — həmin şəbəkəyə video getmir. `INSTAGRAM=0` Instagram-ı hər iki işdə söndürür |
