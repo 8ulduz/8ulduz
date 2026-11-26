@@ -175,10 +175,7 @@ VIDEOLENT_QRUPLAR = {
         "WildlifeTrusts": "The Wildlife Trusts", "Wildlife_Planet": "Wildlife_Planet", "wildlife_videos": "wildlife_videos",
         "woodlandparkzoo": "woodlandparkzoo", "WWF": "WWF", "ZooMiami": "ZooMiami",
         "ZSL": "ZSL", "ZSLLondonZoo": "London Zoo",
-        # 2026-11-26 (FxTwitter, 72 saat, median baxış): ekstremal hava və təbiət hadisəsi — Hava Forum 124 min (Türkiyə),
-        # Colin McCarthy 52 min, Ryan Hall 50 min, Max Velocity 27 min (fırtına, sel, dalğa, qar)
-        "HavaForum": "Hava Forum", "US_Stormwatch": "Colin McCarthy", "RyanHallYall": "Ryan Hall, Y'all",
-        "MaxVelocityWX": "Max Velocity",
+        # Ekstremal hava hesabları (Hava Forum, Colin McCarthy, Ryan Hall, Max Velocity) 2026-11-26 «xeber» qrupuna köçüb.
     },
     "elm": {   # Elm, kosmos, tarix (120)
         "AmerMuseum": "AmerMuseum", "AMNH": "AMNH", "Archaeologymag": "Archaeologymag",
@@ -440,6 +437,12 @@ VIDEOLENT_QRUPLAR = {
         # Oliya Scootercaster 49 min (şahid kadrı), Insider Paper 31 min, ABC News 23 min (xilasetmə, qəza, təbiət hadisəsi).
         "bosunatiklama": "Boşuna Tıklama", "darkwebhaber": "DarkWeb Haber", "ntv": "NTV", "BNONews": "BNO News",
         "ScooterCasterNY": "Oliya Scootercaster", "TheInsiderPaper": "Insider Paper", "ABC": "ABC News",
+        # Ekstremal hava və təbii fəlakətin anı — 2026-11-26 «tebiet»-dən köçürülüb (sahib: «nə heyvan nə təbiət nə kosmos», sonra
+        # «ekstremal hadisələrə də»): «tebiet» qrupu sosial videoya düşmür, bu hesabların kadrı isə fırtına, sel, dalğa, qar içində
+        # insan və maşındır (xilasetmə, son anda qurtulma). FxTwitter, 72 saat, median baxış: Hava Forum 124 min (Türkiyə),
+        # Colin McCarthy 52 min, Ryan Hall 50 min, Max Velocity 27 min.
+        "HavaForum": "Hava Forum", "US_Stormwatch": "Colin McCarthy", "RyanHallYall": "Ryan Hall, Y'all",
+        "MaxVelocityWX": "Max Velocity",
     },
     "idman": {   # İdman (267)
         "10Ronaldinho": "10Ronaldinho", "433": "433", "nocontextfooty": "Out Of Context Football", "ufc": "UFC", "ringmagazine": "Ring Magazine", "acmilan": "AC Milan",

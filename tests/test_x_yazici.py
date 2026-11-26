@@ -348,8 +348,9 @@ class CraftSourcesTest(unittest.TestCase):
     def test_most_watched_directions_from_instagram_applied_to_x(self):
         """Sahib 2026-11-26: «instagramda müəyyən etdiyimiz çox baxılan istiqamətlərini X ə tətbiq et» (docs/x-yazici.md, 2026-11-26)."""
         q = xy.xm.VIDEOLENT_QRUPLAR
-        added = {"xeber": ("bosunatiklama", "darkwebhaber", "ntv", "BNONews", "ScooterCasterNY", "TheInsiderPaper", "ABC"),
-                 "tebiet": ("HavaForum", "US_Stormwatch", "RyanHallYall", "MaxVelocityWX"), "kino": ("TMZ", "PopBase", "PopCrave"),
+        # Ekstremal hava hesabları eyni gün «tebiet»-dən «xeber»-ə köçüb (sahib: «ekstremal hadisələrə də»; «tebiet» sosial videoya düşmür).
+        added = {"xeber": ("bosunatiklama", "darkwebhaber", "ntv", "BNONews", "ScooterCasterNY", "TheInsiderPaper", "ABC",
+                           "HavaForum", "US_Stormwatch", "RyanHallYall", "MaxVelocityWX"), "kino": ("TMZ", "PopBase", "PopCrave"),
                  "maraqli": ("FearedBuck",), "texnika": ("SawyerMerritt",)}
         for m, hs in added.items():
             for h in hs:
