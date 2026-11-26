@@ -367,11 +367,21 @@ function networks(env = process.env) {
       const q = `access_token=${encodeURIComponent(this.token)}`, get = u => f(u, { signal: AbortSignal.timeout(15000) }).then(json).catch(() => ({}));
       const lim = (await get(`${root}${encodeURIComponent(this.ig)}/content_publishing_limit?fields=quota_usage,config&${q}`))?.data?.[0];
       if (lim?.quota_usage != null && Number(lim.quota_usage) >= (Number(lim?.config?.quota_total) || 100)) return { skip: `24 saatlıq hədd dolub: ${lim.quota_usage}` };
-      // 2026-11-22: ilk görüntülü videoda (16,8 MB) rupload «ProcessingFailedError» verdi (retriable: false; Facebook eyni faylı qəbul etdi).
-      // Eyni sorğunun təkrarı kömək etmir: bir dəfə yeni konteynerlə, VIDEO_IG_RETRY_MS sonra. Yüklənməmiş konteyner dərc olunmur.
-      let init, up, upj;
-      for (let t = 0; t < 2; t++) {
-        if (t) { log(`instagram: yükləmə alınmadı (HTTP ${up.status} ${JSON.stringify(upj?.error || upj).slice(0, 200)}) — yeni konteynerlə təkrar`); await wait(num(env.VIDEO_IG_RETRY_MS, 60000)); }
+      // rupload «ProcessingFailedError» (retriable: false) — 2026-11-26 ölçüsü, 25–26 noyabrın 39 cəhdi: fayldan asılı deyil. Hər rədd
+      // faylın ölçüsündən asılı olmayaraq (4,7–46 MB) yükləmə sorğusundan ~30 s sonra gəlir (serverin öz vaxt həddi); eyni fayl yeni
+      // konteynerlə 60 s sonra 22 dəfədən 13-ündə keçdi, iki cəhdlə 9 video (23%) getmədi. Ona görə VIDEO_IG_CEHD (4) cəhd, hər dəfə yeni
+      // konteyner, aralar VIDEO_IG_RETRY_MS × 1; 1,5; 2 (cəmi 4,5 dəq). Təkrardan əvvəl köhnə konteynerin statusu yoxlanır: server vaxt
+      // həddindən sonra emalı bitiribsə (FINISHED) yenidən yüklənmir. Yüklənməmiş konteyner dərc olunmur.
+      const cehd = Math.max(1, Math.floor(num(env.VIDEO_IG_CEHD, 4)));
+      let init, up, upj, hazir = false;
+      for (let t = 0; t < cehd; t++) {
+        if (t) {
+          await wait(num(env.VIDEO_IG_RETRY_MS, 60000) * (t + 1) / 2);
+          const xeta = `HTTP ${up.status} ${JSON.stringify(upj?.error || upj).slice(0, 200)}`;
+          const kohne = (await get(`${root}${encodeURIComponent(init.id)}?fields=status_code&${q}`))?.status_code || "?";
+          if (kohne === "FINISHED") { log(`instagram: yükləmə cavabı xəta idi (${xeta}), amma konteyner hazırdır — yenidən yüklənmir`); hazir = true; break; }
+          log(`instagram: yükləmə alınmadı (${xeta}; konteyner: ${kohne}) — yeni konteynerlə təkrar (${t + 1}/${cehd})`);
+        }
         init = await form(f, `${root}${encodeURIComponent(this.ig)}/media`, { media_type: "REELS", upload_type: "resumable", caption: igText(x),
           thumb_offset: String(Math.round((x.cover_s || 1.5) * 1000)) }, this.token).then(json);
         if (!init?.id) return { ok: false, error: `konteyner: ${JSON.stringify(init?.error || init).slice(0, 300)}` };
@@ -379,7 +389,7 @@ function networks(env = process.env) {
         upj = await json(up);
         if (up.ok && upj?.success !== false) break;
       }
-      if (!up.ok || upj?.success === false) return { ok: false, error: `yükləmə: HTTP ${up.status} ${JSON.stringify(upj?.error || upj).slice(0, 300)}` };
+      if (!hazir && (!up.ok || upj?.success === false)) return { ok: false, error: `yükləmə (${cehd} cəhd): HTTP ${up.status} ${JSON.stringify(upj?.error || upj).slice(0, 300)}` };
       // Meta tövsiyəsi: statusu dəqiqədə bir, 5 dəqiqədən çox olmayaraq; qısa video adətən 20–60 s-də hazır olur.
       let st = "";
       for (let i = 0, n = Math.ceil(num(env.VIDEO_IG_WAIT_S, 300) * 1000 / num(env.VIDEO_POLL_MS, 15000)); i < n && st !== "FINISHED"; i++) {
