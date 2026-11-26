@@ -400,3 +400,91 @@ test('Videolent opens in a blink: slides are built in parts, the list is kept in
   const app = fs.readFileSync(path.join(__dirname, '..', 'assets', 'app.js'), 'utf8');
   assert.ok(app.includes(`['[data-act="reels"]', () => import("./lent.js?v=1").then(m => m.load()).catch(() => {})]`), 'niyyət: modul + siyahı');
 });
+
+// Sahib 2026-11-26: «həm sayt həmdə sos şəbəkələrdə "çox baxılan" videolar verilməsini təmin et». Saytda: Videolentin «Çox baxılan»
+// görünüşü — son 48 saatın videoları X-in baxış sayı ilə, ən çox baxılan birinci; adi lent (mövzu növbəsi, 60/40, xəbər anı) dəyişmir.
+test('Videolent «Çox baxılan»: the last 48 hours by X view count, most watched first — ties keep their order, unknown counts go last, the window is respected (owner 2026-11-26)', async () => {
+  const { top, views } = await import(pathToFileURL(file).href);
+  const t = h => new Date(NOW - h * HOUR).toISOString();
+  const v = (u, hours, n, more = {}) => ({ u, key: u, n: 'A', m: 'idman', t: t(hours), ...(n === undefined ? {} : { v: n }), ...more });
+  const items = [v('az', 1, 3000), v('orta', 5, 900000), v('cox', 30, 5500000), v('kohne', 49, 9000000), v('sayi-yox', 2), v('beraber1', 10, 900000),
+    v('bilinmir', 3, -1), v('oz', 4, 100000, { title: 'Öz video xəbərimiz' }), v('kenar', 47.9, 40000), v('beraber2', 20, 900000), v('sifir', 6, 0)];
+  const before = items.map(x => x.u);
+  const out = top(items, NOW, []).map(x => x.u);
+  assert.deepEqual(out, ['cox', 'orta', 'beraber1', 'beraber2', 'kenar', 'az', 'sifir', 'sayi-yox', 'bilinmir', 'oz'],
+    'ən çox baxılan birinci; bərabər saylar verilən sırada; sayı olmayan, bilinməyən və öz video xəbərimiz (təxmini say) sonda');
+  assert.ok(!out.includes('kohne'), '49 saatlıq video 9 milyon baxışla da pəncərədən kənardır');
+  assert.equal(out.length, items.length - 1, 'pəncərədəki heç bir video itmir, heç biri iki dəfə gəlmir');
+  assert.deepEqual(items.map(x => x.u), before, 'verilən siyahı dəyişmir (adi lentin sırası qalır)');
+  // Pəncərənin sərhədi: düz 48 saat içəridədir, bir dəqiqə köhnəsi yox.
+  assert.deepEqual(top([v('ic', 48, 5), v('col', 48 + 1 / 60, 9)], NOW, []).map(x => x.u), ['ic']);
+  // Baxış sayı: yalnız X-in mənfi olmayan tam ədədi; öz video xəbərimizin sayı sıralama təxminidir.
+  assert.equal(views({ v: 2110507 }), 2110507);
+  assert.equal(views({ v: 0 }), 0);
+  for (const bad of [{}, { v: -1 }, { v: 'çox' }, { v: 1.5 }, { v: 100000, title: 'Öz xəbər' }]) assert.equal(views(bad), -1, JSON.stringify(bad));
+  // Pəncərədə video yoxdursa (yazıcı 2 gündən çox dayanıb) görünüş boş qalmır: bütün lent sayla düzülür.
+  assert.deepEqual(top([v('a', 60, 5), v('b', 100, 9), v('c', 70)], NOW, []).map(x => x.u), ['b', 'a', 'c']);
+  assert.deepEqual(top([], NOW, []), []);
+});
+
+test('Videolent «Çox baxılan»: a watched video never comes first here either; with the real feed shape nothing but the count decides (owner 2026-11-23, 2026-11-26)', async () => {
+  const { top, list, markSeen, vkey } = await import(pathToFileURL(file).href);
+  store();
+  const realNow = Date.now;
+  Date.now = () => NOW;   // list() və top() eyni «indi» ilə
+  try {
+    // feed(): 20 video, ən köhnəsi 55 saatlıq usta işi — pəncərədən kənar.
+    const reels = feed().map((r, i) => ({ ...r, v: 10000 + ((i * 7919) % 20) * 50000 }));
+    const all = list({}, reels);
+    const out = top(all);
+    assert.equal(out.length, 19, '48 saatdan köhnə video «Çox baxılan»da yoxdur');
+    assert.deepEqual(out.map(x => x.v), [...out.map(x => x.v)].sort((a, b) => b - a), 'yalnız say: mövzu növbəsi və 60/40 burada yoxdur');
+    assert.equal(out[0].v, Math.max(...reels.filter(r => NOW - Date.parse(r.t) <= 48 * HOUR).map(r => r.v)));
+    assert.equal(all[0].m, 'xeber', 'adi lent əvvəlki kimi xəbər anı ilə açılır');
+    // Oxucu ilk iki videoya baxır: növbəti açılışda onlar sonda, sıra yenə sayla.
+    markSeen(out[0].u); markSeen(out[1].u);
+    const again = top(list({}, reels));
+    assert.deepEqual(again.slice(-2).map(x => x.key), [vkey(out[0].u), vkey(out[1].u)], 'izlənmişlər sonda, öz aralarında yenə sayla');
+    assert.equal(again[0].key, out[2].key, 'birinci video: baxılmamışların ən çox baxılanı');
+    assert.equal(again.length, 19);
+  } finally { Date.now = realNow; }
+});
+
+test('Videolent: the card shows the X view count, short and never overstated — «2,1 mln baxış», «94 min baxış» (owner 2026-11-26)', async () => {
+  const { baxis } = await import(pathToFileURL(file).href);
+  const cases = [[1, '1 baxış'], [850, '850 baxış'], [999, '999 baxış'], [1000, '1 min baxış'], [1099, '1 min baxış'], [3400, '3,4 min baxış'], [9999, '9,9 min baxış'],
+    [10000, '10 min baxış'], [94000, '94 min baxış'], [94999, '94 min baxış'], [469118, '469 min baxış'], [999999, '999 min baxış'], [1000000, '1 mln baxış'],
+    [1949999, '1,9 mln baxış'], [2110507, '2,1 mln baxış'], [5559872, '5,5 mln baxış'], [9999999, '9,9 mln baxış'], [12345678, '12 mln baxış'], [250000000, '250 mln baxış']];
+  for (const [n, want] of cases) assert.equal(baxis(n), want, String(n));
+  for (const n of [0, -1, undefined, null, NaN, Infinity, 1.5, '94000']) assert.equal(baxis(n), '', `say deyil: ${n}`);
+  const src = fs.readFileSync(file, 'utf8');
+  assert.ok(src.includes('const count = v => { const t = baxis(views(v)); return t ? `<i> · ${t}</i>` : ""; };') && src.includes('<div class="cap"><b>${esc(v.n)}${count(v)}</b>'),
+    'say hesabın adının yanında, hər iki görünüşdə; sayı bilinməyən videoda və öz video xəbərimizdə yazı yoxdur');
+});
+
+test('Videolent «Çox baxılan»: one button in the lazy module — the default feed is untouched, the switch waits for no network, the first load gets nothing new (speed red line)', () => {
+  const root = path.join(__dirname, '..');
+  const src = fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
+  assert.ok(src.includes('<button class="top" type="button" aria-pressed="false">Çox baxılan</button>'), 'düymə lentin yuxarısında, basılmamış: lent adi sıra ilə açılır');
+  assert.ok(src.includes('let hot = false, flip = 0, noteT = 0;') && src.includes('build(f, first(items, k), () => history.back(), async keep => list(S, await load(undefined, keep)), late);'),
+    'açılışda adi lent (mövzu növbəsi, 60/40, xəbər anı — sahibin 2026-11-19…23 qərarları)');
+  assert.ok(src.includes('const n = ++flip, all = await more(OPEN_MS);') && src.includes('show(all, hot ? top(all) : all);'), 'keçid yaddaşdakı siyahı ilə: şəbəkə gözlənilmir');
+  assert.ok(src.includes('if (!live || n !== flip) return;'), 'ardıcıl iki basış: lent bir dəfə, son seçimlə düzülür');
+  assert.ok(src.includes('for (const s of slides) { live.io.unobserve(s); drop(s); s.remove(); }') && src.includes('if (!s.isConnected) continue;'),
+    'köhnə slaydların videosu boşalır və silinir: arxada video oynamır');
+  assert.ok(src.includes('put(queue.splice(0, FIRST), null);\n    feed.scrollTop = 0;\n    warm();'), 'yeni sıra birinci videodan, yenə hissə-hissə (FIRST), ilk video dərhal yüklənir');
+  assert.ok(src.includes('if (!add.length || !live || hot) return;'), '«Çox baxılan»da təzə video sıranın arasına girmir');
+  // Pəncərə yazıcının sayları yenilədiyi müddətdir: X sayları yalnız son 2 günün videoları üçün təzələnir.
+  assert.ok(src.includes('const TOP_MS = 48 * 3600e3;'), '48 saat');
+  const xy = fs.readFileSync(path.join(root, '.github/scripts/x_yazici.py'), 'utf8').replace(/\r\n/g, '\n');
+  const at = xy.indexOf('def refresh(reels, now'), refresh = xy.slice(at, xy.indexOf('\ndef ', at + 1));
+  assert.ok(at > 0 && refresh.includes('floor = now - datetime.timedelta(days=2)'), 'x_yazici.refresh: saylar son 2 gün üçün yenilənir — «Çox baxılan» pəncərəsi bundan uzun olmasın');
+  // İlk açılış: düymə, sıra və say yalnız tənbəl moduldadır.
+  for (const f of ['assets/app.js', 'assets/app.min.js', 'assets/app.css', 'index.html', 'sw.js']) {
+    assert.ok(!fs.readFileSync(path.join(root, f), 'utf8').includes('Çox baxılan'), `${f}: ilk açılışa bayt düşmür`);
+  }
+  const pre = (fs.readFileSync(path.join(root, 'sw.js'), 'utf8').match(/cache\.addAll\(\[([^\]]*)\]/) || [])[1] || '';
+  assert.ok(pre.includes('./assets/app.min.js') && !pre.includes('lent.js'), 'lent.js service worker-in ilkin keşində yoxdur');
+  const budce = JSON.parse(fs.readFileSync(path.join(root, 'tests/budce.json'), 'utf8'));
+  assert.ok(Buffer.byteLength(src) < budce.kod['tenbel.js'], 'tənbəl modul büdcəsi (tests/budce.json)');
+});
