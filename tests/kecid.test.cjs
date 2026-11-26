@@ -235,3 +235,48 @@ test("keçid: on opening the minute feed is fetched alongside the full feed and 
   assert.ok(news.includes("if (!force && (!S.data || S.partial)) S.latestPre"), "yalnız açılışda");
   assert.ok(APP.includes("const pre = !force && await S.latestPre; S.latestPre = null;") && APP.includes("const {r, d} = pre || await latestJSON(force);"), "ikinci sorğu yoxdur");
 });
+
+test("keçid: new «Son xəbərlər» cards are drawn only after their pictures have arrived (at most 1,5 s); on opening the minute feed is applied as soon as it comes, not after the full feed (owner 2026-11-26: «son xəbər şəkilləri anında yüklənmir»)", async () => {
+  const decodes = [], timers = [];
+  class Img { set src(u) { this.u = u; } decode() { return new Promise(ok => decodes.push({ u: this.u, ok })); } }
+  const ctx = app({ phone: true, timers, extra: { Image: Img } });
+  const at = m => `2026-11-26T14:${String(m).padStart(2, "0")}:00+00:00`;
+  const row = (id, m) => ({ id, title: "Xəbər " + id, summary: "", category: "gundem", lang: "az", source: "APA", sourceUrl: `https://apa.az/${id}`, imageUrl: `https://apa.az/${id}.jpg`, publishedAt: at(m) });
+  const tick = async (n = 30) => { for (let i = 0; i < n; i++) await new Promise(r => setImmediate(r)); };
+  let draws = 0;
+  ctx.draw = () => { draws++; };
+  ctx.old = [row("a", 10), row("b", 11)];
+  ctx.feed = { articles: [row("c", 20), row("d", 21), row("a", 10)] };
+  run(ctx, 'requestRender = () => draw(); renderTicker = () => {}; S.lang = "az"; location.hash = "#/"; S.rawNews = old; S.rawMeta = {}; publishNews();'
+    + 'latestJSON = async () => ({ r: { headers: { get: () => null } }, d: feed })');
+  const name = x => decodeURIComponent(x.u).match(/apa\.az\/(\w+)\.jpg/)[1];
+  // 1) Şəkillər gəlməyib: lent yenidir, ekran gözləyir.
+  let done = run(ctx, "loadLatest()");
+  await tick();
+  assert.deepEqual(decodes.map(name).sort(), ["c", "d"], "yalnız yeni kartların şəkilləri istənir");
+  assert.ok(run(ctx, 'S.data.articles.some(a => a.id === "c")'), "lent artıq yenidir");
+  assert.equal(draws, 0, "şəkilləri gəlməmiş kartlar çəkilmir");
+  decodes.forEach(x => x.ok()); await done;
+  assert.equal(draws, 1, "şəkillər gəldi: bir çəkiliş");
+  // 2) Şəkil gəlmir (wsrv.nl gecikir): ən çox 1,5 s gözlənilir.
+  decodes.length = 0; timers.length = 0;
+  ctx.feed = { articles: [row("e", 30), ...ctx.feed.articles] };
+  done = run(ctx, "loadLatest()");
+  await tick();
+  assert.deepEqual(decodes.map(name), ["e"]);
+  const cap = timers.find(([, ms]) => ms === 1500);
+  assert.ok(cap && draws === 1, "1,5 s-lik hədd qoyulub, hələ çəkilmir");
+  cap[0](); await done;
+  assert.equal(draws, 2, "hədd dolanda şəkilsiz də çəkilir (xəbər gecikmir — qırmızı xətt 1)");
+  // 3) Açılışda (tam lent hələ yoxdur, S.partial): first.json-da olmayan köhnə sətirlər «N yeni xəbər» sayına düşmür.
+  ctx.feed = { articles: [row("f", 40), row("kohne", 1), ...ctx.feed.articles] };
+  run(ctx, "S.partial = true; readerBusy = () => true; S.pendingNew = 0");
+  done = run(ctx, "loadLatest()"); await tick(); decodes.forEach(x => x.ok()); timers.forEach(([f, ms]) => ms === 1500 && f()); await done;
+  assert.equal(run(ctx, "(S.pendingNew || []).length"), 0, "açılışda say yoxdur");
+  assert.ok(run(ctx, 'S.data.articles.some(a => a.id === "f")'), "lentə yenə düşür");
+  // 4) Açılış: dəqiqəlik lent gələn kimi tətbiq olunur; tam lentdən sonra ikinci sorğu yoxdur.
+  const news = APP.slice(APP.indexOf("async function loadNews("), APP.indexOf("async function loadNews(") + 4000);
+  assert.ok(news.includes("if (!force && (!S.data || S.partial)) S.latestPre = latestJSON().then(got => (loadLatest(), got)).catch(() => null);"), "gələn kimi (tam lenti gözləmir)");
+  assert.ok(APP.includes("\nconst newsReady = loadNews().then(() => S.latestAt || loadLatest());"), "tam lentdən sonra yalnız hələ gəlməyibsə");
+  assert.ok(/const warm = warmLatest\(\{ articles: fresh \}\);[\s\S]{0,700}?await warm;\s*requestRender\(\);/.test(APP.slice(APP.indexOf("async function loadLatest("))), "çəkiliş şəkillərdən sonra");
+});
