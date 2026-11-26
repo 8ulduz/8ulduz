@@ -214,7 +214,7 @@ Sonra: «dünya saytlarından lazım olan tipli videoları götürüb tərcümə
 - yoxdursa Pixabay və Pexels klipləri və «Video arxivi».
 
 Dəyişməyənlər:
-- **X videoları: YouTube və TikTok.** Sahib 2026-11-26-da X-i də qoşdu («X qoş… həm sayt həm də sos şəbəkələrdə "çox baxılan" videolar verilməsini təmin et»): X videoları Facebook və Instagram-a «Çox baxılan» rubrikası ilə gedir (aşağıda). YouTube və TikTok yükləyiciləri X videosunu əvvəlki kimi qəbul etmir (`youtube.cjs`, `tiktok.cjs` `foreignReason`: «xəbər video/sosial şəbəkədəndir»): YouTube-da üç xəbərdarlıq kanalı bağlayır, TikTok tətbiqi yoxlamadadır. Açmaq sahibin ayrıca qərarıdır.
+- **X videoları.** Sahib 2026-11-26-da X-i də qoşdu («X qoş… həm sayt həm də sos şəbəkələrdə "çox baxılan" videolar verilməsini təmin et»; YouTube və TikTok üçün: «Bəli, hamısına»). X-in ən çox baxılan videolarından hazırlanan «Çox baxılan» montajı bütün şəbəkələrə gedir (aşağıda). X-in xam videosu (montajsız fayl) yükləyicilərdə əvvəlki kimi qəbul edilmir. YouTube-da üç xəbərdarlıq kanalı bağlayır və TikTok tətbiqi yoxlamadadır — risk sahibə deyilib; yalnız X-i söndürmək: `X_VIDEO=0`.
 - **Liqaların oyun kadrı və oyun treylerləri** (X-in «idman» və «oyun» qrupları) və böyük yayımçıların hesabları (Fox News, BBC, NatGeo, NBA, WWE və s.; profil `x.qadagan`) sosial videoya götürülmür.
 - **Yayım kadrı** (oyunun qolları və icmalı, film, klip, serial) götürülmür: başlıqdan tanınır (profil `lent.yayim`). Bunları YouTube Content ID və Meta Rights Manager avtomatik tanıyır, hesaba xəbərdarlıq gəlir. Açmaq: Variables `MENBE_YAYIM=1`.
 - **YouTube, Instagram, TikTok, Telegram pəncərəsi** olan səhifədən video götürülmür: orada fayl yoxdur, platformanın qorumasını aşmırıq. Belə xəbər bank klipləri ilə gedir.

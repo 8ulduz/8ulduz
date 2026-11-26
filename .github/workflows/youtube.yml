@@ -2,7 +2,7 @@ name: YouTube Shorts
 # Öz hazırladığımız video xəbərlər 8ulduz-un YouTube kanalına (2026-11-22): məqsəd Google axtarışının video nəticələri.
 # Qaydalar: .github/scripts/youtube.cjs, qurulum: docs/youtube.md. Xəbər axınından (update.yml) ayrıdır: main-ə yazmır, sayta heç nə
 # əlavə etmir; düşsə də lent yenilənir. Açar yoxdursa iş sakitcə ötürür. Video faylını bu iş hazırlamır — video modulu
-# (docs/youtube.md «Video modulu ilə qoşulma»). X videoları (data/reels.json) buraya heç vaxt gəlmir.
+# (docs/youtube.md «Video modulu ilə qoşulma»). X-in xam videosu (data/reels.json) buraya gəlmir; «Çox baxılan» montajı (kind: x, 2026-11-26) gəlir.
 
 on:
   # Video modulu (sosial-video.yml «youtube» işi) videonu «video-xeber» artefaktı kimi yükləyib bu işi çağırır.

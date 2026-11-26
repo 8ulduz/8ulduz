@@ -332,10 +332,18 @@ test("qırmızı xətt 2: sources outside the feed list (world video, X) pass th
   // Qayda hər yerdə növə görə seçilir: seçim (sosial-video.cjs), montaj (video-xeber.cjs), YouTube və TikTok (yalnız dünya videosu).
   assert.match(read(".github/scripts/sosial-video.cjs"), /xarici: a => app\.xariciPozur\(a\)/);
   assert.match(read(".github/scripts/video-xeber.cjs"), /x\?\.kind === "dunya" \|\| x\?\.kind === "x" \? app\.xariciPozur\(x\) : app\.policyViolation\(x\)/);
-  for (const f of ["youtube.cjs", "tiktok.cjs"]) {
+  // YouTube və TikTok (sahib, 2026-11-26: «Bəli, hamısına»): bizim montajımız olan X videosu (kind: "x") gedir; X-in xam videosu,
+  // nişansız fayl və növsüz x.com xəbəri əvvəlki kimi getmir.
+  const nisanli = Buffer.concat([mp4(4000), Buffer.from("comment=8ulduz.az")]);
+  for (const [f, U] of [["youtube.cjs", require("../.github/scripts/youtube.cjs")], ["tiktok.cjs", require("../.github/scripts/tiktok.cjs")]]) {
     const s = read(`.github/scripts/${f}`);
-    assert.match(s, /a\?\.kind === "dunya" \? app\.xariciPozur\(a\) : app\.policyViolation\(a\)/, f);
-    assert.match(s, /xəbər video\/sosial şəbəkədəndir/, `${f}: X videosu (sourceUrl x.com) YouTube və TikTok-a getmir — sahibin ayrıca qərarı gözlənilir`);
+    assert.match(s, /a\?\.kind === "dunya" \|\| a\?\.kind === "x" \? app\.xariciPozur\(a\) : app\.policyViolation\(a\)/, f);
+    const m = { id: "ab12".padEnd(16, "0"), own: true, kind: "x", title: "T", sourceUrl: "https://x.com/TheFigen_/status/100001" };
+    assert.equal(U.foreignReason(m, nisanli, new Set(["100001"])), "", `${f}: «Çox baxılan» montajı`);
+    assert.match(U.foreignReason({ ...m, kind: undefined }, nisanli), /sosial şəbəkədəndir/, `${f}: növsüz x.com xəbəri`);
+    assert.match(U.foreignReason({ ...m, id: "100001" }, nisanli, new Set(["100001"])), /X videosudur/, `${f}: xam X videosu`);
+    assert.match(U.foreignReason(m, mp4(4000)), /nişanı yoxdur/, `${f}: bizim montaj deyil`);
+    assert.match(U.foreignReason({ ...m, own: false }, nisanli), /own: true yoxdur/, f);
   }
 });
 
