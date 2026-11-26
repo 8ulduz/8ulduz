@@ -345,6 +345,26 @@ class CraftSourcesTest(unittest.TestCase):
             seen.update(xy.videolent_slice(t0 + datetime.timedelta(minutes=20 * k)))
         self.assertTrue({"GagaHaberTR", "HaberKupur", "tirajnews", "thshaber", "Parasizceo"} <= seen, "4 saatda hər biri yoxlanır")
 
+    def test_most_watched_directions_from_instagram_applied_to_x(self):
+        """Sahib 2026-11-26: «instagramda müəyyən etdiyimiz çox baxılan istiqamətlərini X ə tətbiq et» (docs/x-yazici.md, 2026-11-26)."""
+        q = xy.xm.VIDEOLENT_QRUPLAR
+        added = {"xeber": ("bosunatiklama", "darkwebhaber", "ntv", "BNONews", "ScooterCasterNY", "TheInsiderPaper", "ABC"),
+                 "tebiet": ("HavaForum", "US_Stormwatch", "RyanHallYall", "MaxVelocityWX"), "kino": ("TMZ", "PopBase", "PopCrave"),
+                 "maraqli": ("FearedBuck",), "texnika": ("SawyerMerritt",)}
+        for m, hs in added.items():
+            for h in hs:
+                self.assertIn(h, q[m])
+                self.assertEqual(xy.xm.movzu(h), m)
+                self.assertNotIn(h, xy.xm.HESABLAR, "yalnız Videolent: xəbər yazılmır")
+        self.assertTrue(xy.xm.onde("TMZ") and xy.xm.onde("SawyerMerritt"), "median 223 və 200 min baxış")
+        part = xy.videolent_slice(datetime.datetime(2026, 11, 26, tzinfo=datetime.timezone.utc))
+        self.assertTrue({"TMZ", "SawyerMerritt"} <= set(part))
+        self.assertLessEqual(len(part), xy.VL_PER_RUN)
+        # treyler, tok-şou, oyun yayımı, dava kadrı, uydurma heyvan hekayəsi: rəqəmlə keçsə də qoşulmayıb
+        for h in ("DiscussingFilm", "FilmUpdates", "CultureCrave", "FallonTonight", "etnow", "FutbolArena", "Gabriele_Corno",
+                  "NYScanner", "ViralNewsNYC", "DramaAlert"):
+            self.assertNotIn(h, xy.xm.ADLAR, h)
+
     def test_ai_fakes_and_unverified_sensations_are_never_picked(self):
         """Sahib 2026-11-24: göndərdiyi 20 videonun 7-si süni intellekt işi və ya doğrulanmamış iddia idi."""
         for p in (xy.PROMPT.format(n=3, items="- x"), xy.REELS_PROMPT.format(n=12, items="- x")):
