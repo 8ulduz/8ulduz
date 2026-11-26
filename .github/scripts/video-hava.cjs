@@ -580,7 +580,7 @@ async function render(p, out, opt = {}) {
     // video-xeber.cjs clipFilter «doldurma» rejimi). Xəbər videosundakı «ortada kəskin zolaq + bulanıq fon» burada kartların arxasında qalır,
     // zolağın sərt kənarı görünürdü (2026-11-23 ilk önizləmə).
     const fill = clips.map(({ file, dur }) => ({ file, dur }));
-    V.run("ffmpeg", V.ffmpegArgs({ tl, assFile: "video.ass", logo: path.join(ROOT, V.LOGO.file), voiceFile: v?.file, out, clips: fill, pencere: false }), { cwd: dir, timeout: 900000 });
+    V.run("ffmpeg", V.ffmpegArgs({ tl, assFile: "video.ass", logo: path.join(ROOT, V.LOGO.file), voiceFile: v?.file, out, clips: fill }), { cwd: dir, timeout: 900000 });
     const cover_s = 1.5, base = out.replace(/\.mp4$/i, "");
     V.run("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", "-ss", String(cover_s), "-i", out, "-frames:v", "1", "-q:v", "3", `${base}.jpg`]);
     const mid = ([s, e]) => Math.round((s + e) * 50) / 100, sc = scenes(p, tl);

@@ -6,7 +6,7 @@ Sahibin göstərişi (2026-11-22): «Facebook-da video xəbərlər verilsin. Bun
 
 ## Qısa
 
-- Ən vacib xəbərdən (social.cjs-in seçimi: son 3 saatda 4+ mənbə və ya Prezident bölməsi) **öz hazırladığımız** şaquli video düzəlir: brend fonu, yuxarıda başdan sona loqo və «8ulduz.az», böyük başlıq, izah altyazı kimi, istəyə görə Azərbaycan səsi (SARA), görüntü yuxarıda öz pəncərəsində (üstündə yazı yoxdur), sonda abunə çağırışı (vəd və şəbəkənin öz düyməsini göstərən ipucu) və «Ətraflı: 8ulduz.az».
+- Ən vacib xəbərdən (social.cjs-in seçimi: son 3 saatda 4+ mənbə və ya Prezident bölməsi) **öz hazırladığımız** şaquli video düzəlir: brend fonu, yuxarıda başdan sona loqo və «8ulduz.az», böyük başlıq, izah altyazı kimi, istəyə görə Azərbaycan səsi (SARA), görüntü bütün kadrda, yazı aşağıdakı blokda (Baku WS formatı, öz rənglərimizlə), sonda abunə çağırışı (vəd və şəbəkənin öz düyməsini göstərən ipucu) və «Ətraflı: 8ulduz.az».
 - Video Facebook səhifəsinə Reels, Instagram-a Reels kimi gedir. Facebook mətnində saytdakı həmin xəbərin keçidi var, Instagram-da «Ətraflı: 8ulduz.az (keçid profildədir)». Hər mətndə keçid sətrindən sonra abunə çağırışı var ([«Abunə çağırışı»](#abunə-çağırışı)).
 - 30 dəqiqədən bir (hər yoxlama pəncərəsi), Bakı vaxtı ilə 08:00–23:59 arası, gündə ən çox 30 video (sahib, 2026-11-24: «öz video sayımızı 10 dəfə artırmaq lazımdır»; 10 qat — 80 — Facebook-un API həddini, 24 saatda 30 Reels, keçir, ona görə hər platforma öz həddinə qədər; əvvəl 2 saatdan bir, gündə 8). Hamısı GitHub Actions-da işləyir, kompüterdən asılı deyil.
 - Görüntü (sahibin qərarı, 2026-11-26): xəbərin mənbə saytındakı öz videosu, mənbə göstərilməklə; yoxdursa video bankının klipləri. Dünya saytlarının videoları Azərbaycan dilində tərcümə ilə verilir. X-in ən çox baxılan videoları «Çox baxılan» rubrikası ilə gedir. Xəbərin fotosu və musiqi videoya düşmür (aşağıda «Görüntünün mənbəyi»).
@@ -173,13 +173,20 @@ Sahibin sözü: «Videolar tam olaraq biabırçılıqdır. Belə video olmaz. X�
 - **Hansı xəbər:** protokol xəbərindən (görüş, qəbul, telefon danışığı, təbrik, başsağlığı; Prezident bölməsi) video hazırlanmır — ümumi kadr
   (yad əl sıxma, yad saray) həmin adamları göstərirmiş kimi görünər. Gemini də hər xəbəri yoxlayır («uygun»: false — növbəti xəbər).
   Axtarış ifadəsində insanların xəbərdəki hərəkəti (görüş, imza, çıxış) və adsız bayraqlar yoxdur; inisiallar («Cey. Di.») tam yazılır.
-- **Dizayn — pəncərə** (sahib, 2026-11-26: «videolarda yazı və logo Baku WS bənzəri olsun eynisi yox. hazırda videonun üstünü örtür»). Görüntü brend zolağının altında tam enində 16:9 pəncərədədir (y 440–1048), üstündə yazı və forma yoxdur.
-  - Bölmə nişanı zolağın sağında. Pəncərənin alt kənarında narıncı gediş xətti.
-  - Altdakı tünd paneldə tarix, başlıq (64→52 px, ən çox 180 px), sözbəsöz altyazı (50 px, qutusuz, ən çox 2 sətir) və «Mənbə · Görüntü».
-  - Şaquli və kvadrata yaxın görüntü (telefon çəkilişi) kəsilmir: bütöv kadr ortada, yanlarda onun bulanıq nüsxəsi.
-  - Baku WS-dən fərqi: 9:16 (onlarda 4:5), loqo zolağı, gediş xətti, sözbəsöz altyazı və səs.
-  - Sonda tündləşən ekranda vəd, abunə ipucu və «Ətraflı: 8ulduz.az».
-  - 2026-11-24 – 2026-11-26 arası görüntü bütün kadrı tuturdu və yazı onun üstündə idi (o vaxtkı qərar: «video tam kart boyu olmalıdır»).
+- **Dizayn — aşağı blok** (sahib, 2026-11-26: «videolarda yazı və logo Baku WS bənzəri olsun eynisi yox. hazırda videonun üstünü örtür»; həmin gün Baku WS-in üç Reels şəkli ilə: «çox sadə edibsən … rənglər, loqo bizə məxsus olsun, lakin format eyni bu şəkildəkilər kimi olsun, azca fərqlilik qat»).
+  - Görüntü bütün kadrı tutur və yuxarısı açıqdır: brend zolağı yoxdur. Üfüqi klipdən 9:16 hissə hərəkət olan yerdən kəsilir (`focusX`).
+  - Aşağıda görüntü yumşaq tünd göy keçidlə tündləşir (16 qat, hər biri ~14%).
+  - Keçidin üstündəki blok (`blok()`, aşağıdan qurulur), yuxarıdan aşağı:
+    - loqo (56 px), «.az» və bölmə nişanı;
+    - başlıq: 68→52 px, ən çox 3 sətir; dırnaqdakı ifadə və rəqəm yanındakı sözlə narıncıdır (`vurgu`);
+    - sözbəsöz altyazı: 46 px, qutusuz, ən çox 2 sətir;
+    - narıncı künc xətti: solda yuxarıdan enir, dairəvi küncdən sağa dönür (`kuncXett`);
+    - xəttin altında tarix və «Mənbə · Görüntü».
+  - Xəttin üfüqi hissəsi gediş xəttidir: video boyu sağa dolur.
+  - Hamısı y 1480-ə qədərdir (tam ekranda aşağıdakı Reels yazısı); mətn x ≤ 1008-dir (sağdakı düymələr).
+  - Baku WS-dən fərqi: rəng (onlarda qara və qızılı), dolan künc xətti, bölmə nişanı, sözbəsöz altyazı və səs.
+  - Sonda tündləşən ekranda vəd, abunə ipucu və «Ətraflı: 8ulduz.az»; loqo şəkli sonluqda gizlənir.
+  - Əvvəlki dizaynlar: 2026-11-24-dən görüntü bütün kadrda idi, üstündə yuxarı brend zolağı, yarımşəffaf başlıq zolağı və qutulu altyazı vardı. Bu yazılar videonun ortasını örtürdü.
 
 ### Montaj, altyazı və etiketlər (sahib, 2026-11-23: «tam professional kimi işlə»)
 
@@ -300,7 +307,7 @@ Ona görə X videoları yalnız saytda (Videolent) oynayır. Video X-in öz serv
 2. **Fakt** Vikipediyanın API-sindən (`extracts`, düz mətn) gəlir: məqalənin ilk 5000 simvolu, «See also»dan sonrası atılır.
 3. **Mətn:** Gemini Azərbaycan dilində başlıq və 5–7 cümləlik diktor mətni yazır. Başlıq mövzunun ən heyrətamiz faktıdır. Yoxlama xəbər videosu ilə eynidir (`checkText`): uzunluq, cümlə sayı, kiril, nida, sual və nisbi gün sözü olmamalıdır. Mətndə və başlıqda **hər rəqəm məqalədə olmalıdır**, mətn saytın qaydasından (`policyViolation`) keçməlidir. Keçməsə növbəti mövzu götürülür (bir pəncərədə ən çox 3).
 4. **Görüntü** mövzunun öz adı ilə axtarılır (`goruntu`), xəbər videosundakı uyğunluq, yad yer və montaj redaktoru yoxlamaları ilə. Ümumi səhnə yoxdur (`EHTIYAT.maraqli = []`): gepard haqqında videoda şəhər görünmür. Uyğun klip 2-dən azdırsa növbəti mövzu götürülür.
-5. **Montaj** xəbər videosu ilə eynidir (`video-xeber.cjs`): görüntü pəncərədə, «BİLİRDİNİZMİ?» nişanı (başlıq faktın özüdür, nişan onu suala çevirir), altyazı, «Mənbə: Vikipediya · Görüntü: Pixabay». `video.json`-da `kind: "maraqli"` və `url: https://8ulduz.az/` olur: YouTube və TikTok yükləyicisi bunu xəbər kimi yox, öz növü ilə yükləyir.
+5. **Montaj** xəbər videosu ilə eynidir (`video-xeber.cjs`): tam boy kadr, aşağı blok, «BİLİRDİNİZMİ?» nişanı (başlıq faktın özüdür, nişan onu suala çevirir), altyazı, «Mənbə: Vikipediya · Görüntü: Pixabay». `video.json`-da `kind: "maraqli"` və `url: https://8ulduz.az/` olur: YouTube və TikTok yükləyicisi bunu xəbər kimi yox, öz növü ilə yükləyir.
 
 **Tezlik** (`sosial-video.cjs` `maraqliDue`):
 - Son maraqlı videodan **MARAQLI_ARA_MIN** (60) dəqiqə keçibsə və 24 saatda **MARAQLI_GUNDE** (10) dolmayıbsa, pəncərədə əvvəl maraqlı video hazırlanır. Alınmasa xəbər videosu gedir.
@@ -503,7 +510,7 @@ Tapşırıq: öz gündəlik hava videomuz, ən peşəkar səviyyədə. Kod: `.gi
 - Xəbərdarlıq kartı (varsa).
 - İki səhifədə 8 bölgə şəhəri: Sumqayıt, Gəncə, Mingəçevir, Şəki | Quba, Lənkəran, Naxçıvan, Şuşa. Hər kartda ikon, gündüz və gecə temperaturu var.
 
-Yuxarıda xəbər videosundakı brend zolağı (loqo və «.az», gediş xətti) qalır. Altda «Hava: Open-Meteo, model proqnozu · Görüntü: Pixabay», sonda vəd («Hava proqnozu hər gün»), abunə ipucu və «Bütün şəhərlər: 8ulduz.az/bolme/hava». Hava videosunda görüntü əvvəlki kimi bütün kadrdadır (`ffmpegArgs` `pencere: false`), çünki orada əsas şey proqnozun kartlarıdır. Bütün yazılar y 300…1480 arasındadır (lentin 4:5 kəsiyi və Reels düymələri).
+Yuxarıda xəbər videosundakı brend zolağı (loqo və «.az», gediş xətti) qalır. Altda «Hava: Open-Meteo, model proqnozu · Görüntü: Pixabay», sonda vəd («Hava proqnozu hər gün»), abunə ipucu və «Bütün şəhərlər: 8ulduz.az/bolme/hava». Hava videosunun planı dəyişmir: orada əsas şey proqnozun kartlarıdır. Bütün yazılar y 300…1480 arasındadır (lentin 4:5 kəsiyi və Reels düymələri).
 
 **Məlumat və dəqiqlik (qırmızı xətt).**
 - Bir sorğu gedir: Open-Meteo `forecast`, 9 nöqtə, `daily`, `wind_speed_unit=ms`, `timezone=Asia/Baku`. Şəhərlər və koordinatlar saytın öz siyahısındandır (`assets/app.js` `CITIES`, `topics.cjs` `loadApp`). Kod onları təkrar yazmır.
