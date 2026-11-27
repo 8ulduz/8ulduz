@@ -33,6 +33,8 @@ STUCK_AFTER="${STUCK_AFTER:-240}"        # dövrə bu qədər irəliləməsə i�
 PUSH_FAILS_MAX="${PUSH_FAILS_MAX:-15}"   # GitHub qısa kəsilsə iş gözləyir; bu qədər dövrə ardıcıl alınmasa yeni iş
 BRANCH="${BRANCH:-main}"
 LIVE_BRANCH="${LIVE_BRANCH:-live}"
+# X növbəsi (oz_x.json) main-də deyil, bu budaqdadır (sahib 2026-11-27; docs/x-yazici.md «Növbə budağı»). Yazıcı yalnız oraya yazır.
+NOVBE_BRANCH="${NOVBE_BRANCH:-x-novbe}"
 RUN_ID="${GITHUB_RUN_ID:-0}"
 GH="${GH:-gh}"
 REPO_DIR="${REPO_DIR:-$PWD}"
@@ -43,6 +45,7 @@ CUR="$(mktemp -d)"       # cari kod
 LKG="$REPO_DIR/.lkg"     # son uğurla işləmiş kod (actions/cache)
 GOOD="$(mktemp -d)"      # son sağlam məlumat nüsxəsi
 STATE="$(mktemp -d)"
+NOVBE="$STATE/novbe"     # X növbəsinin son oxunan nüsxəsi (pull_reel_src); kod qovluğuna apply_queue qoyur
 SLOTS="$STATE/m"         # son dəqiqələrin faylları
 KEEP_SLOTS=5
 export LATEST_LANG_FILES=1   # updater.py status.json-a "langs" yazır: bu pipeline dil fayllarını (latest.az.json və s.) live-ə göndərir
@@ -88,9 +91,10 @@ gh_t() { timeout -k 5 15 "$GH" "$@"; }
 # Xəbər lentini oxuyan proses repo açarını görməsin.
 py_t() { env -u GH_TOKEN -u GITHUB_TOKEN timeout -k 5 "$@"; }
 
-copy_code() { # $1 mənbə, $2 hədəf
+copy_code() { # $1 mənbə, $2 hədəf, $3 köçürülməyən fayl (boşdursa hamısı köçür)
   local f
   for f in $CODE_FILES; do
+    [ -n "${3:-}" ] && [ "$f" = "$3" ] && continue
     [ -f "$1/$f" ] || continue
     mkdir -p "$2/$(dirname "$f")"
     cp "$1/$f" "$2/$f"
@@ -388,17 +392,46 @@ tixac_loop() {
 # x-yazici.yml-in «20 dəqiqədən bir»ini 2026-11-19 17:26 – 11-20 03:57 arası heç işlətmədi, lent 11 saat dayandı. İşi bu döngü
 # başladır: hər 20 dəqiqəlik pəncərədə (UTC dəqiqə 5, 25, 45-dən sonra) bir dəfə; əvvəlki iş hələ gedirsə və ya növbədədirsə yox.
 # Yalnız dispatch: açar və X sorğusu bu işə gəlmir, xəbər dövrəsində şəbəkə sorğusu yoxdur; cron ehtiyat qalır.
-# Yazıcının main-ə göndərdiyi X növbə faylı (kod siyahısındakı *_x.json) 10 dəqiqəlik main yayımını gözləməsin: fayl API ilə gəlir (git deyil: publish_main ilə
-# toqquşmur), JSON yoxlanır, əsas döngü onu növbəti dövrənin əvvəlində koda qoyur (yerli fayl işi, şəbəkə yoxdur).
+#
+# X növbəsi (kod siyahısındakı *_x.json, yəni oz_x.json). Sahib, 2026-11-27 («bu təklifini daha dərindən araşdır … nələr etmək olar
+# kodda? … tap və düzəlt»): yazıcı növbəni main-ə yox, yalnız NOVBE_BRANCH budağına yazır. main-ə hər yazı ayrıca Pages yığımı
+# (37–58 s), Fastly CDN-in təmizlənməsi və bütün faylların yeni ETag-ı idi: 2026-11-26-da (UTC) main-ə 87 belə yazı (bot yazılarının 43%-i).
+# Növbə API ilə gəlir (git deyil: publish_main ilə toqquşmur), JSON yoxlanır, əsas döngü onu növbəti dövrənin əvvəlində koda qoyur
+# (apply_queue: yerli fayl işi, şəbəkə yoxdur). main-in oz_x.json-u keçid anında donur (docs/x-yazici.md «Növbə budağı»):
+# - budaq yoxdursa (HTTP 404; yazıcının ilk işi onu main-in nüsxəsi ilə yaradır) main oxunur;
+# - bu işdə budaq bir dəfə oxunubsa (novbe-budaq) main heç vaxt mənbə deyil: şəbəkə xətası, vaxt bitməsi və ya budağın 404-ü
+#   son nüsxəni saxlayır, main-in köhnə nüsxəsinə keçmir; main yazısından sonrakı copy_code da onu kod qovluğuna qaytarmır.
+novbe_file() {
+  local f
+  for f in $CODE_FILES; do case "$f" in *_x.json) printf '%s' "$f" ;; esac; done
+}
+
 pull_reel_src() {
-  local tmp="$STATE/reel-src.tmp" src="" f
-  for f in $CODE_FILES; do case "$f" in *_x.json) src="$f" ;; esac; done
+  local tmp="$STATE/reel-src.tmp" err="$STATE/reel-src.err" src ref="refs/heads/$NOVBE_BRANCH"
+  src="$(novbe_file)"
   [ -n "$src" ] || return 0
-  gh_t api -H "Accept: application/vnd.github.raw" "repos/${GITHUB_REPOSITORY:-8ulduz/8ulduz}/contents/$src?ref=main" > "$tmp" 2>/dev/null \
-    && py_t 10 "$PY" -c 'import json,sys; d=json.load(open(sys.argv[1], encoding="utf-8")); assert isinstance(d.get("reels", []), list)' "$tmp" \
-    && ! cmp -s "$tmp" "$CUR/$src" && printf '%s' "$src" > "$STATE/reel-src.name" && mv -f "$tmp" "$STATE/reel-src.new"
-  rm -f "$tmp"
+  if ! gh_t api -H "Accept: application/vnd.github.raw" "repos/${GITHUB_REPOSITORY:-8ulduz/8ulduz}/contents/$src?ref=$ref" > "$tmp" 2> "$err"; then
+    if [ -e "$STATE/novbe-budaq" ] || ! grep -q "(HTTP 404)" "$err"; then rm -f "$tmp" "$err"; return 1; fi
+    ref="refs/heads/main"
+    gh_t api -H "Accept: application/vnd.github.raw" "repos/${GITHUB_REPOSITORY:-8ulduz/8ulduz}/contents/$src?ref=$ref" > "$tmp" 2>/dev/null \
+      || { rm -f "$tmp" "$err"; return 1; }
+  fi
+  rm -f "$err"
+  py_t 10 "$PY" -c 'import json,sys; d=json.load(open(sys.argv[1], encoding="utf-8")); assert d.get("v") == 1 and isinstance(d.get("items", []), list) and isinstance(d.get("reels", []), list)' "$tmp" \
+    || { rm -f "$tmp"; return 1; }
+  [ "$ref" = "refs/heads/main" ] || touch "$STATE/novbe-budaq"
+  mkdir -p "$NOVBE"
+  if cmp -s "$tmp" "$NOVBE/$src"; then rm -f "$tmp"; else mv -f "$tmp" "$NOVBE/$src" && touch "$STATE/novbe.yeni"; fi
   return 0
+}
+
+# Son oxunan növbə kod qovluğuna (oz_x.py onu öz yanından oxuyur). Atomik: yavaş dövrə yarımçıq fayl oxumur (boş növbə = boş Videolent).
+apply_queue() {
+  local src
+  src="$(novbe_file)"
+  [ -n "$src" ] && [ -f "$NOVBE/$src" ] || return 0
+  cmp -s "$NOVBE/$src" "$CUR/$src" && return 0
+  cp "$NOVBE/$src" "$CUR/$src.yeni" && mv -f "$CUR/$src.yeni" "$CUR/$src"
 }
 
 xyazici_loop() {
@@ -409,8 +442,8 @@ xyazici_loop() {
     if [ "$slot" != "$last" ] || [ "$was" = 1 ]; then
       busy="$(gh_t run list --workflow x-yazici.yml --limit 5 --json status --jq '[.[] | select(.status != "completed")] | length' 2>/dev/null || echo "")"
       if [ "$busy" = 0 ]; then
-        [ "$was" = 1 ] && pull_reel_src
-        was=0
+        # növbə alınmasa (şəbəkə) was=1 qalır: növbəti dəqiqə yenə
+        if [ "$was" = 1 ] && pull_reel_src; then was=0; fi
         if [ "$slot" != "$last" ]; then
           gh_t workflow run x-yazici.yml --ref main >/dev/null 2>&1 && { last=$slot; was=1; }
         fi
@@ -507,6 +540,11 @@ done
 own_rows_live 0   # götürülmüş main-dəki öz sətirlərin səhifələri artıq saytdadır
 guard_outputs
 seed_slots
+# X növbəsi: yuxarıdakı copy_code main-in donmuş oz_x.json-unu qoydu. Yavaş dövrə onu oxumazdan əvvəl x-novbe-dəki nüsxə gəlir
+# (bir-iki sorğu, hər biri ən çox 15 s; alınmasa xyazici_loop dəqiqədə bir yenə soruşur).
+pull_reel_src || { sleep 5; pull_reel_src; }
+rm -f "$STATE/novbe.yeni"
+apply_queue
 rm -f "$LKG/.yeni"
 
 slow_loop &
@@ -539,9 +577,10 @@ while :; do
   touch "$STATE/heartbeat"
   if [ -e "$STATE/code-sync" ]; then
     rm -f "$STATE/code-sync"
-    copy_code "$REPO_DIR" "$CUR"
+    # main-in oz_x.json-u donub: x-novbe oxunubsa main-in nüsxəsi kod qovluğuna köçürülmür (növbəni apply_queue qoyur)
+    if [ -e "$STATE/novbe-budaq" ]; then copy_code "$REPO_DIR" "$CUR" "$(novbe_file)"; else copy_code "$REPO_DIR" "$CUR"; fi
   fi
-  [ -f "$STATE/reel-src.new" ] && mv -f "$STATE/reel-src.new" "$CUR/$(cat "$STATE/reel-src.name")"   # xyazici_loop: Videolentin təzə videoları
+  if [ -e "$STATE/novbe.yeni" ]; then rm -f "$STATE/novbe.yeni"; apply_queue; fi   # xyazici_loop: Videolentin təzə videoları (yerli fayl)
   run_py --fast "$FAST_LIMIT" || echo "sürətli dövrə xəta verdi"
   touch "$STATE/heartbeat"
   guard_outputs
