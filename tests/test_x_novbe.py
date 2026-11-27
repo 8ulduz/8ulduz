@@ -166,11 +166,12 @@ class WorkflowStepsTest(unittest.TestCase):
         ws, temp = self.job()
         self.ok(self.run_step(self.READ, ws, temp))
         seed = self.rev("refs/heads/x-novbe")
-        (ws / "oz_x.json").write_text('{"v": 1, "reels": [', encoding="utf-8")
-        run = self.run_step(self.PUSH, ws, temp)
-        self.assertNotEqual(run.returncode, 0)
-        self.assertIn("::error::növbə faylı pozulub", run.stdout)
-        self.assertEqual(self.rev("refs/heads/x-novbe"), seed)
+        for bad in ('{"v": 1, "reels": [', '{"v": 2, "reels": []}\n'):   # yarımçıq JSON və başqa forma
+            (ws / "oz_x.json").write_text(bad, encoding="utf-8")
+            run = self.run_step(self.PUSH, ws, temp)
+            self.assertNotEqual(run.returncode, 0, bad)
+            self.assertIn("::error::növbə faylı pozulub", run.stdout)
+            self.assertEqual(self.rev("refs/heads/x-novbe"), seed)
         # Şəbəkə kəsilib: budağın dəyişdiyi bilinmir — «dəyişib» sayılmır, iş qırmızı bitir, heç nə yazılmır.
         (ws / "oz_x.json").write_text(doc(["0", "1"]), encoding="utf-8")
         git("remote", "set-url", "origin", "file://" + str(self.tmp / "yoxdur.git"), cwd=ws)
