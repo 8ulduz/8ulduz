@@ -73,14 +73,23 @@ const STOP = new Set(("ilə üçün olan olub olaraq edib etdi edən edəcək ed
 const GENERIC = new Set(["prezi", "ilham", "əliye", "mehri", "azərb", "respu", "birin"]);
 const stems = s => [...new Set((clean(s).toLocaleLowerCase("az").match(/\p{L}{4,}/gu) || []).filter(w => !STOP.has(w))
   .map(w => w.slice(0, 5)).filter(w => !GENERIC.has(w)))];
+// Ad və soyad: başlıqda yanaşı iki böyük hərfli söz (hər biri 3+ hərf), kökləri ilə: «Fira Cəlilovanın» → «fira cəlil». Hər xəbərdə olan
+// adlar (GENERIC: İlham Əliyev, Prezident…) sayılmır.
+const cutler = s => [...new Set([...clean(s).matchAll(/(?<![\p{L}])(\p{Lu}\p{Ll}{2,})\s+(?=(\p{Lu}\p{Ll}{2,}))/gu)]
+  .map(m => [m[1], m[2]].map(w => w.toLocaleLowerCase("az").slice(0, 5)))
+  .filter(p => !p.some(w => GENERIC.has(w))).map(p => p.join(" ")))];
 function topicOf(a, at) {
   const sum = clean(a.summary).toLocaleLowerCase("az").replace(/[^\p{L}\p{N}]+/gu, "");
   return { at, prez: a.category === "prezident", key: sum.length >= 60 ? sum.slice(0, 80) : "",
-    words: stems(`${a.title} ${clean(a.summary).slice(0, 300)}`), head: stems(a.title), names: stems((clean(a.title).match(/\p{Lu}\p{L}+/gu) || []).join(" ")) };
+    words: stems(`${a.title} ${clean(a.summary).slice(0, 300)}`), head: stems(a.title), names: stems((clean(a.title).match(/\p{Lu}\p{L}+/gu) || []).join(" ")),
+    cut: cutler(a.title) };
 }
 function sameTopic(x, y) {
   if (x.key && x.key === y.key) return true;
   if (Math.abs(x.at - y.at) >= NEAR_H * 3600) return false; // eyni hadisənin təkrarları saatlar içində gəlir; səhər Ərdoğanın səfəri ≠ axşam Əliyevin səfəri
+  // Eyni adamın adı və soyadı iki başlıqda (2026-11-27: 05:20 «Fira Cəlilovanın bağ evində oğurluq» videosundan sonra 07:47-də kanal yolu
+  // «Novxanıda aparıcı Fira Cəlilovanın bağ evinə basqın edilib»-i seçdi — ortaq kök 2 idi, söz qaydası tutmurdu). Köhnə siyahıda cut yoxdur.
+  if ((x.cut || []).some(p => (y.cut || []).includes(p))) return true;
   const shared = x.words.filter(w => y.words.includes(w)).length;
   // Xülasədəki ümumi cümlə (məs. «COP31 … sessiyası») tək başına bəs deyil: başlıqda da ortaq söz olmalıdır.
   if (shared >= 4 && shared / Math.min(x.words.length, y.words.length) >= 0.6 && x.head.some(w => y.head.includes(w))) return true;
