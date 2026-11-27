@@ -390,6 +390,7 @@ Söndürülmüş saxlananlar və səbəbi: Euronews No Comment (sayt Node sorğu
 Sahib, 2026-11-27, Baku.ws-in bizdə olmayan iki Reels-ini görəndən sonra (Beşiktaş azarkeşləri Batumidə, əsl görüntü ilə; «Sevgi ilə hazırlanan qutab» — Bakı restoranının viral videosu, Instagram müəllifi @foto_by_gunew göstərilib):
 - «A B ni də.. B tək oxuaz la məhdud qalmasın» — B: xəbəri yazan saytın öz Telegram kanalındakı video. Bütün saytlar üçün.
 - «qutab bölməsi ilə razı deyiləm. Baku VS də sosil şəbəkələrdən götürüb öz komentini verib. Biz bunu da etməliyik».
+- «Yenə əlavə et» (sual: Patrul.az, Maraqli.tv, Baku.es mənbə siyahısına əlavə olunsun?). Onların Reels-lərində mənbə çox vaxt yazılmır (son Reels-lərdə Patrul.az 8-dən 1-də, Maraqli.tv 5-dən 1-də, Baku.es heç birində — `meta-yoxla.cjs` sınağı, iş 45956585105), orijinal müəllifə rəsmi yol yoxdur. Üçü `azSources`-a və `.github/video-kanal.json`-a yazıldı (Telegram: patrulazofficial, maraqli_tv, baku_es; Instagram: patrul.az 13/15 Reels faylla, maraqli.tv 5/5, baku.es 1/1). Qırmızı xətt sənədində qeyd var.
 
 **Necə işləyir** (`.github/scripts/video-kanal.cjs`, mənbələr `.github/video-kanal.json`, seçim `sosial-video.cjs` `kanalSec`, `tur: kanal`). Bir modul, iki adapter; seçim, şərh, kredit və yoxlama ortaqdır.
 - **Telegram:** kanalın ictimai önizləməsi `https://t.me/s/<kanal>` (açarsız, Bot API yoxdur). Bir dövrədə növbə ilə 8 kanal (`TG_SAY`), son 12 saatın postları (`TELEGRAM_MAX_SAAT`). Fayl postun `<video src>`-sidir (`telesco.pe`); «Media is too big» postunda fayl yoxdur.
