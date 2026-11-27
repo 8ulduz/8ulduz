@@ -3,6 +3,7 @@ import json
 import datetime
 import importlib.util
 import pathlib
+import re
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -390,13 +391,36 @@ class TransferCandidateTest(unittest.TestCase):
 
 
 class WorkflowTest(unittest.TestCase):
-    def test_workflow_writes_only_the_queue_to_main_and_keeps_the_key_in_env(self):
+    def test_workflow_writes_only_the_queue_to_the_x_novbe_branch_and_keeps_the_key_in_env(self):
+        """Sahib, 2026-11-27 («bu təklifini daha dərindən araşdır … tap və düzəlt»): növbə yalnız x-novbe budağına, main-ə heç nə.
+        Budaq tarixçəsizdir (live, arxiv, video-arxiv kimi): valideynsiz commit, yalnız oxunan uca qarşı --force-with-lease.
+        İş axınının addımlarının özü tests/test_x_novbe.py-da yerli repo ilə işlədilir."""
         wf = (ROOT / ".github" / "workflows" / "x-yazici.yml").read_text(encoding="utf-8")
         self.assertIn("contents: write", wf)
-        self.assertEqual(wf.count("git add"), 1)
-        self.assertIn("git add oz_x.json\n", wf)
-        self.assertIn("git push -q origin HEAD:main", wf)
-        self.assertIn("git config user.name 8ulduz-bot", wf, "pull --rebase üçün də ad: main irəli gedəndə iş düşməsin")
+        self.assertIn("\n  NOVBE: x-novbe ", wf)
+        code = "\n".join(l for l in wf.splitlines() if not l.lstrip().startswith("#"))
+        pushes = re.findall(r"git push[^\n]*", code)
+        self.assertEqual(pushes, ['git push -q origin "$commit:refs/heads/$NOVBE"; then',
+                                  'git push -q --force-with-lease="refs/heads/$NOVBE:$tip" origin "$commit:refs/heads/$NOVBE" && exit 0'],
+                         "yalnız x-novbe budağına: ilk yaradılış --force-suz, sonra yalnız oxunan uca qarşı lease")
+        self.assertNotRegex(code, r"--force(?!-with-lease=\"refs/heads/\$NOVBE:\$tip\")|\s-f\s|push[^\n]*\s\+", "lease-siz --force yoxdur")
+        self.assertNotRegex(code, r"HEAD:main|refs/heads/main|origin main|:main\b", "main-ə heç nə yazılmır")
+        self.assertNotRegex(code, r"git add|git commit |pull --rebase|worktree", "iş qovluğu commit olunmur: budağa yalnız qurulan ağac gedir")
+        # «yalnız oz_x.json»: hər iki commit-in ağacında tək fayl; valideynsiz (commit-tree -p yoxdur)
+        self.assertEqual(re.findall(r"tree=[^\n]*", code), ["tree=\"$(printf '100644 blob %s\\toz_x.json\\n' \"$blob\" | git mktree)\""] * 2)
+        self.assertEqual(re.findall(r"blob=[^\n]*", code), ['blob="$(git hash-object -w oz_x.json)"'] * 2)
+        self.assertEqual(len(re.findall(r"git commit-tree \"\$tree\" -m ", code)), 2)
+        self.assertNotIn("commit-tree -p", code)
+        self.assertIn("git config user.name 8ulduz-bot", wf, "commit-tree üçün ad")
+        # budaq yoxdursa (ls-remote 2) main-in nüsxəsi ilə yaranır, başqa xətada iş dayanır; uc yadda saxlanır; yazıcı budağın nüsxəsini oxuyur
+        self.assertRegex(code, r'tip="\$\(git ls-remote --exit-code --heads origin "refs/heads/\$NOVBE"\)" \|\| code=\$\?[\s\S]*"\$code" = 2[\s\S]*'
+                               r'git hash-object -w oz_x\.json[\s\S]*elif \[ "\$code" != 0 \]; then\n\s+echo "::error::[^\n]*"; exit 1\n\s+fi\n')
+        self.assertLess(code.index('printf \'%s\\n\' "$tip" > "$RUNNER_TEMP/novbe.sha"'), code.index('tip="$(cat "$RUNNER_TEMP/novbe.sha")"'))
+        self.assertLess(code.index('cp "$RUNNER_TEMP/novbe.json" oz_x.json'), code.index("run: python -u .github/scripts/x_yazici.py"))
+        push = code[code.index("run: python -u .github/scripts/x_yazici.py"):]
+        self.assertLess(push.index("json.load"), push.index("git push"), "JSON push-dan əvvəl yoxlanır")
+        self.assertRegex(push, r'if \[ -n "\$now" \] && \[ "\$now" != "\$tip" \]; then\n\s+echo "x-novbe bu iş oxuyandan sonra dəyişib[^\n]*"\n\s+exit 0\n',
+                         "budaq irəli gedibsə heç nə yazılmır, iş uğurla bitir")
         self.assertNotIn("OZ_DERC", wf)
         self.assertNotIn("echo \"$ANTHROPIC_API_KEY", wf)
         self.assertIn("GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}", wf)
