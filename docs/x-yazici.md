@@ -1,14 +1,93 @@
-# X xəbərlərinin yazıcısı (planlı Claude tapşırığı)
+# X xəbərlərinin yazıcısı
 
 Sahibin qərarı (2026-11-18): X-in türk dilli rəsmi hesablarının videolu paylaşımlarından 8ULDUZ-un öz xəbərləri. Avtomatik
-tərcümə GitHub-dan işləmir (`oz_dunya.py`-yə baxın), ona görə mətni bu kompüterdəki planlı Claude tapşırığı yazır və
-`oz_x.json` növbəsinə qoyur. Dərc hissəsi (`oz_derc.py`, yavaş dövrə) növbəni oxuyur, qapılardan keçirir və hədlərlə
-dərc edir (gündə ən çox 8, saatda ən çox 4 öz xəbər). Bu sənəd tapşırığın təlimatıdır.
+tərcümə GitHub-dan işləmir (`oz_dunya.py`-yə baxın), ona görə mətni yazıcı yazır və `oz_x.json` növbəsinə qoyur. Yazıcı
+əvvəl bu kompüterdəki planlı Claude tapşırığı idi; sahibin həmin gün sonrakı göstərişi ilə («bunu avtomatlaşdır. claude nin
+açıq bağlı olmasına bağlama») GitHub Actions-dadır: `.github/workflows/x-yazici.yml`, `.github/scripts/x_yazici.py`. Dərc
+hissəsi (`oz_derc.py`, yavaş dövrə) növbəni oxuyur, qapılardan keçirir və hədlərlə dərc edir (gündə ən çox 8, saatda ən çox 4
+öz xəbər). Növbə faylı main-də deyil, `x-novbe` budağındadır (aşağıda «Növbə budağı»). Aşağıdakı addımlar yazıcının
+qaydalarıdır; əl ilə yazılsa da eyni qaydalar keçərlidir.
+
+## Növbə budağı: `x-novbe` (sahib, 2026-11-27)
+
+Sahibin göstərişi (2026-11-27): «bu təklifini daha dərindən araşdır … nələr etmək olar kodda? … tap və düzəlt». Qərar: yazıcı
+`oz_x.json`-u **yalnız `x-novbe` budağına** yazır, main-ə heç nə yazmır. 2026-11-18-in icazəsi («yalnız `oz_x.json`, birbaşa
+main») bununla əvəz olunub. İcazə başqa fayla və ya budağa genişlənmir.
+
+**Niyə.** main-ə hər yazı ayrıca Pages yığımıdır (orta 44–46 s, 37–58 s). Yığım Fastly CDN-i təmizləyir və bütün faylların
+ETag-ını dəyişir: təmizlənmədən sonra ilk açılış 100–220 ms yavaş olur, oxucunun service worker-i dəyişməmiş faylları yenidən
+yükləyir. Üst-üstə düşən yığımlar ləğv olunur və ya düşür. Ölçü (GitHub API, UTC günləri):
+
+| Gün | main-ə yazı | «Xəbərlər yeniləndi» | «X xəbərləri növbəyə əlavə edildi» | PR birləşməsi | Pages yığımı (ləğv / düşən) |
+|---|---|---|---|---|---|
+| 2026-11-22 | 230 | 120 | 90 | 20 | 223 (20 / 0) |
+| 2026-11-23 | 209 | 112 | 80 | 17 | 202 (16 / 0) |
+| 2026-11-24 | 214 | 117 | 81 | 16 | 212 (15 / 0) |
+| 2026-11-25 | 203 | 99 | 89 | 15 | 200 (13 / 2) |
+| 2026-11-26 | 220 | 116 | 87 | 17 | 219 (17 / 0) |
+
+«main-ə yazı» = iki bot yazısı + birləşmə (PR-ın öz commit-ləri ayrıca yazı deyil). X yazıları bot yazılarının 43%-i idi
+(2026-11-26: 87 / 203). Gözlənilən: X-in main yazısı gündə ~84 → 0; main-ə yazı və Pages yığımı gündə ~215 → ~130 (−40%);
+xəbər axınının yazısı dəyişmir (10 dəqiqədən bir, gündə ≤ 144). Budağa yazı Pages yığımı başlatmır (Pages yalnız main-dən
+yığılır) və heç bir iş axınını işə salmır (budaqda iş axını faylı yoxdur, `on: push` hamısı başqa budaqlara bağlıdır).
+
+**Yazıcı** (`x-yazici.yml`): kod main-dən gəlir. `git ls-remote --exit-code --heads origin refs/heads/x-novbe`:
+- budaq yoxdursa (çıxış kodu 2; keçiddən sonrakı ilk iş) main-in həmin andakı `oz_x.json`-u ilə valideynsiz commit yaradılır
+  və göndərilir: keçiddə heç bir sətir itmir. Budaq bu arada yaranıbsa push rədd olunur və onun nüsxəsi oxunur;
+- başqa xətada iş dayanır, heç nəyə toxunmur;
+- budağın nüsxəsi (`git fetch --depth 1`, tam adla: eyni adlı teq qısa addan öndə gələ bilər) iş qovluğundakı `oz_x.json`-u
+  əvəz edir, `x_yazici.py` onu oxuyub yazır. Dəyişiklik varsa budağa bir commit: `git pull --rebase` + push, 5 cəhd.
+  Toqquşmada və ya birləşmə JSON-u pozanda heç nə yazılmır: budaqdakı sətirlər qalır, bu işin videoları növbəti işdə yenidən
+  namizəd olur. `--force` yoxdur.
+
+Budaqda yalnız `oz_x.json` var, tarixçəsi qalır (hər yazı bir commit). Bir günün 83 nüsxəsi git-də sıxılanda ~1 MB-dır
+(2026-11-26-nın nüsxələri ilə ölçülüb; xam 97 MB). main-in dayaz klonlarına (`fetch-depth: 1`) budaq gəlmir.
+
+**main-in `oz_x.json`-u keçid anında donur.** Xəbər axınının 10 dəqiqəlik yazısı onu main-ə aparmır: struktur qaydası (b)
+(sahib, 2026-11-07; [qirmizi-xetler.md](qirmizi-xetler.md) «Məlum risk») böyük və tez dəyişən faylı main-ə yazmağı qadağan edir.
+Bu fayl 1,3 MB-dır, gündə ~80 dəfə dəyişir, oxucu onu oxumur. Donmuş nüsxə yalnız başlanğıcdır: budaq yoxdursa yazıcı ondan
+başlayır, xəbər axını isə budaq hələ yaranmayıbsa onu oxuyur. Növbəni əl ilə düzəltmək lazım olsa `x-novbe`-də edin; main-in
+nüsxəsini dəyişmək heç nəyə təsir etmir. Budağı silməyin: silinsə yazıcı onu main-in donmuş nüsxəsi ilə yenidən yaradar və
+keçiddən sonra yazılan sətirlər (son 7 günün videoları, 4 günün xəbərləri) itər; yazıcı yeni videoları yenə yığar.
+
+**Xəbər axını** (`pipeline.sh`; kod siyahısı `CODE_FILES` modulu və növbəni birlikdə kod qovluğuna köçürür):
+- işin əvvəlində `copy_code` main-in donmuş nüsxəsini qoyur, yavaş dövrə başlamazdan əvvəl `pull_reel_src` budağın
+  nüsxəsini gətirir (API: `contents/oz_x.json?ref=refs/heads/x-novbe`, bir-iki sorğu, hər biri ≤ 15 s) və `apply_queue` onu
+  kod qovluğuna atomik qoyur (yavaş dövrə yarımçıq fayl oxumur: boş növbə boş Videolent olardı);
+- yazıcının hər işi bitəndə `xyazici_loop` növbəni yenə soruşur; alınmasa dəqiqədə bir təkrarlayır. Əsas döngü yeni nüsxəni
+  növbəti dövrənin əvvəlində koda qoyur (yerli fayl işi, sürətli dövrəyə şəbəkə düşmür);
+- main yalnız budaq yoxdursa (HTTP 404) və bu işdə budaq heç görünməyibsə oxunur. Budaq bir dəfə oxunandan sonra
+  (`$STATE/novbe-budaq`) şəbəkə xətası, vaxt bitməsi və ya budağın 404-ü son nüsxəni saxlayır, main-ə keçmir; main yazısından
+  sonrakı `copy_code` main-in nüsxəsini kod qovluğuna köçürmür (növbə faylı buraxılır);
+- `same_code` və son işlək kod (`.lkg`) cari kod qovluğu ilə müqayisə olunur, main ilə yox: `.lkg`-yə budağın nüsxəsi gedir.
+
+**Kim oxuyur** (2026-11-27 axtarışı):
+
+| Oxuyan | Necə |
+|---|---|
+| `x-yazici.yml`, `x_yazici.py` | budağın nüsxəsi iş qovluğuna (`ROOT/oz_x.json`), yazı yalnız budağa |
+| `pipeline.sh` (`pull_reel_src`, `apply_queue`, `copy_code`, `same_code`, `.lkg`) | yuxarıda |
+| `oz_x.py` (`NOVBE`: modulun yanındakı fayl), `oz_derc.py`, `updater.py` (`update_own_news`, `write_reels`) | kod qovluğundakı nüsxə, şəbəkəsiz; qısa videolar `content_policy.enforce`-dan keçib `data/reels.json`-a, xəbərlər dərc qapılarından və lentin son qapısından |
+| `check_outputs.py` | yalnız `oz_x.ADLAR` cədvəli; növbə faylını oxumur |
+| sayt (`assets/lent.js`), `video-dunya.cjs`, `tiktok.cjs`, `youtube.cjs`, `sosial-video.yml`, `tiktok.yml`, `youtube.yml` | növbəni oxumur: `data/reels.json` (xəbər axını yazır: dəqiqədə bir `live`-a, 10 dəqiqədə bir main-ə) |
+| testlər | `tests/test_oz_x.py` main-in nüsxəsinin sətirlərini qapıdan keçirir; `tests/test_x_novbe.py` iş axınının addımlarını yerli repo ilə, axının növbə funksiyalarını saxta gh ilə işlədir; `tests/test_x_yazici.py`, `tests/lent.test.cjs` mətni yoxlayır |
+
+Qırmızı xətt 2 dəyişmir: növbənin yeri dəyişib, qapılar yox.
+
+**Keçid** (hansı əvvəl olsa da sətir itmir):
+1. PR birləşəndə gedən köhnə yazıcı işi varsa, o son dəfə main-ə yazır. Yeni işlər eyni `concurrency` qrupunda (`x-yazici`)
+   onu gözləyir: köhnə iş bitmədən yeni iş başlamır.
+2. Yeni işlərin ilki budağı main-in son nüsxəsi ilə yaradır. Ondan sonra main-ə X yazısı yoxdur.
+3. Yeni xəbər axını işi budaq yoxdursa main-dən, varsa budaqdan oxuyur; budaq yaranandan sonrakı ilk sorğuda keçir.
+4. Birləşmə anında işləyən köhnə xəbər axını işi növbəni hələ main-dən oxuyur. Ona yeni videolar növbə dəyişənə qədər
+   (ən çox ~47 dəq) gəlmir, Videolent boşalmır. Dərhal keçmək üçün birləşmədən sonra Actions → «Xəbərləri yenilə» →
+   Run workflow → `rollout` ([editorial-removal.md](editorial-removal.md)).
 
 ## Hər işə salınmada
 
-1. `C:\Users\user\8ulduz` qovluğunda `git switch main` və `git pull --rebase -q`. Yerli dəyişiklik varsa toxunmayın,
-   dayanın və səbəbini yazın (`miss.tmp.txt`-ə heç vaxt toxunmayın).
+1. Kod main-dən (`git switch main`, `git pull --rebase -q`), növbə `x-novbe` budağından (`git fetch origin refs/heads/x-novbe`,
+   `oz_x.json`-u oradan götürün). Yerli dəyişiklik varsa toxunmayın, dayanın və səbəbini yazın (`miss.tmp.txt`-ə heç vaxt
+   toxunmayın).
 2. `oz_x.py`-dəki `HESABLAR` cədvəlinin hər hesabı üçün `https://api.fxtwitter.com/2/profile/<hesab>/statuses` (açarsız,
    API-siz). Cavabın `results` siyahısından yalnız bunları götürün:
    - son 6 saatın paylaşımları, `media.videos` dolu, `reposted_by` boş, `replying_to` boş;
@@ -41,10 +120,10 @@ dərc edir (gündə ən çox 8, saatda ən çox 4 öz xəbər). Bu sənəd tapş
 
 5. Yeni sətirləri `oz_x.json`-un `items` siyahısının sonuna əlavə edin; `date`-i 4 gündən köhnə sətirləri silin.
    Fayl `{"v": 1, "items": [...]}` formasında, UTF-8, 2 boşluqlu girinti ilə qalır.
-6. Yalnız `oz_x.json`-u commit edin: müəllif `8ulduz <346370484+8ulduz@users.noreply.github.com>`, mesaj
-   «X xəbərləri növbəyə əlavə edildi», sonda `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
-   `git pull --rebase -q`, sonra `git push -q origin main` (yalnız `8ulduz/8ulduz`, yalnız `8ulduz` hesabı;
-   `gh auth switch` işlətməyin). Push alınmasa bir dəfə yenidən pull + push; yenə alınmasa dayanın.
+6. Yalnız `oz_x.json`-u, yalnız `x-novbe` budağına commit edin (main-ə heç nə; sahib, 2026-11-27): mesaj
+   «X xəbərləri növbəyə əlavə edildi». `git pull --rebase -q origin refs/heads/x-novbe`, sonra
+   `git push -q origin HEAD:refs/heads/x-novbe` (yalnız `8ulduz/8ulduz`; `--force` yox). Push alınmasa yenidən pull + push;
+   toqquşma olsa dayanın, budaqdakı nüsxənin üstünə yazmayın.
 7. Yeni uyğun paylaşım yoxdursa heç nə commit etməyin.
 
 ## Videolent mənbələri: 2026-11-26 ölçüsü

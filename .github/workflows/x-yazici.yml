@@ -8,7 +8,7 @@ name: X xəbərləri yazıcısı
 # oz_x.json-u dəyişir və onu yalnız x-novbe budağına göndərir, main-ə heç nə yazmır (2026-11-18-in «birbaşa main» icazəsi bununla
 # əvəz olunub). Səbəb: main-ə hər yazı ayrıca Pages yığımı (37–58 s), Fastly CDN-in təmizlənməsi, bütün faylların yeni ETag-ı və
 # oxucunun service worker-inin dəyişməmiş faylları yenidən yükləməsi idi; 2026-11-26-da (UTC) main-ə 87 «X xəbərləri növbəyə əlavə
-# edildi» yazısı (bot yazılarının 43%-i), üst-üstə düşən yığımlar 2026-11-27-də Pages-i düşürdü. Kod main-dən gəlir, növbə
+# edildi» yazısı (bot yazılarının 43%-i), 219 Pages yığımının 17-si üst-üstə düşüb ləğv olundu. Kod main-dən gəlir, növbə
 # budaqdan; xəbər axını da növbəni budaqdan oxuyur (pipeline.sh pull_reel_src). Budaq valideynsiz başlayır, içində yalnız oz_x.json.
 # Budaq yoxdursa (ilk iş) main-in indiki oz_x.json-u ilə yaranır: keçiddə heç bir sətir itmir. main-in oz_x.json-u o andan donur.
 
