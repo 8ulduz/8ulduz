@@ -317,11 +317,11 @@ const xNet = (elave = X_ELAVE, post = X_POST, seen = { asked: [], prompt: "" }) 
 };
 const X_ENV = { GEMINI_API_KEY: "g", VIDEO_GEMINI_WAIT_MS: "0" };
 
-test("X: the most-watched recent videos, weighted by the Instagram directions, league footage included (owner 2026-11-26); big media companies, trailers, war footage and anything the site rule refuses are left out; no topic twice in a row", () => {
+test("X: the most-watched recent videos, weighted by the Instagram directions, league footage included (owner 2026-11-26); big media companies, trailers, blood/death footage and anything the site rule refuses are left out (war itself is not, owner 2026-11-27); no topic twice in a row", () => {
   const items = [xi(100001), xi(100002, { m: "xeber", a: "bpthaber", v: 600000, c: "İstanbulda yanğınsöndürənlər balkonda qalan uşağı xilas ediblər, görüntülər yayılıb." }),
     xi(100003, { m: "idman", a: "trtspor", v: 5000000, c: "Arda Güler komandasına qələbə gətirən hərəkəti ilə yadda qaldı, azarkeşlər ayaqda alqışladı." }),
     xi(100004, { v: 90000 }), xi(100005, { t: new Date(NOW - 40 * 3600e3).toISOString() }), xi(100006, { a: "FoxNews", m: "xeber", v: 900000 }),
-    xi(100007, { m: "xeber", v: 2000000, c: "Hava limanında təyyarəyə endirilən zərbənin görüntüləri yayılıb, hadisə yerində yanğın başlayıb." }),
+    xi(100007, { m: "xeber", v: 2000000, c: "Hava limanında partlayışdan sonra yerdə meyitlər görünən görüntülər yayılıb, hadisə yerində yanğın başlayıb." }),
     xi(100008, { m: "kino", v: 800000, c: "Yeni filmin treyleri yayımlanıb və qısa vaxtda milyonlarla baxış toplayıb, izləyicilər həyəcanla gözləyir." }),
     xi(100009, { m: "tebiet", a: "AMAZlNGNATURE", v: 450000, c: "Ana fil balasını çaydan çıxarmaq üçün xortumu ilə kömək edir, sürü onları gözləyir." }),
     xi(100010, { c: "Qısa izah." }), xi(100011, { v: 700000, c: "Azərbaycan haqqında xarici mənbənin yaydığı video sosial şəbəkələrdə müzakirə olunur." }), xi("x12")];
@@ -330,8 +330,12 @@ test("X: the most-watched recent videos, weighted by the Instagram directions, l
   // Liqaların oyun kadrı (sahib 2026-11-26: «liqaların oyun kadrını niyə götürmürük?» → «3 et»). Sıra baxış × qrup × güclü istiqamət
   // (X əmsalı; sahib, 2026-11-26): 5 000 000 × 1,3 (idman) × 1,7 (xarici futbol: Arda Güler) birincidir; 600 000 × 1,1 (xəbər) × 1,7
   // (qəza/xilasetmə) = 1 122 000 > 500 000 × 1,3 (maraqlı) × 1,5 (insan hekayəsi: əkizlər) = 975 000. Təbiət qrupu (fil) çıxıb
-  // («nə heyvan nə təbiət nə kosmos»). Fox News, treyler, müharibə kadrı yoxdur.
+  // («nə heyvan nə təbiət nə kosmos»). Fox News, treyler, meyit görünən kadr yoxdur.
   assert.deepEqual(pool.map(c => c.x.id), ["100003", "100002", "100001"]);
+  // Sahib, 2026-11-27: «müharibə videolarını tamamən qadağan etmək olmaz. qan şiddət və s. ümumi qadağalara riayət etsək kifayətdir».
+  // Sonra: «Şiddət yazdım amma bu sözü sən necə başa düşəcəksən? ümumi sözdür. onu dəyiş qan qalsın» — süzgəc qan, meyit, ölüm anıdır.
+  const herb = xi(100013, { m: "xeber", v: 2000000, c: "Hava limanında təyyarəyə endirilən zərbənin görüntüləri yayılıb, hadisə yerində yanğın başlayıb." });
+  assert.deepEqual(VD.xNamizedler([herb], { state: { xv: {}, v: {}, skip: {} }, now: NOW, policy }).map(c => c.x.id), ["100013"], "müharibə kadrı (qansız) götürülür");
   assert.deepEqual(pool.map(c => c.ist), ["xarici_futbol", "qeza", "insan"]);
   assert.equal(VD.xBasliq(pool[2].c), "Yenidoğulmuş əkizlərin bir-birinə sarılaraq yatdığı anlar", "başlıq: izahın birinci cümləsi, nöqtəsiz");
   // Liqa və idman yayımçıları qadağan siyahısında deyil; media şirkətləri qalır.
@@ -415,7 +419,8 @@ test("X: the voice reads the caption and 2–3 facts from the post's own text (G
   const red = async (elave, re) => { const r = await VD.xMetn(c, opt(elave)); assert.ok(r.yox && re.test(r.yox), `${elave}: ${JSON.stringify(r)}`); };
   await red(`Əkizlər 3 kiloqram çəki ilə Braziliyada doğulublar və bir-birini qucaqlayırlar. ${UZUN}`, /mənbədə olmayan rəqəm: 3/);
   await red(`Əkizlərin videosu Azərbaycanda da çox yayılıb və hamı tərəfindən bəyənilib. ${UZUN}`, /saytın qaydasından keçmir/);
-  await red(`Əkizlər cəbhə bölgəsindəki xəstəxanada doğulublar və hələ orada qalırlar. ${UZUN}`, /müharibə/);
+  await red(`Əkizlərin doğulduğu xəstəxanada qanlar içində bir xəstə tapılıb və araşdırma aparılır. ${UZUN}`, /qan və ya meyit/);
+  assert.ok((await VD.xMetn(c, opt(`Əkizlər cəbhə bölgəsindəki xəstəxanada doğulublar və hələ orada qalırlar. ${UZUN}`))).text, "müharibə sözü qadağan deyil (sahib, 2026-11-27)");
   await red("Əkizlər Braziliyada doğulub. Anaları onları çəkib.", /uzunluq/);
   await red("Əkizlər Braziliyada doğulandan sonra da bir-birini qucaqlamağa davam edirlər, ana bətnində olduğu kimi, onları anaları San-Pauluda çəkib.", /cümlə sayı 2/);
   await red("", /aydın fakt yoxdur/);

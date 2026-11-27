@@ -203,7 +203,9 @@ test("kanal: the voice text is written from the post's own text only — numbers
   await red({ ...BESIKTAS, basliq: "Qısa" }, /başlıq 4 simvol/);
   await red({ ...BESIKTAS, text: `${BESIKTAS.text} Ətraflı @modern_azz kanalında.` }, /@hesab/);
   await red({ uygun: false }, /şərh olmur/);
-  await red({ ...BESIKTAS, text: BESIKTAS.text.replace("toqquşma yaşanıb", "döyüş olub") }, /müharibə və ya zorakılıq/);
+  // Sahib, 2026-11-27: «müharibə videolarını tamamən qadağan etmək olmaz. qan şiddət və s. ümumi qadağalara riayət etsək kifayətdir».
+  // Sonra: «Şiddət yazdım amma bu sözü sən necə başa düşəcəksən? ümumi sözdür. onu dəyiş qan qalsın» — süzgəc qan, meyit, ölüm anıdır.
+  await red({ ...BESIKTAS, text: BESIKTAS.text.replace("toqquşma yaşanıb", "qanlar içində qalan azarkeşlər olub") }, /qan və ya meyit/);
   // Açar yoxdur və ya Gemini cavab vermir — indi yazılmır, heç nə «yanmır».
   assert.deepEqual(await K.metnYaz(c, { ...yaz(BESIKTAS), env: {} }), { gec: "GEMINI_API_KEY yoxdur" });
   assert.deepEqual(await K.metnYaz(c, yaz(null)), { gec: "Gemini cavab vermir" });
@@ -263,7 +265,8 @@ test("kanal: the filter — only the video's language, no protocol, war, film or
   assert.deepEqual(suz(c(`Bakının Xətai rayonunda iki avtomobil toqquşub.${LONG}`)), {});
   assert.match(suz(c(`В Баку столкнулись два автомобиля, движение было временно остановлено полицией, ведётся расследование произошедшего на месте.${" Подробности уточняются.".repeat(3)}`)).yox, /dilində deyil/);
   assert.match(suz(c(`Nazir Litva Respublikasının xarici işlər nazirini qəbul edib.${LONG}`)).yox, /protokol/);
-  assert.match(suz(c(`Cəbhə xəttində döyüş gedir, kəndlər atəşə tutulub.${LONG}`)).yox, /müharibə/);
+  assert.equal(suz(c(`Cəbhə xəttində döyüş gedir, kəndlər atəşə tutulub.${LONG}`)).yox, undefined, "müharibə xəbəri qadağan deyil (sahib, 2026-11-27)");
+  assert.match(suz(c(`Küçədə meyit tapılıb, polis ərazini bağlayıb.${LONG}`)).yox, /qan və ya meyit/);
   assert.match(suz(c(`Bakının Xətai rayonunda iki avtomobil toqquşub.${LONG}`, { dur: 2 })).yox, /video 2 s/);
   assert.equal(suz(c(`Bakının Xətai rayonunda iki avtomobil toqquşub.${LONG}`, { at: NOW - 13 * 3600e3 })).bos, "köhnədir");
   assert.match(suz(c(`Bakının Xətai rayonunda iki avtomobil toqquşub.${LONG}`, { fwd: { ad: "", kanal: "" } })).yox, /yönləndirilib/);

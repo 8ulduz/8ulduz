@@ -247,7 +247,7 @@ function suz(c, { now, o, state, policy, D = dil() }) {
   if (!D.re.herf.test(c.metn)) return { yox: "mətn videonun dilində deyil" };
   const title = basliq0(c.metn), kenar = D.x?.kenar ? new RegExp(D.x.kenar, "iu") : null;
   if (VS.protokol({ title })) return { yox: "protokol (görüş, qəbul, təbrik)" };
-  if (kenar?.test(c.metn)) return { yox: "müharibə və ya zorakılıq sözü" };
+  if (kenar?.test(c.metn)) return { yox: "qan və ya meyit sözü" };
   if (M.yayim({ title: c.metn }, D)) return { yox: "film, serial, klip kadrı ola bilər" };
   if (cixarilir(c.metn, D)) return { yox: "heyvan, təbiət, kosmos (insan hadisəsi yoxdur)" };
   const mx = muxalifetMetn(c.esli) || (c.muellif ? muxalifet(c.muellif) : "");
@@ -323,7 +323,7 @@ Qaydalar:
 - basliq: 30–100 simvol, hadisəni deyən sadə cümlə; sonda nöqtə olmasın, «video» sözü olmasın.
 - etiket: 3 mövzu etiketi ({etiket_dili}, «#»-siz, boşluqsuz).
 - "uygun": false — paylaşım reklam, müsabiqə, abunə çağırışı, rəsmi görüş, qəbul, təbrik, başsağlığı, siyasi bəyanatdırsa; mətndə üç
-  cümləyə yetən aydın fakt yoxdursa; hadisə müharibə, ölüm anı, qan, meyitdirsə; mətn yalnız oyunun hesabıdırsa.
+  cümləyə yetən aydın fakt yoxdursa; videoda ölüm anı, qan, meyit, ağır yaralı və ya işgəncə varsa (müharibə xəbəri özü qadağan deyil); mətn yalnız oyunun hesabıdırsa.
 
 Yalnız JSON qaytar: {"uygun": true, "basliq": "...", "text": "...", "etiket": ["...", "...", "..."]}
 
@@ -347,7 +347,7 @@ async function metnYaz(c, { env = process.env, fetch: f = globalThis.fetch, poli
   const kenar = D.x?.kenar ? new RegExp(D.x.kenar, "iu") : null;
   const why = !text ? "mətn boşdur" : title.length < BASLIQ_MIN || title.length > BASLIQ_MAX ? `başlıq ${title.length} simvol` : D.re.yadHerf?.test(title) ? "başlıqda yad hərf"
     : /@|#|https?:/.test(`${title} ${text}`) ? "@hesab, heşteq və ya keçid" : policy(a) ? "saytın qaydasından keçmir" : muxalifetMetn(`${title} ${text}`) ? "müxalifət mənbəsi"
-    : kenar?.test(text) ? "müharibə və ya zorakılıq sözü" : cixarilir(`${title}. ${text}`, D) ? "heyvan, təbiət və ya kosmos mövzusu"
+    : kenar?.test(text) ? "qan və ya meyit sözü" : cixarilir(`${title}. ${text}`, D) ? "heyvan, təbiət və ya kosmos mövzusu"
     : VS.checkText(text, `${c.metn}\n${c.esli}`, a, policy, HED) || VS.serhAzdir(text);
   if (why) return { yox: `mətn yoxlamadan keçmədi: ${why}` };
   const etiket = VS.hashtags(j.etiket);
