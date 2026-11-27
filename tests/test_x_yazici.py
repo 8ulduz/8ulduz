@@ -3,6 +3,7 @@ import json
 import datetime
 import importlib.util
 import pathlib
+import re
 import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -390,13 +391,25 @@ class TransferCandidateTest(unittest.TestCase):
 
 
 class WorkflowTest(unittest.TestCase):
-    def test_workflow_writes_only_the_queue_to_main_and_keeps_the_key_in_env(self):
+    def test_workflow_writes_only_the_queue_to_the_x_novbe_branch_and_keeps_the_key_in_env(self):
+        """Sahib, 2026-11-27 («bu təklifini daha dərindən araşdır … tap və düzəlt»): növbə yalnız x-novbe budağına, main-ə heç nə.
+        İş axınının addımlarının özü tests/test_x_novbe.py-da yerli repo ilə işlədilir."""
         wf = (ROOT / ".github" / "workflows" / "x-yazici.yml").read_text(encoding="utf-8")
         self.assertIn("contents: write", wf)
+        self.assertIn("\n  NOVBE: x-novbe ", wf)
         self.assertEqual(wf.count("git add"), 1)
         self.assertIn("git add oz_x.json\n", wf)
-        self.assertIn("git push -q origin HEAD:main", wf)
-        self.assertIn("git config user.name 8ulduz-bot", wf, "pull --rebase üçün də ad: main irəli gedəndə iş düşməsin")
+        code = "\n".join(l for l in wf.splitlines() if not l.lstrip().startswith("#"))
+        pushes = re.findall(r"git push[^\n]*", code)
+        self.assertEqual(pushes, ['git push -q origin "$commit:refs/heads/$NOVBE" || echo "budaq bu arada yaranıb, onun nüsxəsi oxunur"',
+                                  'git push -q origin "HEAD:refs/heads/$NOVBE" && exit 0'], "yalnız x-novbe budağına, --force yoxdur")
+        self.assertNotRegex(code, r"HEAD:main|refs/heads/main|origin main", "main-ə heç nə yazılmır")
+        self.assertIn("git pull --rebase -q origin \"refs/heads/$NOVBE\"", code, "təkrar döngüsü qalır: budaq irəli gedibsə üstünə köçür")
+        self.assertIn("git config user.name 8ulduz-bot", wf, "pull --rebase üçün də ad: budaq irəli gedəndə iş düşməsin")
+        # budaq yoxdursa (ls-remote 2) main-in nüsxəsi ilə yaranır, başqa xətada iş dayanır; yazıcı budağın nüsxəsini oxuyur
+        self.assertRegex(code, r'ls-remote --exit-code --heads origin "refs/heads/\$NOVBE"[\s\S]*"\$code" = 2[\s\S]*git hash-object -w oz_x\.json'
+                               r'[\s\S]*"\$code" != 0[\s\S]*exit 1')
+        self.assertLess(code.index('cp "$RUNNER_TEMP/novbe/oz_x.json" oz_x.json'), code.index("run: python -u .github/scripts/x_yazici.py"))
         self.assertNotIn("OZ_DERC", wf)
         self.assertNotIn("echo \"$ANTHROPIC_API_KEY", wf)
         self.assertIn("GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}", wf)

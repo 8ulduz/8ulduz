@@ -760,7 +760,7 @@ Niyə 20:47 (araşdırma, 2026-11-23):
 Sahibin sözü: «həqiqi Gəncənin yeni stadionu olan videolardan istifadə etmək lazımdır. digərləri də belə». Bankda adi axtarış yeri təsadüfən tapır: etiket yanlış ola bilər, «baku» axtarışına Batumi gəlir. Ona görə yeri əvvəlcədən yoxlanmış öz kitabxanamız var.
 
 **Qısa.**
-- Kitabxana main-də deyil: tarixçəsiz `video-arxiv` budağında `video-arxiv.json`. Hər yazı valideynsiz bir commitdir, `arxiv` budağı kimi, ona görə repo şişmir. Sahibin birbaşa main-ə yazma icazəsi yalnız X yazıcısının növbə faylı üçündür (2026-11-18).
+- Kitabxana main-də deyil: tarixçəsiz `video-arxiv` budağında `video-arxiv.json`. Hər yazı valideynsiz bir commitdir, `arxiv` budağı kimi, ona görə repo şişmir. Botlardan main-ə yalnız xəbər axını yazır: X yazıcısının 2026-11-18-dəki birbaşa main icazəsi 2026-11-27-də əvəz olundu, növbə faylı indi yalnız `x-novbe` budağına gedir ([x-yazici.md](x-yazici.md) «Növbə budağı»).
 - Repodakı `data/video-arxiv.json` yalnız PR ilə gələn başlanğıc nüsxədir: budaq ilk dəfə ondan yaranır, montaj budağı oxuya bilməsə ona düşür. Kitabxanada yalnız metadata saxlanır, video fayl yoxdur.
 - Kod: `.github/scripts/video-arxiv.cjs`. İş: `.github/workflows/video-arxiv.yml`.
 - Montaj xəbərin yeri məlum olanda əvvəl arxivə baxır, sonra adi axtarışa keçir (`video-ssenari.cjs` `goruntu`). Sıra belədir:
