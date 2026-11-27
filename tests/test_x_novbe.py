@@ -5,7 +5,8 @@ və bütün faylların yeni ETag-ı idi. Xəbər axını (pipeline.sh) növbəni
 
 Burada iş axınının öz addımları yerli «origin» reposu ilə (şəbəkəsiz) və pipeline.sh-ın öz növbə funksiyaları saxta gh ilə işlədilir:
 - ilk iş budağı main-in nüsxəsi ilə yaradır (heç bir sətir itmir), sonrakı iş budağın nüsxəsini oxuyur, main heç vaxt dəyişmir;
-- budaq oxunmasa iş dayanır, toqquşmada başqasının nüsxəsinin üstünə yazılmır;
+- budaq tarixçəsizdir: hər yazı içində yalnız oz_x.json olan valideynsiz commit, yalnız oxunan uca qarşı --force-with-lease;
+- budaq oxunmasa iş dayanır; budaq oxunandan sonra dəyişibsə başqasının nüsxəsinin üstünə yazılmır;
 - axın main-ə yalnız budaq yoxdursa (404) keçir; budaq bir dəfə oxunandan sonra main-in donmuş nüsxəsi kod qovluğuna qayıtmır."""
 import json
 import os
@@ -111,10 +112,14 @@ class WorkflowStepsTest(unittest.TestCase):
         self.assertEqual((ws / "oz_x.json").read_text(encoding="utf-8"), doc(["0"]))
 
         (ws / "oz_x.json").write_text(doc(["0", "1"]), encoding="utf-8")   # yazıcı (x_yazici.py) növbəyə əlavə etdi
+        (ws / "oz_x.py").write_text("# iş qovluğunda dəyişən başqa fayl\n", encoding="utf-8")
+        (ws / "artiq.txt").write_text("budağa düşməməli\n", encoding="utf-8")
         self.ok(self.run_step(self.PUSH, ws, temp))
         tip = self.rev("refs/heads/x-novbe")
+        self.assertNotEqual(tip, seed)
         self.assertEqual(self.show("refs/heads/x-novbe"), doc(["0", "1"]))
-        self.assertEqual(git("--git-dir", str(self.origin), "rev-parse", f"{tip}^"), seed)
+        self.assertEqual(git("--git-dir", str(self.origin), "ls-tree", "--name-only", tip), "oz_x.json", "yalnız oz_x.json, başqa fayl yox")
+        self.assertEqual(git("--git-dir", str(self.origin), "rev-list", "--count", tip), "1", "tarixçəsiz: valideynsiz bir commit")
         self.assertEqual(git("--git-dir", str(self.origin), "log", "-1", "--format=%s", tip), "X xəbərləri növbəyə əlavə edildi")
         self.assertEqual(self.rev("refs/heads/main"), self.main, "main-ə heç nə yazılmır")
 
@@ -128,6 +133,7 @@ class WorkflowStepsTest(unittest.TestCase):
         (ws / "oz_x.json").write_text(doc(["0", "1", "2"]), encoding="utf-8")
         self.ok(self.run_step(self.PUSH, ws, temp))
         self.assertEqual(self.show("refs/heads/x-novbe"), doc(["0", "1", "2"]))
+        self.assertEqual(git("--git-dir", str(self.origin), "rev-list", "--count", "refs/heads/x-novbe"), "1", "tarixçə yığılmır")
         self.assertEqual(self.rev("refs/heads/main"), self.main)
         self.assertEqual(git("--git-dir", str(self.origin), "for-each-ref", "--format=%(refname)"),
                          "refs/heads/main\nrefs/heads/x-novbe", "başqa budaq yaranmır")
@@ -149,29 +155,30 @@ class WorkflowStepsTest(unittest.TestCase):
         (a / "oz_x.json").write_text(doc(["0", "a"]), encoding="utf-8")
         self.ok(self.run_step(self.PUSH, a, at))
         tip = self.rev("refs/heads/x-novbe")
-        (b / "oz_x.json").write_text(doc(["0", "b"]), encoding="utf-8")   # eyni yerə başqa sətir: toqquşma
-        run = self.run_step(self.PUSH, b, bt)
-        self.assertNotEqual(run.returncode, 0)
-        self.assertIn("push alınmadı", run.stdout)
+        (b / "oz_x.json").write_text(doc(["0", "b"]), encoding="utf-8")   # b köhnə ucu oxuyub: onun nüsxəsində «a» yoxdur
+        run = self.ok(self.run_step(self.PUSH, b, bt))   # lease tutmur: heç nə yazılmır, iş uğurla bitir
+        self.assertIn("x-novbe bu iş oxuyandan sonra dəyişib", run.stdout)
         self.assertEqual(self.rev("refs/heads/x-novbe"), tip, "budaqdakı sətirlər qalır")
         self.assertEqual(self.show("refs/heads/x-novbe"), doc(["0", "a"]))
         self.assertEqual(self.rev("refs/heads/main"), self.main)
 
-    def test_a_branch_that_moved_elsewhere_gets_the_change_on_top(self):
-        base = [str(i) for i in range(8)]
-        a, at = self.job()
-        self.ok(self.run_step(self.READ, a, at))
-        (a / "oz_x.json").write_text(doc(base, items=["x1"]), encoding="utf-8")
-        self.ok(self.run_step(self.PUSH, a, at))
-        b, bt = self.job()
-        self.ok(self.run_step(self.READ, b, bt))
-        c, ct = self.job()
-        self.ok(self.run_step(self.READ, c, ct))
-        (b / "oz_x.json").write_text(doc(base + ["8"], items=["x1"]), encoding="utf-8")   # sonuna video
-        self.ok(self.run_step(self.PUSH, b, bt))
-        (c / "oz_x.json").write_text(doc(base, items=["x2"]), encoding="utf-8")   # başda xəbər sətri: başqa yer
-        self.ok(self.run_step(self.PUSH, c, ct))
-        self.assertEqual(self.show("refs/heads/x-novbe"), doc(base + ["8"], items=["x2"]), "pull --rebase: hər iki dəyişiklik qalır")
+    def test_a_broken_queue_file_or_a_network_error_writes_nothing_and_fails(self):
+        ws, temp = self.job()
+        self.ok(self.run_step(self.READ, ws, temp))
+        seed = self.rev("refs/heads/x-novbe")
+        (ws / "oz_x.json").write_text('{"v": 1, "reels": [', encoding="utf-8")
+        run = self.run_step(self.PUSH, ws, temp)
+        self.assertNotEqual(run.returncode, 0)
+        self.assertIn("::error::növbə faylı pozulub", run.stdout)
+        self.assertEqual(self.rev("refs/heads/x-novbe"), seed)
+        # Şəbəkə kəsilib: budağın dəyişdiyi bilinmir — «dəyişib» sayılmır, iş qırmızı bitir, heç nə yazılmır.
+        (ws / "oz_x.json").write_text(doc(["0", "1"]), encoding="utf-8")
+        git("remote", "set-url", "origin", "file://" + str(self.tmp / "yoxdur.git"), cwd=ws)
+        run = self.run_step(self.PUSH, ws, temp)
+        self.assertNotEqual(run.returncode, 0)
+        self.assertIn("push alınmadı", run.stdout)
+        self.assertNotIn("dəyişib", run.stdout)
+        self.assertEqual(self.rev("refs/heads/x-novbe"), seed)
         self.assertEqual(self.rev("refs/heads/main"), self.main)
 
 

@@ -9,7 +9,8 @@ name: X xəbərləri yazıcısı
 # əvəz olunub). Səbəb: main-ə hər yazı ayrıca Pages yığımı (37–58 s), Fastly CDN-in təmizlənməsi, bütün faylların yeni ETag-ı və
 # oxucunun service worker-inin dəyişməmiş faylları yenidən yükləməsi idi; 2026-11-26-da (UTC) main-ə 87 «X xəbərləri növbəyə əlavə
 # edildi» yazısı (bot yazılarının 43%-i), 219 Pages yığımının 17-si üst-üstə düşüb ləğv olundu. Kod main-dən gəlir, növbə
-# budaqdan; xəbər axını da növbəni budaqdan oxuyur (pipeline.sh pull_reel_src). Budaq valideynsiz başlayır, içində yalnız oz_x.json.
+# budaqdan; xəbər axını da növbəni budaqdan oxuyur (pipeline.sh pull_reel_src). Budaq tarixçəsizdir (live, arxiv, video-arxiv kimi):
+# hər yazı içində yalnız oz_x.json olan valideynsiz bir commitdir, repo şişmir (tarixçə ilə gündə ~1 MB, ildə ~365 MB olardı).
 # Budaq yoxdursa (ilk iş) main-in indiki oz_x.json-u ilə yaranır: keçiddə heç bir sətir itmir. main-in oz_x.json-u o andan donur.
 
 on:
@@ -47,25 +48,33 @@ jobs:
       - name: Növbəni x-novbe budağından götür (budaq yoxdursa main-in oz_x.json-u ilə yaranır)
         run: |
           set -euo pipefail
-          git config user.name 8ulduz-bot   # pull --rebase da commit qurur: ad olmasa budaq irəli gedəndə iş düşür (2026-11-19)
+          git config user.name 8ulduz-bot   # commit-tree müəllifi
           git config user.email bot@8ulduz.az
           # Budaq tam adı ilə (refs/heads/...): eyni adlı teq qısa addan öndə gələ bilər (video-arxiv, 2026-11-26).
+          # Budağın indiki ucu yadda saxlanır: yazı yalnız budaq hələ bu ucdadırsa gedir (göndər addımında --force-with-lease).
           code=0
-          git ls-remote --exit-code --heads origin "refs/heads/$NOVBE" >/dev/null || code=$?
+          tip="$(git ls-remote --exit-code --heads origin "refs/heads/$NOVBE")" || code=$?
           if [ "$code" = 2 ]; then
             # İlk iş: main-in indiki oz_x.json-u ilə valideynsiz commit (budaqda yalnız bu fayl). Budaq bu arada yaranıbsa push
             # rədd olunur (sürətli irəliləmə deyil) və onun nüsxəsi oxunur: heç nəyin üstünə yazılmır.
             blob="$(git hash-object -w oz_x.json)"
             tree="$(printf '100644 blob %s\toz_x.json\n' "$blob" | git mktree)"
             commit="$(git commit-tree "$tree" -m "X növbəsi main-in oz_x.json-u ilə başladı")"
-            git push -q origin "$commit:refs/heads/$NOVBE" || echo "budaq bu arada yaranıb, onun nüsxəsi oxunur"
+            if git push -q origin "$commit:refs/heads/$NOVBE"; then
+              tip="$commit"
+            else
+              echo "budaq bu arada yaranıb, onun nüsxəsi oxunur"
+              tip="$(git ls-remote --exit-code --heads origin "refs/heads/$NOVBE")"
+            fi
           elif [ "$code" != 0 ]; then
             echo "::error::$NOVBE budağı oxunmadı (ls-remote: $code): növbəyə toxunulmur"; exit 1
           fi
+          tip="${tip%%[[:space:]]*}"
+          printf '%s\n' "$tip" > "$RUNNER_TEMP/novbe.sha"
           git fetch -q --depth 1 origin "+refs/heads/$NOVBE:refs/remotes/origin/$NOVBE"
-          git worktree add -q -B "$NOVBE" "$RUNNER_TEMP/novbe" "refs/remotes/origin/$NOVBE"
           # Yazıcı budağın nüsxəsini oxuyur və yazır; main-in donmuş nüsxəsi onu əvəz etmir.
-          cp "$RUNNER_TEMP/novbe/oz_x.json" oz_x.json
+          git show "refs/remotes/origin/$NOVBE:oz_x.json" > "$RUNNER_TEMP/novbe.json"
+          cp "$RUNNER_TEMP/novbe.json" oz_x.json
       - name: Yaz
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -73,21 +82,24 @@ jobs:
         run: python -u .github/scripts/x_yazici.py
       - name: Növbəni x-novbe budağına göndər (yalnız oz_x.json; main-ə heç nə)
         run: |
-          cd "$RUNNER_TEMP/novbe"
-          if cmp -s "$GITHUB_WORKSPACE/oz_x.json" oz_x.json; then echo "dəyişiklik yoxdur"; exit 0; fi
-          cp "$GITHUB_WORKSPACE/oz_x.json" oz_x.json
-          git add oz_x.json
-          git commit -q -m "X xəbərləri növbəyə əlavə edildi"
-          for i in 1 2 3 4 5; do
-            # Budaq irəli gedibsə dəyişiklik onun üstünə köçür. Toqquşmada (eyni sətirlər) heç nə yazılmır: budaqdakı sətirlər qalır,
-            # bu işin videoları növbəti işdə yenidən namizəd olur. Birləşmə JSON-u pozubsa da yazılmır.
-            if git pull --rebase -q origin "refs/heads/$NOVBE"; then
-              python3 -c 'import json,sys; d=json.load(open(sys.argv[1], encoding="utf-8")); assert d.get("v") == 1' oz_x.json \
-                || { echo "::error::növbə faylı birləşmədən sonra pozulub: yazılmır"; exit 1; }
-              git push -q origin "HEAD:refs/heads/$NOVBE" && exit 0
-            else
-              git rebase --abort 2>/dev/null || true
+          if cmp -s oz_x.json "$RUNNER_TEMP/novbe.json"; then echo "dəyişiklik yoxdur"; exit 0; fi
+          python3 -c 'import json,sys; d=json.load(open(sys.argv[1], encoding="utf-8")); assert d.get("v") == 1' oz_x.json \
+            || { echo "::error::növbə faylı pozulub: yazılmır"; exit 1; }
+          tip="$(cat "$RUNNER_TEMP/novbe.sha")"
+          # Tarixçəsiz: içində yalnız oz_x.json olan valideynsiz commit (iş qovluğunun başqa faylları bura düşmür).
+          blob="$(git hash-object -w oz_x.json)"
+          tree="$(printf '100644 blob %s\toz_x.json\n' "$blob" | git mktree)"
+          commit="$(git commit-tree "$tree" -m "X xəbərləri növbəyə əlavə edildi")"
+          for i in 1 2 3; do
+            # Budaq yalnız bu işin oxuduğu ucdadırsa dəyişir. Başqa yazı gəlibsə heç nə yazılmır: budaqdakı sətirlər qalır,
+            # bu işin videoları növbəti işdə yenidən namizəd olur.
+            git push -q --force-with-lease="refs/heads/$NOVBE:$tip" origin "$commit:refs/heads/$NOVBE" && exit 0
+            now="$(git ls-remote --heads origin "refs/heads/$NOVBE" || true)"
+            now="${now%%[[:space:]]*}"
+            if [ -n "$now" ] && [ "$now" != "$tip" ]; then
+              echo "x-novbe bu iş oxuyandan sonra dəyişib (${tip:0:12} → ${now:0:12}): bu işin nüsxəsi yazılmır, videolar növbəti işdə yenidən namizəddir"
+              exit 0
             fi
-            sleep $((i * 5))
+            sleep $((i * 5))   # şəbəkə xətası: budaq hələ oxunan ucdadır
           done
           echo "push alınmadı"; exit 1

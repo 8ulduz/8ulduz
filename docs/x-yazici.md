@@ -31,17 +31,24 @@ yükləyir. Üst-üstə düşən yığımlar ləğv olunur və ya düşür. Öl�
 xəbər axınının yazısı dəyişmir (10 dəqiqədən bir, gündə ≤ 144). Budağa yazı Pages yığımı başlatmır (Pages yalnız main-dən
 yığılır) və heç bir iş axınını işə salmır (budaqda iş axını faylı yoxdur, `on: push` hamısı başqa budaqlara bağlıdır).
 
-**Yazıcı** (`x-yazici.yml`): kod main-dən gəlir. `git ls-remote --exit-code --heads origin refs/heads/x-novbe`:
+**Budaq tarixçəsizdir** (`live`, `arxiv`, `video-arxiv` kimi): hər yazı içində yalnız `oz_x.json` olan valideynsiz bir
+commitdir, köhnə nüsxələr tarixçədə qalmır. Tarixçə ilə bir günün 83 nüsxəsi git-də sıxılanda ~1 MB-dır (2026-11-26-nın
+nüsxələri ilə ölçülüb; xam 97 MB), yəni ildə ~365 MB olardı.
+
+**Yazıcı** (`x-yazici.yml`): kod main-dən gəlir. Əvvəlcə `git ls-remote --exit-code --heads origin refs/heads/x-novbe`
+budağın ucunu yadda saxlayır:
 - budaq yoxdursa (çıxış kodu 2; keçiddən sonrakı ilk iş) main-in həmin andakı `oz_x.json`-u ilə valideynsiz commit yaradılır
-  və göndərilir: keçiddə heç bir sətir itmir. Budaq bu arada yaranıbsa push rədd olunur və onun nüsxəsi oxunur;
+  və `--force`-suz göndərilir: keçiddə heç bir sətir itmir. Budaq bu arada yaranıbsa push rədd olunur və onun nüsxəsi oxunur;
 - başqa xətada iş dayanır, heç nəyə toxunmur;
 - budağın nüsxəsi (`git fetch --depth 1`, tam adla: eyni adlı teq qısa addan öndə gələ bilər) iş qovluğundakı `oz_x.json`-u
-  əvəz edir, `x_yazici.py` onu oxuyub yazır. Dəyişiklik varsa budağa bir commit: `git pull --rebase` + push, 5 cəhd.
-  Toqquşmada və ya birləşmə JSON-u pozanda heç nə yazılmır: budaqdakı sətirlər qalır, bu işin videoları növbəti işdə yenidən
-  namizəd olur. `--force` yoxdur.
+  əvəz edir, `x_yazici.py` onu oxuyub yazır;
+- dəyişiklik varsa: JSON yoxlanır (pozulubsa yazılmır, iş qırmızı bitir), içində yalnız `oz_x.json` olan valideynsiz commit
+  qurulur və `git push --force-with-lease=refs/heads/x-novbe:<yadda saxlanan uc>` ilə göndərilir. Budaq bu iş oxuyandan sonra
+  dəyişibsə lease tutmur: heç nə yazılmır, iş aydın bir sətirlə uğurla bitir, budaqdakı sətirlər qalır, bu işin videoları
+  növbəti işdə yenidən namizəd olur. Şəbəkə xətasında (budaq hələ oxunan ucdadır) 3 cəhd, sonra iş qırmızı bitir.
+  Lease-siz `--force` yoxdur; iş qovluğunun başqa faylları budağa düşmür.
 
-Budaqda yalnız `oz_x.json` var, tarixçəsi qalır (hər yazı bir commit). Bir günün 83 nüsxəsi git-də sıxılanda ~1 MB-dır
-(2026-11-26-nın nüsxələri ilə ölçülüb; xam 97 MB). main-in dayaz klonlarına (`fetch-depth: 1`) budaq gəlmir.
+main-in dayaz klonlarına (`fetch-depth: 1`) budaq gəlmir.
 
 **main-in `oz_x.json`-u keçid anında donur.** Xəbər axınının 10 dəqiqəlik yazısı onu main-ə aparmır: struktur qaydası (b)
 (sahib, 2026-11-07; [qirmizi-xetler.md](qirmizi-xetler.md) «Məlum risk») böyük və tez dəyişən faylı main-ə yazmağı qadağan edir.
@@ -120,10 +127,10 @@ Qırmızı xətt 2 dəyişmir: növbənin yeri dəyişib, qapılar yox.
 
 5. Yeni sətirləri `oz_x.json`-un `items` siyahısının sonuna əlavə edin; `date`-i 4 gündən köhnə sətirləri silin.
    Fayl `{"v": 1, "items": [...]}` formasında, UTF-8, 2 boşluqlu girinti ilə qalır.
-6. Yalnız `oz_x.json`-u, yalnız `x-novbe` budağına commit edin (main-ə heç nə; sahib, 2026-11-27): mesaj
-   «X xəbərləri növbəyə əlavə edildi». `git pull --rebase -q origin refs/heads/x-novbe`, sonra
-   `git push -q origin HEAD:refs/heads/x-novbe` (yalnız `8ulduz/8ulduz`; `--force` yox). Push alınmasa yenidən pull + push;
-   toqquşma olsa dayanın, budaqdakı nüsxənin üstünə yazmayın.
+6. Yalnız `oz_x.json`-u, yalnız `x-novbe` budağına yazın (main-ə heç nə; sahib, 2026-11-27): içində yalnız bu fayl olan
+   valideynsiz commit (`git mktree`, `git commit-tree`, mesaj «X xəbərləri növbəyə əlavə edildi»), sonra
+   `git push --force-with-lease=refs/heads/x-novbe:<oxuduğunuz uc> origin <commit>:refs/heads/x-novbe` (yalnız `8ulduz/8ulduz`;
+   lease-siz `--force` yox). Lease tutmasa budaq dəyişib: dayanın, budaqdakı nüsxənin üstünə yazmayın.
 7. Yeni uyğun paylaşım yoxdursa heç nə commit etməyin.
 
 ## Videolent mənbələri: 2026-11-26 ölçüsü
