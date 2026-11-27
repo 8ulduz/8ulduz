@@ -648,10 +648,10 @@ Bir söz səhv oxunursa, `ses-lugat.json`-a `"Söz": "oxunuş"` sətri əlavə e
 
 ## Paylaşım: `.github/workflows/sosial-video.yml` + `.github/scripts/sosial-video.cjs`
 
-1. Hər 30 dəqiqədən bir (:17, :47) iş başlayır. Vaxtı deyilsə (gecə, fasilə, gündəlik hədd) ~20 saniyədə bitir: ffmpeg və model quraşdırılmır.
+1. Hər 30 dəqiqədən bir (:17, :47) iş başlayır. Vaxtı deyilsə (gecə, fasilə, gündəlik hədd) ~35 saniyədə bitir: səs modeli quraşdırılmır. ffmpeg 2026-11-27-dən seçimdən əvvəl quraşdırılır (~15 s), çünki kadr yoxlaması seçimin içindədir («Media qaydası»).
    İşi xəbər axını başladır (`pipeline.sh` `video_loop`, yalnız dispatch; main-də video işi gedirsə və ya bu pəncərədə artıq başlayıbsa yox): iş axınının cron-u 2026-11-22-də
    bir dəfə də işləmədi (X yazıcısında da belə olmuşdu). Cron ehtiyat qalır. Xəbər axını hər saat yenidən başlayır: pəncərə yoxlanmasa, 04:17 pəncərəsində 04:36-da ikinci iş gedirdi (2026-11-23).
-2. **Seçim** (`sosial-video.cjs sec`): lent saytın qaydasından keçir; social.cjs-in namizədləri; əvvəl video olmuş xəbər, başlıq və mövzu (24 saat) ötürülür; mənbə səhifəsindən izah tapılmayan xəbər video olmur.
+2. **Seçim** (`sosial-video.cjs sec`): lent saytın qaydasından keçir; social.cjs-in namizədləri; əvvəl video olmuş xəbər, başlıq və mövzu (24 saat) ötürülür; mənbə səhifəsindən izah tapılmayan xəbər video olmur. Mətn media qaydasından, mənbənin, X-in və kanalın öz videosu kadr yoxlamasından keçir; keçməyən namizəd ötürülür, növbəti götürülür.
 3. **Video** (`video-xeber.cjs`), sonra yoxlama: ölçü, kodek, kadr sürəti, səs, müddət, moov əvvəldə. Uyğun deyilsə iş qırmızıdır, heç nə paylaşılmır.
 4. **Paylaşma** (`sosial-video.cjs paylas`): fayl hər iki şəbəkəyə **birbaşa** yüklənir (Meta-nın `rupload.facebook.com` serverinə, «resumable upload»). İctimai ünvan və saxlama yeri lazım deyil, repoya video yazılmır (repo ölçüsü, `repo-olcu.yml`). Video yalnız iş səhifəsində 3 günlük artefakt kimi qalır.
    - Facebook: `POST /{səhifə}/video_reels` (start) → fayl → `finish` (`video_state=PUBLISHED`, `description` keçidlə) → emal bitəndə ilk şərh «Ətraflı: keçid».
