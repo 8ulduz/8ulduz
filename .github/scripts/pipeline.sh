@@ -425,7 +425,7 @@ pull_reel_src() {
   return 0
 }
 
-# Son oxunan növbə kod qovluğuna (oz_x.py onu öz yanından oxuyur). Atomik: yavaş dövrə yarımçıq fayl oxumur (boş növbə = boş Videolent).
+# Son oxunan növbə kod qovluğuna (X modulu onu öz yanından oxuyur). Atomik: yavaş dövrə yarımçıq fayl oxumur (boş növbə = boş Videolent).
 apply_queue() {
   local src
   src="$(novbe_file)"
