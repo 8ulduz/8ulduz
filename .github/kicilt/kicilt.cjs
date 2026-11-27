@@ -3,6 +3,7 @@
 //
 //   npm ci --prefix .github/kicilt --ignore-scripts   (bir dəfə; terser versiyası package-lock.json-da sabitdir)
 //   node .github/kicilt/kicilt.cjs                    (assets/app.js hər dəyişəndə; test köhnə nüsxəni tutur)
+//   Eyni əmr assets/kod.json-u (kod faylların izləri, kod.cjs) da yazır: hər hansı .js/.css dəyişəndə işlədin.
 //
 // Yuxarı səviyyəli adlar da (homeView, shell, S…) qısalır (sahib, 2026-11-13: «hədd artırılmır, gələcək əlavələr üçün ciddi yer açılsın,
 // saytın işləyişinə toxunulmasın»): fayl 169 982 → ~157 000 bayt, gzip ~3,3 KB az. Oxucu üçün heç nə dəyişmir: fayl hər yerdə modul kimi
@@ -65,5 +66,9 @@ if (require.main === module) {
     if (args.includes("--adlar")) { console.log(JSON.stringify(Object.fromEntries(Object.entries(names).map(([k, v]) => [v, k])), null, 1)); process.exit(0); } // qısa ad → mənbədəki ad
     fs.writeFileSync(path.join(root, OUT), code);
     console.log(`${OUT}: ${Buffer.byteLength(code)} bayt (mənbə ${Buffer.byteLength(source.replace(/\r\n/g, "\n"))})`);
+    // Kod izləri app.min.js-dən SONRA (onun da izi var): sw.js yayımdan sonra yalnız dəyişən faylı endirir (.github/kicilt/kod.cjs).
+    const kod = require("./kod.cjs"), list = kod.build(root);
+    fs.writeFileSync(path.join(root, kod.KOD), list);
+    console.log(`${kod.KOD}: ${kod.files(root).length} fayl, ${Buffer.byteLength(list)} bayt`);
   } catch (e) { console.error(e.message); process.exit(1); }
 }

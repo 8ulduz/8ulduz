@@ -2,7 +2,7 @@
    Canlı fayllar (status, latest, markets): əvvəl live budağı (dəqiqəlik), sonra sayt, sonra ehtiyat kanal.
    Qalan data/*.json: əvvəl sayt, alınmasa ehtiyat kanal (GitHub raw). Keş yalnız hamısı alınmayanda (oflayn).
    HTML/JS/CSS: saxlanmış nüsxə dərhal, təzəsi arxada (cachedShell). Şəkillər: əvvəl keş. */
-const VERSION = "v183"; // hər versiyanın qeydi: docs/sw-versiyalar.md (bu faylı oxucunun brauzeri endirir, tarixçə burada saxlanmır)
+const VERSION = "v184"; // hər versiyanın qeydi: docs/sw-versiyalar.md (bu faylı oxucunun brauzeri endirir, tarixçə burada saxlanmır)
 const STATIC = "8ulduz-static-" + VERSION;
 // Məlumat keşinin adı versiyasızdır (2026-11-09): əvvəl hər yayımda (gündə 20–40 dəfə) silinirdi və yayımdan sonrakı ilk açılış
 // keşsiz başlayırdı — app.js loadCached boş qalır, lent şəbəkəni gözləyirdi (telefonda +0,6–0,9 s). Açarlar sorğusuz yoldur
@@ -172,30 +172,59 @@ async function cacheFirst(req) {
 const CODE_FILE = /\.(?:js|css)$/;
 // Çoxdan gəlməyən oxucu (sahib, 2026-11-13: Facebook-un daxili brauzeri saytın 3 gün əvvəlki nüsxəsini göstərdi): saxlanmış nüsxə
 // SHELL_MAX_AGE_MS-dən köhnədirsə əvvəl təzəsi gözlənilir, SHELL_WAIT_MS-də gəlməsə saxlanmış verilir. Hər gün gələn oxucunun
-// nüsxəsi hər açılışda arxada təzələnir, ona görə ona toxunmur: təkrar açılış əvvəlki kimi şəbəkəni gözləmir.
+// nüsxəsi hər açılışda arxada yoxlanır (kod.json), ona görə ona toxunmur: təkrar açılış əvvəlki kimi şəbəkəni gözləmir.
 const SHELL_MAX_AGE_MS = 36 * 3600e3, SHELL_WAIT_MS = 2500;
 function tooOld(res) {
   const at = Date.parse(res.headers.get("date") || "");
   return at > 0 && Date.now() - at > SHELL_MAX_AGE_MS;
+}
+// Kod izləri (v184, docs/sw-versiyalar.md): Pages hər yayımda bütün ETag-ları dəyişir. Kod faylı əvvəl kod.json ilə tutuşdurulur,
+// izi eynidirsə endirilmir. kod.json alınmasa, faylı yoxsa və ya iz fərqlidirsə əvvəlki yol. Siyahını kicilt.cjs yazır (kod.cjs).
+const KOD_URL = new URL("assets/kod.json", SCOPE_URL).href, KOD_FILE = /\.(?:js|css|webmanifest)$/;
+let kodAt = 0, kodP = null;
+function kod() { // bir açılışın sorğuları bir kod.json-u bölüşür (60 s)
+  if (kodP && Date.now() - kodAt < 60e3) return kodP;
+  kodAt = Date.now();
+  return kodP = attempt(new Request(KOD_URL, { cache: "no-cache" }), {}, ORIGIN_WAIT_MS).then(async (r) => {
+    const m = await r.clone().json();
+    await caches.open(STATIC).then((c) => c.put(KOD_URL, r)).catch(() => {}); // tarixi 36 saat yoxlamasına (kodSaved)
+    return m;
+  }).catch(() => null);
+}
+async function kodSaved(cache) {
+  const r = await cache.match(KOD_URL);
+  return r && !tooOld(r) ? r.json().catch(() => null) : null;
+}
+async function izOf(text) { // .github/kicilt/kod.cjs iz ilə eyni
+  try {
+    const d = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text.replace(/\r\n/g, "\n"))));
+    return btoa(String.fromCharCode(...d.subarray(0, 12))).replace(/\+/g, "-").replace(/\//g, "_");
+  } catch { return null; }
 }
 async function cachedShell(req, event) {
   const cache = await caches.open(STATIC);
   // Açar həmişə yalnız yoldur (naviqasiya da, kod faylı da): ?utm_source=… və ya app.js?c=… kimi sorğu öz nüsxəsini
   // yaradırdı, ignoreSearch isə həmişə ən köhnəsini qaytarırdı; arxa yoxlama yalnız sorğusuz açarı təzələdiyindən o oxucu
   // köhnə kodda qalırdı (v39-da app.js belə ilişdi). Şəbəkəyə də sorğusuz yol gedir: CDN-də bir nüsxə.
-  const key = req.url.split(/[?#]/)[0];
+  const key = req.url.split(/[?#]/)[0], path = new URL(key).pathname, rel = key.slice(SCOPE_URL.href.length);
   let saved = await cache.match(key, { ignoreSearch: false });
   if (saved?.redirected) saved = undefined; // yönləndirilmiş cavabı brauzer naviqasiyada rədd edir (ERR_FAILED)
+  if (req.mode === "navigate") { const k = kod(); event?.waitUntil?.(k); } // səhifənin kod sorğularından əvvəl
   // Müqayisə üçün mətn saxlanmış cavab səhifəyə verilməzdən ƏVVƏL götürülür: gövdə oxunandan sonra clone() xəta atır
   // və keş heç vaxt yenilənmirdi (v33-də belə idi: köhnə app.js telefonda qalırdı).
-  const savedText = saved && CODE_FILE.test(new URL(req.url).pathname) ? saved.clone().text().catch(() => null) : null;
-  const old = !!saved && tooOld(saved);
+  const savedText = saved && KOD_FILE.test(path) ? saved.clone().text().catch(() => null) : null;
+  let izP;
+  const same = async (m) => typeof m?.[rel] === "string" && m[rel] === await (izP ||= savedText.then((t) => t == null ? null : izOf(t)));
+  // 36 saatdan köhnə nüsxə: son 36 saatda alınmış kod.json eyni izi deyirsə təzədir (eyni fayl yenidən endirilmir, tarixi köhnəlir).
+  const old = !!saved && tooOld(saved) && !(savedText && await same(await kodSaved(cache)));
   let tell = !old; // səhifəyə saxlanmış nüsxə verilirsə təzə kod barədə xəbər gedir; təzəsi verilibsə ehtiyac yoxdur
-  const net = fetch(new Request(key, { cache: "no-cache" }));
+  const get = () => fetch(new Request(key, { cache: "no-cache" }));
+  const net = savedText && !old ? kod().then(same).then((ok) => ok ? null : get(), get) : get();
   const network = net.then(async (fresh) => {
+    if (!fresh) return null; // kod.json: baytlar eynidir
     if (fresh.redirected) return req.mode === "navigate" ? Response.redirect(fresh.url, 302) : fresh;
     if (!fresh.ok) return fresh;
-    const copy = fresh.clone(), text = savedText ? fresh.clone().text() : null; // surətlər gövdə səhifəyə verilməzdən əvvəl
+    const copy = fresh.clone(), text = savedText && CODE_FILE.test(path) ? fresh.clone().text() : null; // surətlər gövdə səhifəyə verilməzdən əvvəl
     const changed = !!text && (await savedText) !== (await text);
     await cache.put(key, copy).catch(() => {});
     if (changed && tell) for (const client of await self.clients.matchAll({ type: "window" })) client.postMessage({ type: "shell-updated" });
