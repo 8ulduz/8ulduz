@@ -1904,7 +1904,7 @@ function topicRx(t) {
   if (t.stems?.length) parts.push(`(?:${t.stems.map(topicKey).join("|")})`);
   return t.rx = new RegExp(` (?:${parts.join("|")})`, "u");
 }
-const TOPIC_TEXT = new WeakMap();
+const TOPIC_TEXT = new WeakMap(), CLUB_HIT = {}; // CLUB_HIT: sectionView-in idman süzgəci
 function clubMatches(a, club) {
   const topic = sportTopic(club);
   if (!topic || topic.skip?.includes(a.source)) return false;
@@ -1952,8 +1952,10 @@ function navGroups(tabs, open) {
   if (open === "Transfer xəbərləri") return groups.map(g => ({ ...g, items: g.items.filter(t => t.label !== "Basketbol" || withArchive("idman", S.data?.articles || []).some(a => a.category === "idman" && clubMatches(a, t.name))) }));
   // Məlumat çatana qədər klubların düymələri qalır.
   if (open === "Basketbol") return navLeagues("idman", open).length ? [] : groups;
-  if (open !== "Futbol") return groups;
-  return groups.flatMap(g => g.group === "Azərbaycan" || S.sports?.leagues?.length ? [] : [g]);
+  // Futbolda klub düymələri (köhnə görünüş) yoxdur: liqalar navLeagues-dədir. Sahib 2026-11-27: «futbol bölməsi niyə ən birinci hala
+  // qayıdıb?» — sports.json gələnə qədər köhnə klub qrupları (Türkiyə, Avropa) çəkilirdi, oxucu «Futbol»a toxunanda yeni çəkiliş
+  // (requestRender, readerBusy) 8 s-dən, sürüşdürdükcə dəqiqələrlə gecikirdi. Dünya liqaları gələn kimi menyuya yazılır (navData).
+  return open === "Futbol" ? [] : groups;
 }
 function navRows(slug, open = S.sportTab, club = S.club || "") {
   const tabs = SUB_TABS[slug];
@@ -2418,7 +2420,10 @@ function sectionView(slug) {
   if (um && sportTopic(um) && S.clubUrl !== location.hash) { S.club = um; S.clubUrl = location.hash; S.sportTab = tabs.find(x => x.name === um || x.groups?.some(g => g.items.some(i => i.name === um)))?.name || null; }
   let extra = SUB_TABS[slug] ? `<div class="sub-rows">${subNav(slug)}</div>` : slug === "video" ? REELS : "";
   if (slug === "idman") {
-    if (S.club) list = list.filter(a => clubMatches(a, S.club));
+    // Nəticə xəbər (nömrə + başlıq) və düymə üzrə yadda qalır (sahib 2026-11-27: «yenə pis işləyir-tutula-tutula»): «Futbol»da dəqiqəlik
+    // hər yeniləmə ~900 sətir üçün 14 000 clubMatches çağırırdı (klub qrupları), telefonda (4×) 256–500 ms; hovuz təzələnəndə sətirlər
+    // yeni nüsxədir (collapseExact), ona görə obyekt üzrə yaddaş (TOPIC_TEXT) kömək etmirdi — çəkiliş 430–820 ms uzun iş idi.
+    if (S.club) list = list.filter(a => CLUB_HIT[a.id + a.title + S.club] ??= clubMatches(a, S.club));
   }
   if (slug === "bolgeler") {
     if (S.club) {
@@ -3581,11 +3586,14 @@ async function loadVideo() {
   } catch {}
 }
 const SPORTS_DELAY_MS = 4000;
-function wantSports() { if (S.sports || S.sportsAsked) return; S.sportsAsked = true; loadSports(); requestJSON(freshUrl("data/milli-menyu.json")).then(r => { S.milli = r.d?.comps; S.navRefresh?.(); }, () => {}); }
+// Liqa menyusunun məlumatı gələndə: kursor menyusu və səhifədəki İdman alt menyusu yerində. Bütöv çəkiliş (requestRender) oxucu
+// toxunandan 8 s sonraya, sürüşdürdükcə dəqiqələrlə gecikir — «Futbol» o vaxta qədər yarımçıq qalırdı (sahib 2026-11-27, navGroups).
+function navData() { S.navRefresh?.(); const rows = route().slug === "idman" && $(".sub-rows"); if (rows) { rows.innerHTML = subNav("idman"); S.tr?.(rows); } }
+function wantSports() { if (S.sports || S.sportsAsked) return; S.sportsAsked = true; loadSports(); requestJSON(freshUrl("data/milli-menyu.json")).then(r => { S.milli = r.d?.comps; navData(); }, () => {}); }
 async function loadSports() {
   try {
     const r = await fetch(freshUrl("data/sports.json"), { cache: "no-store" });
-    if (r.ok) { const d = await r.json(); if (Array.isArray(d.leagues)) { S.sports = d; S.navRefresh?.(); if (["home", "league", "section"].includes(route().name) && S.data) requestRender(false); } }
+    if (r.ok) { const d = await r.json(); if (Array.isArray(d.leagues)) { S.sports = d; navData(); if (["home", "league", "section"].includes(route().name) && S.data) requestRender(false); } }
   } catch {}
 }
 async function loadFootball() {

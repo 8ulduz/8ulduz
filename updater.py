@@ -900,7 +900,10 @@ _PLACE_SUF = r"(?:n?[ıiuü]n|n?[ıiuü]|[dt][aə]n?|y?[aə]|l[ıiuü](?:lar|lə
 
 # Qısa kök başqa sözün içində tutulmasın: «dava» — «davam», «kəşf» — «kəşfiyyat», «dəri» — «dərin», «kilo» — «kilometr», «цен» — «центр».
 _WORD_GUARD = {"dava": r"(?!m)", "kəşf": r"(?!iyyat)", "dəri": r"(?!n)", "kilo": r"(?!metr)", "цен": r"(?!тр|ност)",
-               "hava": r"(?!limanı|dar|lim|yol)", "sel": r"(?:[iı]n?|ə|də|dən)?(?!\w)", "dolu": r"(?!\w)"}
+               "hava": r"(?!limanı|dar|lim|yol)", "sel": r"(?:[iı]n?|ə|də|dən)?(?!\w)", "dolu": r"(?!\w)",
+               # «yığma» (milli komanda) — «pul yığmaqla», «yığmağa» feldir: Nocomment.az-ın «Bu şəxslər Bakıda 50 ilə ev ala bilər»
+               # xəbəri İdmana düşmüşdü (sahib 2026-11-27: «idman bölməsi pis vəziyyətə düşüb»)
+               "yığma": r"(?![qğ])"}
 
 def _rx(w):
     """Söz başlanğıcına bağlı axtarış (sonu sərbəst: şəkilçilər üçün)."""
@@ -6672,7 +6675,10 @@ def _story_titles(stories, articles):
         if a and str(a.get("title") or "").strip():
             titles[sid] = (a.get("title"), a.get("source") or "")
             continue
-        if isinstance(row, list) and len(row) > 4 and row[4]:
+        # Sətrin 5-ci sahəsi indi xronologiya sayıdır (write_story_pages: [vaxt, mənbə, bölmə, versiya, xs]), başlıq deyil: rəqəm
+        # başlıq kimi _xml-ə düşürdü («argument of type 'int' is not iterable») və 2026-11-26-dan bölmə səhifələri (bolme/*) yazılmırdı —
+        # color-scheme metası (ağ ekran) və təzə siyahı Google/Telegram-dan gələnə çatmırdı (2026-11-27).
+        if isinstance(row, list) and len(row) > 4 and isinstance(row[4], str) and row[4]:
             titles[sid] = (row[4], "")
             continue
         if saved.get(sid):

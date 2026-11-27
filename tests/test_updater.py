@@ -73,6 +73,13 @@ class CategoriesTest(unittest.TestCase):
         self.assertEqual(updater.categorize('Futbol tamaşaçıları oyunu izləyib', '', 'az'), 'İdman')
         self.assertEqual(updater.categorize('Yeni tamaşanın premyerası olacaq', '', 'az'), 'Mədəniyyət')
 
+    def test_saving_money_is_not_the_national_team(self):
+        # 2026-11-27, Nocomment.az: «pul yığmaqla» «yığma» (milli komanda) sayılırdı, xəbər İdman bölməsinin başına düşdü
+        desc = 'Azərbaycanda orta aylıq əməkhaqqı ilə dolanan vətəndaşlar 50 il ərzində pul yığmaqla Bakıda mənzil sahibi ola bilərlər.'
+        self.assertNotEqual(updater.categorize('Bu şəxslər Bakıda 50 ilə ev ala bilər', desc, 'az'), 'İdman')
+        self.assertEqual(updater.categorize('Azərbaycan yığması medal sıralamasında birinci olub', '', 'az'), 'İdman')
+        self.assertEqual(updater.categorize('Yığmamızın heyəti açıqlandı', '', 'az'), 'İdman')
+
     def test_title_topic_beats_incidental_region_and_digital_words(self):
         self.assertEqual(updater.categorize('Naxçıvan Dövlət Kukla Teatrının tamaşasının Bakı premyerası olacaq', '', 'az'), 'Mədəniyyət')
         self.assertEqual(updater.categorize('Media savadlılığı dini dözümsüzlüklə mübarizədə əsas vasitədir', 'Rəqəmsal mühit imkanlar yaradır', 'az'), 'Cəmiyyət')
