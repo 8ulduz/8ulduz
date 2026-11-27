@@ -29,6 +29,9 @@
 // pəncərədə əvvəl maraqlı video; uyğun xəbər olmayan pəncərədə də. Ümumi fasiləyə və gündəlik həddə (VIDEO_MIN_GAP_MIN, VIDEO_GUNDE) sayılır.
 // Dil profili (2026-11-26, video-dil.cjs; VIDEO_DIL, boş — az): lentin dili və mənbə həddi (lent), izahın hərfləri (herf), paylaşım
 // mətnləri (paylasim) və hava videosu (hava: yalnız profildə true olan dildə — hava mətnləri azərbaycancadır) profildəndir.
+// Kanal videoları (video-kanal.cjs; sahib, 2026-11-27: «Baku VS də sosil şəbəkələrdən götürüb öz komentini verib. Biz bunu da etməliyik»):
+// siyahıdakı saytların Telegram kanalı və Instagram hesabındakı video, bizim şərhimizlə (tur: kanal). Hər platformanın öz həddi və arası
+// (TELEGRAM_GUNDE/ARA_MIN, INSTAGRAM_GUNDE/ARA_MIN); ümumi fasiləyə (VIDEO_MIN_GAP_MIN) və gündəlik həddə (VIDEO_GUNDE) sayılır.
 "use strict";
 const fs = require("fs"), path = require("path");
 const S = require("./social.cjs");
@@ -40,6 +43,7 @@ const VM = require("./video-maraqli.cjs");
 const VX = require("./video-xeber.cjs");
 const MV = require("./video-menbe.cjs");
 const VD = require("./video-dunya.cjs");
+const VK = require("./video-kanal.cjs");
 
 const num = (v, d) => (Number.isFinite(Number(v)) && String(v ?? "").trim() !== "" ? Number(v) : d);
 const KEEP_S = 3 * 86400;
@@ -63,7 +67,7 @@ function readState(file, now) {
   let s = {};
   try { s = JSON.parse(fs.readFileSync(file, "utf8")) || {}; } catch {}
   const sec = now / 1000, keep = o => Object.fromEntries(Object.entries(o && typeof o === "object" ? o : {}).filter(([, t]) => sec - t < KEEP_S));
-  return { v: keep(s.v), skip: keep(s.skip), t: keep(s.t), facebook: keep(s.facebook), instagram: keep(s.instagram), klip: keep(s.klip), hava: keep(s.hava), m: keep(s.m), dv: keep(s.dv), dm: keep(s.dm), xv: keep(s.xv), xm: keep(s.xm),
+  return { v: keep(s.v), skip: keep(s.skip), t: keep(s.t), facebook: keep(s.facebook), instagram: keep(s.instagram), klip: keep(s.klip), hava: keep(s.hava), m: keep(s.m), dv: keep(s.dv), dm: keep(s.dm), xv: keep(s.xv), xm: keep(s.xm), tv: keep(s.tv), iv: keep(s.iv), km: keep(s.km),
     topics: (Array.isArray(s.topics) ? s.topics : []).filter(x => x && sec - (x.posted || 0) < S.TOPIC_H * 3600), _last: s._last || 0 };
 }
 const writeState = (file, state) => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, JSON.stringify(state)); };
@@ -265,6 +269,23 @@ async function dunyaSec({ now, state, env, fetch: f, policy, cats = [], dir, log
   return out;
 }
 
+// Kanal videosu (video-kanal.cjs hazirla; sahib, 2026-11-27): xəbər saytının öz Telegram kanalı və ya Instagram hesabındakı video, bizim
+// şərhimizlə → <qovluq>/xeber.json (tur: "kanal"). Keçid saytdakı eyni xəbərədir (tapılsa), yoxsa ana səhifəyə. Alınmasa null.
+const KANAL_URL = "https://8ulduz.az/";
+async function kanalSec({ now, state, env, fetch: f, policy, articles, tur, dir, log, post, hazirla = VK.hazirla }) {
+  let x = null;
+  try { x = await hazirla({ now, state, env, fetch: f, policy, articles, zorla: tur === "kanal", dir, log }); }
+  catch (e) { log(`::warning::kanal videosu alınmadı — ${VK.gizle(String(e?.message || e), env).slice(0, 300)}`); return null; }
+  if (!x) return null;
+  const out = { ...x, link: x.link || KANAL_URL, url: x.link || KANAL_URL };
+  fs.writeFileSync(path.join(dir, "xeber.json"), JSON.stringify(out, null, 1));
+  if (post) { const t = Math.floor(now / 1000); state.v[out.id] = t; state._last = t; (state[VK.ACAR[out.platforma]] ||= {})[out.id] = t; }
+  log(`kanal videosu: seçildi — ${out.title} (${out.sourceUrl})`);
+  output("hazir", "1");
+  output("tur", "kanal");
+  return out;
+}
+
 // xeber.json: video-xeber.cjs-in girişi + paylaşma üçün keçid.
 function entry(a, text, cats = []) {
   return { id: a.id, title: S.clean(a.title), summary: a.summary || "", text, category: a.category, bolme: cats.find(c => c.slug === a.category)?.label || "",
@@ -432,9 +453,9 @@ function output(key, value) {
 // sec: vaxtıdırsa xəbəri seçir. Paylaşma rejimində seçim dərhal «video» sayılır (_last): video alınmasa da eyni xəbər hər
 // 30 dəqiqədə yenidən hazırlanmasın.
 // arxiv: öz video arxivi (VA.kitabxana(): «video-arxiv» budağı, oxunmasa data/video-arxiv.json) — xəbərin yeri məlum olanda əvvəl oradan.
-async function sec({ articles, env = process.env, now = Date.now(), state, fetch: f = globalThis.fetch, policy = () => false, cats = [], dir, log = console.log, app = null, arxiv = [], maraqli = VM.hazirla, dunya = VD.hazirla, xvideo = VD.xHazirla, menbe = MV.menbeVideo, xarici = policy }) {
+async function sec({ articles, env = process.env, now = Date.now(), state, fetch: f = globalThis.fetch, policy = () => false, cats = [], dir, log = console.log, app = null, arxiv = [], maraqli = VM.hazirla, dunya = VD.hazirla, xvideo = VD.xHazirla, menbe = MV.menbeVideo, xarici = policy, kanal = VK.hazirla }) {
   const opt = options(env), post = env.VIDEO_PAYLAS !== "0";
-  // İş axını seçimə açarın özünü vermir, yalnız VIDEO_ACAR=1/0 (açar var/yox).
+  // İş axını seçimə VIDEO_ACAR=1/0 (açar var/yox) verir; açarın özü (FB_PAGE_TOKEN) yalnız Instagram kanal videoları üçündür (video-kanal.cjs).
   const hasKey = env.VIDEO_ACAR ? env.VIDEO_ACAR === "1" : networks(env).length > 0;
   if (post && !hasKey) { log("video: açar yoxdur (FB_PAGE_TOKEN) — heç nə hazırlanmır"); return null; }
   const only = String(env.VIDEO_XEBER || "").trim();
@@ -465,16 +486,23 @@ async function sec({ articles, env = process.env, now = Date.now(), state, fetch
     if (!why) { const x = await xSec({ now, state, env, fetch: f, policy: xarici, dir, log, post, hazirla: xvideo }); if (x || tur === "x") return x; }
     else { log(`video: ${why}`); if (tur === "x") return null; }
   } else if (tur === "x") { log("video: X videosu bu dildə yoxdur"); return null; }
+  // Kanal videosu (video-kanal.cjs; sahib, 2026-11-27): siyahıdakı saytların Telegram kanalı və Instagram hesabı — vaxtı çatan platforma
+  // varsa əvvəl o (alınmasa dünya, maraqlı və ya xəbər); VIDEO_TUR=kanal — dərhal. Söndürmək: TELEGRAM_VIDEO=0, INSTAGRAM_VIDEO=0.
+  if (!only && ["", "avtomatik", "kanal"].includes(tur)) {
+    const why = VK.due(state, now, VK.options(env), tur === "kanal");
+    if (!why) { const x = await kanalSec({ now, state, env, fetch: f, policy, articles, tur, dir, log, post, hazirla: kanal }); if (x || tur === "kanal") return x; }
+    else { log(`video: ${why}`); if (tur === "kanal") return null; }
+  }
   // Dünya videosu (video-dunya.cjs; sahib, 2026-11-26): vaxtıdırsa əvvəl o (alınmasa maraqlı və ya xəbər); VIDEO_TUR=dunya — dərhal.
   // Mətnləri azərbaycancadır (Gemini tərcüməsi): yalnız profildə dunya: true olan dildə.
-  if (!only && tur !== "xeber" && tur !== "maraqli" && tur !== "x" && dil().dunya) {
+  if (!only && tur !== "xeber" && tur !== "maraqli" && tur !== "x" && tur !== "kanal" && dil().dunya) {
     const dq = VD.options(env), why = tur === "dunya" ? (dq.on ? "" : "dünya videosu söndürülüb (DUNYA_VIDEO=0)") : VD.due(state, now, dq);
     if (!why) { const x = await dunyaSec({ now, state, env, fetch: f, policy: xarici, cats, dir, log, post, hazirla: dunya }); if (x || tur === "dunya") return x; }
     else { log(`video: ${why}`); if (tur === "dunya") return null; }
   } else if (tur === "dunya") { log("video: dünya videosu bu dildə yoxdur"); return null; }
   // Maraqlı video: vaxtıdırsa əvvəl o (alınmasa xəbər); VIDEO_TUR=maraqli — dərhal (önizləmə və əl ilə).
   const mo = maraqliOptions(env), mArgs = { now, state, env, fetch: f, policy, dir, log, post, hazirla: maraqli };
-  if (!only && tur !== "xeber" && tur !== "x" && tur !== "dunya") {
+  if (!only && tur !== "xeber" && tur !== "x" && tur !== "dunya" && tur !== "kanal") {
     // Söndürülmüş rubrika (2026-11-26): əl ilə yalnız önizləmə (paylas=false) — sınaq yolu qalır, paylaşım yolu bağlıdır.
     const why = tur === "maraqli" ? (mo.on || !post ? "" : `${MARAQLI_SONDU} — yalnız önizləmə (paylas=false)`) : maraqliDue(state, now, mo);
     if (!why) { const x = await maraqliSec(mArgs); if (x || tur === "maraqli") return x; }
@@ -563,6 +591,8 @@ async function paylas({ dir, env = process.env, now = Date.now(), state, fetch: 
   // Maraqlı video: gündəlik həddə və fasiləyə sayılır (seçimdə yazılıb), xəbər mövzularının siyahısına düşmür.
   if (x.tur === "x") { state.v[x.id] = state.v[x.id] || t; (state.xv ||= {})[x.id] = state.xv[x.id] || t; if (x.movzu) (state.xm ||= {})[x.movzu] = state.xm[x.movzu] || t; return res; }
   if (x.tur === "dunya") { state.v[x.id] = state.v[x.id] || t; (state.dv ||= {})[x.id] = state.dv[x.id] || t; return res; }
+  // Kanal videosu yerli hadisədir: mövzu siyahısına da düşür — eyni hadisənin xəbər videosu (və başqa kanalın eyni videosu) getmir.
+  if (x.tur === "kanal") { const k = VK.ACAR[x.platforma] || "tv"; state.v[x.id] = state.v[x.id] || t; (state[k] ||= {})[x.id] = state[k][x.id] || t; }
   if (x.tur === "maraqli") { state.v[x.id] = state.v[x.id] || t; if (x.movzu) (state.m ||= {})[x.movzu] = state.m[x.movzu] || t; return res; }
   state.v[x.id] = state.v[x.id] || t;
   state.t[S.titleKey(x)] = t;
@@ -625,10 +655,20 @@ async function main() {
     console.log(r?.kecdi ? `X videosu: kadrlar yoxlanmadı (${r.kecdi}) — mətn seçimdə yoxlanıb` : "X videosu: kadrlar mətnə uyğundur");
     return;
   }
-  console.error("İşlədilmə: sosial-video.cjs sec <news.json> <qovluq> | numune <xəbər.json> <qovluq> | numune-hava <open-meteo.json> <qovluq> | numune-maraqli <video.json> <qovluq> | x-kadr <qovluq> | paylas <qovluq>");
+  if (cmd === "kanal-kadr") {
+    // Kanal videosu (video-kanal.cjs kadrYoxla): kadrda başqa saytın böyük başlıq bloku, yazı örtüyü, qan varsa və ya yoxlamaq mümkün
+    // deyilsə iş dayanır — video paylaşılmır. Video seçimdə siyahıya yazılıb (state.tv, state.iv): bir də seçilmir.
+    const x = JSON.parse(fs.readFileSync(path.join(a1, "xeber.json"), "utf8"));
+    if (x.tur !== "kanal") return;
+    const r = await VK.kadrYoxla(x, { dir: a1 }).catch(e => ({ dayan: `kadrlar yoxlanmadı — ${String(e?.message || e).slice(0, 200)}` }));
+    if (r?.dayan) { console.log(`::error::Kanal videosu paylaşılmır — ${r.dayan}`); process.exitCode = 1; return; }
+    console.log("Kanal videosu: kadrlarda başqa saytın başlıq bloku və ya yazı örtüyü yoxdur");
+    return;
+  }
+  console.error("İşlədilmə: sosial-video.cjs sec <news.json> <qovluq> | numune <xəbər.json> <qovluq> | numune-hava <open-meteo.json> <qovluq> | numune-maraqli <video.json> <qovluq> | x-kadr <qovluq> | kanal-kadr <qovluq> | paylas <qovluq>");
   process.exitCode = 2;
 }
 
 module.exports = { options, readState, due, pick, entry, networks, sec, paylas, fbText, igText, havaOptions, havaDue, havaHazirla, bakuClock,
-  maraqliOptions, maraqliDue, maraqliSec, maraqliSay, cekisi, dunyaSec, xSec };
+  maraqliOptions, maraqliDue, maraqliSec, maraqliSay, cekisi, dunyaSec, xSec, kanalSec };
 if (require.main === module) main().catch(e => { console.error(`video: ${String(e?.message || e)}`); process.exitCode = 1; });

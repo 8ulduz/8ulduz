@@ -280,7 +280,7 @@ test("dünya videosu: its own pace (8 a day, 90 minutes apart), before the news 
   const wf = read(".github/workflows/sosial-video.yml");
   for (const f of [".github/scripts/video-menbe.cjs", ".github/scripts/video-dunya.cjs", ".github/video-dunya.json"]) assert.ok(wf.split(f).length >= 3, `${f}: PR yolu və sparse-checkout`);
   for (const v of ["MENBE_VIDEO", "MENBE_YAYIM", "DUNYA_VIDEO", "DUNYA_GUNDE", "DUNYA_ARA_MIN"]) assert.ok(wf.includes(`${v}: \${{ vars.${v} }}`), v);
-  assert.match(wf, /options: \[avtomatik, hava, xeber, maraqli, dunya, x\]/);
+  assert.match(wf, /options: \[avtomatik, hava, xeber, maraqli, dunya, x, kanal\]/);   // kanal: 2026-11-27, video-kanal.cjs
 });
 
 test("arxiv: the owner's release also takes credited third-party footage («mənbə: Ad») — no watermark or platform refusal for it", () => {

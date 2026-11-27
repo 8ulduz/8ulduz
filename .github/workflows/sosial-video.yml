@@ -27,9 +27,9 @@ on:
         required: false
         default: ''
       tur:
-        description: 'Video: avtomatik (cədvəl üzrə), hava (gündəlik hava proqnozu, dərhal), xeber (yalnız xəbər), maraqli (söndürülüb: yalnız önizləmə, «Paylaş»-ı götürün), dunya (dünya videosu tərcümə ilə, dərhal) və ya x (X-in ən çox baxılan videosu, dərhal)'
+        description: 'Video: avtomatik (cədvəl üzrə), hava (gündəlik hava proqnozu, dərhal), xeber (yalnız xəbər), maraqli (söndürülüb: yalnız önizləmə, «Paylaş»-ı götürün), dunya (dünya videosu tərcümə ilə, dərhal), x (X-in ən çox baxılan videosu, dərhal) və ya kanal (xəbər saytının Telegram/Instagram videosu, dərhal)'
         type: choice
-        options: [avtomatik, hava, xeber, maraqli, dunya, x]
+        options: [avtomatik, hava, xeber, maraqli, dunya, x, kanal]
         default: avtomatik
   # PR-da nümunə xəbərdən video hazırlanır və yoxlanır (paylaşılmır): kadrlar artefaktdadır.
   pull_request:
@@ -44,6 +44,8 @@ on:
       - .github/scripts/video-menbe.cjs
       - .github/scripts/video-dunya.cjs
       - .github/video-dunya.json
+      - .github/scripts/video-kanal.cjs
+      - .github/video-kanal.json
       - .github/scripts/video_ses.py
       - .github/scripts/sosial-video.cjs
       - .github/workflows/sosial-video.yml
@@ -101,6 +103,8 @@ jobs:
             .github/scripts/video-menbe.cjs
             .github/scripts/video-dunya.cjs
             .github/video-dunya.json
+            .github/scripts/video-kanal.cjs
+            .github/video-kanal.json
             .github/scripts/veb-video.cjs
             .github/scripts/video_ses.py
             .github/scripts/video_dinle.py
@@ -152,7 +156,8 @@ jobs:
         id: sec
         env:
           EVENT: ${{ github.event_name }}
-          # Seçim açarı işlətmir, yalnız onun olub-olmadığını bilir (yoxdursa heç nə hazırlanmır). Facebook, TikTok (tiktok.yml) və ya
+          # Seçim paylaşmır; VIDEO_ACAR — açarın olub-olmadığı (yoxdursa heç nə hazırlanmır; açarın özü yalnız Instagram kanal videoları
+          # üçündür, aşağıda FB_PAGE_TOKEN). Facebook, TikTok (tiktok.yml) və ya
           # YouTube (youtube.yml) açarı olanda video hazırlanır; FB açarı olmayanda «Paylaş» addımı şəbəkəsiz qalır, heç nə göndərmir.
           VIDEO_ACAR: ${{ (secrets.FB_PAGE_TOKEN != '' || (secrets.TIKTOK_CLIENT_KEY != '' && secrets.TIKTOK_CLIENT_SECRET != '') || (secrets.YOUTUBE_CLIENT_ID != '' && secrets.YOUTUBE_CLIENT_SECRET != '' && secrets.YOUTUBE_REFRESH_TOKEN != '')) && '1' || '0' }}
           VIDEO_PAYLAS: ${{ (github.event_name == 'workflow_dispatch' && !inputs.paylas) && '0' || '1' }}
@@ -189,6 +194,21 @@ jobs:
           X_GUNDE: ${{ vars.X_GUNDE }}
           X_ARA_MIN: ${{ vars.X_ARA_MIN }}
           X_MIN_BAXIS: ${{ vars.X_MIN_BAXIS }}
+          # Kanal videoları (video-kanal.cjs; sahib, 2026-11-27): siyahıdakı saytların Telegram kanalı (açarsız, t.me/s) və Instagram hesabı
+          # (Business Discovery). Söndürmək: TELEGRAM_VIDEO=0, INSTAGRAM_VIDEO=0.
+          TELEGRAM_VIDEO: ${{ vars.TELEGRAM_VIDEO }}
+          TELEGRAM_GUNDE: ${{ vars.TELEGRAM_GUNDE }}
+          TELEGRAM_ARA_MIN: ${{ vars.TELEGRAM_ARA_MIN }}
+          INSTAGRAM_VIDEO: ${{ vars.INSTAGRAM_VIDEO }}
+          INSTAGRAM_GUNDE: ${{ vars.INSTAGRAM_GUNDE }}
+          INSTAGRAM_ARA_MIN: ${{ vars.INSTAGRAM_ARA_MIN }}
+          # Instagram Business Discovery başqa hesabın Reels-lərini yalnız bizim açarla verir: seçim addımı 2026-11-27-dən açarın özünü alır
+          # (əvvəl yalnız VIDEO_ACAR — açarın olub-olmadığı). Açar yalnız Graph API sorğusuna gedir; jurnala düşmür: GitHub sirri maskalayır,
+          # skript sorğunun ünvanını yazmır və xəta mətnindən açarı silir (video-kanal.cjs gizle). Seçim heç nə paylaşmır. PR-da (nümunə) verilmir.
+          FB_PAGE_TOKEN: ${{ github.event_name != 'pull_request' && secrets.FB_PAGE_TOKEN || '' }}
+          FB_PAGE_ID: ${{ vars.FB_PAGE_ID || '1470250006171917' }}
+          IG_USER_ID: ${{ vars.IG_USER_ID }}
+          FB_GRAPH_VERSION: ${{ vars.FB_GRAPH_VERSION }}
         run: |
           if [ "$EVENT" = pull_request ] && [ "$MATRIX_TUR" = hava ]; then
             node .github/scripts/sosial-video.cjs numune-hava tests/fixtures/video-hava.json video-out
@@ -217,6 +237,14 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: node .github/scripts/sosial-video.cjs x-kadr video-out
+      # Kanal videosu (video-kanal.cjs kadrYoxla): xəbər saytının videosunda öz dizaynı ola bilər (Baku.ws Reels-lərində başlıq bloku). Su
+      # nişanı silinmir; başqa saytın böyük başlıq bloku, yazı örtüyü və ya qan görünən video paylaşılmır, küncdəki kiçik loqo olar.
+      # Yoxlamaq mümkün olmasa da video getmir (X-dən fərqli).
+      - name: 'Kanal: kadrları yoxla'
+        if: steps.sec.outputs.hazir == '1' && steps.sec.outputs.tur == 'kanal'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: node .github/scripts/sosial-video.cjs kanal-kadr video-out
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         if: steps.sec.outputs.hazir == '1' && (vars.VIDEO_SES || '1') != '0'
         with:

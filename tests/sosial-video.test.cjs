@@ -434,7 +434,12 @@ test("sosial-video.yml: separate, read-only workflow; secrets only in the postin
   const wf = read(".github/workflows/sosial-video.yml");
   assert.match(wf, /^permissions:\n  contents: read$/m);
   assert.ok(!/contents: write|git push|pages: write/.test(wf), "repoya və sayta yazmır");
-  assert.equal(wf.match(/secrets\.FB_PAGE_TOKEN/g).length, 2, "açar yalnız «Paylaş» addımında (seçim yalnız var/yox bilir)");
+  // Açar: «Paylaş» addımında; seçimdə əvvəl yalnız var/yox (VIDEO_ACAR). 2026-11-27-dən seçim addımı açarın özünü də alır — Instagram
+  // Business Discovery (kanal videoları, video-kanal.cjs) bizim açarsız işləmir; PR-da (nümunə) verilmir, başqa heç bir addıma getmir.
+  assert.equal(wf.match(/secrets\.FB_PAGE_TOKEN/g).length, 3, "açar: VIDEO_ACAR (var/yox), «Xəbər seç» (Business Discovery) və «Paylaş»");
+  const secim = wf.slice(wf.indexOf("- name: Xəbər seç"), wf.indexOf("- name: ffmpeg və şrift"));
+  assert.ok(secim.includes("FB_PAGE_TOKEN: ${{ github.event_name != 'pull_request' && secrets.FB_PAGE_TOKEN || '' }}"), "PR-da seçimə açar getmir");
+  assert.equal((wf.slice(0, wf.indexOf("- name: Xəbər seç")) + wf.slice(wf.indexOf("- name: ffmpeg və şrift"), wf.indexOf("- name: Paylaş"))).match(/secrets\.FB_PAGE_TOKEN/g), null, "başqa addımda açar yoxdur");
   const post = wf.slice(wf.indexOf("- name: Paylaş"), wf.indexOf("- name: Siyahını saxla"));
   assert.match(post, /github\.event_name != 'pull_request'/);
   assert.match(post, /FB_PAGE_TOKEN: \$\{\{ secrets\.FB_PAGE_TOKEN \}\}/);
@@ -558,7 +563,7 @@ test("sosial-video.yml: the weather video — PR renders both samples; same chec
   assert.match(wf, /node \.github\/scripts\/video-hava\.cjs video-out\/xeber\.json video-out\/video\.mp4/);
   assert.ok(/            \.github\/scripts\/video-hava\.cjs\n/.test(wf) && /            tests\/fixtures\/video-hava\.json\n/.test(wf), "sparse-checkout");
   assert.ok(/      - \.github\/scripts\/video-hava\.cjs\n/.test(wf) && /      - tests\/fixtures\/video-hava\.json\n/.test(wf), "PR yolları");
-  assert.match(wf, /options: \[avtomatik, hava, xeber, maraqli, dunya, x\]/);   // dunya: dünya videosu (2026-11-26, video-dunya.cjs)
+  assert.match(wf, /options: \[avtomatik, hava, xeber, maraqli, dunya, x, kanal\]/);   // dunya: dünya videosu (2026-11-26, video-dunya.cjs); kanal: 2026-11-27, video-kanal.cjs
   assert.ok(wf.includes("name: ${{ matrix.tur == 'avto' && 'video-xeber' || format('video-{0}', matrix.tur) }}"), "main-də artefakt video-xeber (tiktok.yml, youtube.yml)");
   assert.equal((wf.match(/artifact: video-xeber/g) || []).length, 2);
   assert.ok(wf.includes("OPEN_METEO_API_KEY: ${{ secrets.OPEN_METEO_API_KEY }}"));
