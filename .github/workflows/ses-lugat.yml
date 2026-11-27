@@ -41,6 +41,7 @@ jobs:
           sparse-checkout: |
             .github/scripts/ses-lugat.cjs
             .github/scripts/video-ssenari.cjs
+            .github/scripts/video-qayda.cjs
             .github/scripts/video-dil.cjs
             .github/video-dil/
             .github/scripts/social.cjs

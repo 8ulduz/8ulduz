@@ -13,7 +13,7 @@ name: Video xəbər (Facebook, Instagram)
 on:
   # Hər 30 dəqiqə yoxlanır; video VIDEO_MIN_GAP_MIN (30) dəqiqədən bir, gündə VIDEO_GUNDE (30), Bakı vaxtı VIDEO_SAAT (8-23) saatlarında gedir.
   # Əsas tətik: xəbər axını (pipeline.sh video_loop) hər 30 dəqiqədə dispatch edir — bu cron 2026-11-22-də heç işləmədi; ehtiyatdır.
-  # Vaxtı deyilsə iş ~20 saniyədə bitir (ffmpeg və səs modeli quraşdırılmır).
+  # Vaxtı deyilsə iş ~35 saniyədə bitir (ffmpeg seçimdən əvvəl quraşdırılır — kadr yoxlaması seçimin içindədir; səs modeli quraşdırılmır).
   schedule:
     - cron: "17,47 * * * *"
   workflow_dispatch:
@@ -38,6 +38,7 @@ on:
       - .github/scripts/video-hava.cjs
       - .github/scripts/video-maraqli.cjs
       - .github/scripts/video-ssenari.cjs
+      - .github/scripts/video-qayda.cjs
       - .github/scripts/video-dil.cjs
       - .github/video-dil/**
       - .github/scripts/video-arxiv.cjs
@@ -94,6 +95,7 @@ jobs:
             .github/scripts/topics.cjs
             .github/scripts/sosial-video.cjs
             .github/scripts/video-ssenari.cjs
+            .github/scripts/video-qayda.cjs
             .github/scripts/video-dil.cjs
             .github/video-dil/
             .github/scripts/video-xeber.cjs
@@ -152,6 +154,18 @@ jobs:
           path: .sosial-video
           key: sosial-video-${{ github.run_id }}
           restore-keys: sosial-video-
+      # ffmpeg seçimdən əvvəldir (2026-11-27, iş 45960946624-dən sonra): kadr yoxlaması (X, kanal, dünya videosu, mənbə videolu xəbər;
+      # qan, meyit, çılpaqlıq, azyaşlının üzü, kanalda başqa saytın başlıq bloku) seçimin içindədir — rədd olunan video bir də sınanmır,
+      # növbəti namizəd götürülür, iş qırmızı olmur. Əvvəl ayrıca addımlar videonu seçimdən sonra rədd edirdi: iş qırmızı olurdu, 30
+      # dəqiqəlik pəncərə boş qalırdı. Hər işə ~15 s əlavə olunur. PR nümunəsi də ffmpeg işlədir (montaj).
+      - name: ffmpeg və şrift
+        run: |
+          command -v ffmpeg >/dev/null && fc-list | grep -q Roboto-Black || {
+            sudo apt-get update -qq
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg fonts-roboto-unhinted >/dev/null
+          }
+          ffmpeg -hide_banner -filters | grep -qw ass
+          fc-list : family style | grep -i roboto | sort | head -12
       - name: Xəbər seç
         id: sec
         env:
@@ -169,7 +183,7 @@ jobs:
           HAVA_VIDEO: ${{ vars.HAVA_VIDEO }}
           OPEN_METEO_API_KEY: ${{ secrets.OPEN_METEO_API_KEY }}
           # Sahib 2026-11-22: «Xəbər uzun olsun biraz və videogörüntü olsun o xəbərə uyğun» (video-ssenari.cjs). Biri yoxdursa
-          # həmin hissə ötürülür: mətn mənbənin öz cümlələrindən, fon tünd göy.
+          # həmin hissə ötürülür: mətn mənbənin öz cümlələrindən, fon tünd göy. Gemini kadrları da seçimin içində yoxlayır (media qaydası).
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           PIXABAY_API_KEY: ${{ secrets.PIXABAY_API_KEY }}
@@ -219,32 +233,6 @@ jobs:
           else
             node .github/scripts/sosial-video.cjs sec data/news.json video-out
           fi
-      - name: ffmpeg və şrift
-        if: steps.sec.outputs.hazir == '1'
-        run: |
-          command -v ffmpeg >/dev/null && fc-list | grep -q Roboto-Black || {
-            sudo apt-get update -qq
-            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends ffmpeg fonts-roboto-unhinted >/dev/null
-          }
-          ffmpeg -hide_banner -filters | grep -qw ass
-          fc-list : family style | grep -i roboto | sort | head -12
-      # «Çox baxılan» X videosu (sahib, 2026-11-27: «belə çox qısa və şərhi çox az və başa düşülməyən olmasın videolar»): mətn seçimdə
-      # paylaşımın öz faktlarından yazılır (ən az 3 cümlə). Gemini kadrları mətnlə tutuşdurur (video-dunya.cjs xKadrYoxla; kadrları
-      # ffmpeg çıxarır — ona görə bu addım ffmpeg-dən sonradır): deyilən hadisə kadrlarda görünmürsə və ya kadrda ölüm, qan, meyit
-      # görünürsə iş dayanır (video paylaşılmır). Yoxlamaq mümkün olmasa video gedir.
-      - name: 'X: kadrları yoxla'
-        if: steps.sec.outputs.hazir == '1' && steps.sec.outputs.tur == 'x'
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: node .github/scripts/sosial-video.cjs x-kadr video-out
-      # Kanal videosu (video-kanal.cjs kadrYoxla): xəbər saytının videosunda öz dizaynı ola bilər (Baku.ws Reels-lərində başlıq bloku). Su
-      # nişanı silinmir; başqa saytın böyük başlıq bloku, yazı örtüyü və ya qan görünən video paylaşılmır, küncdəki kiçik loqo olar.
-      # Yoxlamaq mümkün olmasa da video getmir (X-dən fərqli).
-      - name: 'Kanal: kadrları yoxla'
-        if: steps.sec.outputs.hazir == '1' && steps.sec.outputs.tur == 'kanal'
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: node .github/scripts/sosial-video.cjs kanal-kadr video-out
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         if: steps.sec.outputs.hazir == '1' && (vars.VIDEO_SES || '1') != '0'
         with:

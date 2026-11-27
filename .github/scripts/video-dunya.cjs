@@ -10,7 +10,8 @@
 // və birbaşa video faylı verən sayt. Yeni mənbə = fayla bir sətir, kod dəyişmir.
 // Axın (sosial-video.cjs dunyaSec): növbə ilə bir neçə mənbənin təzə videoları oxunur → faylı tapılanlar namizəddir → Gemini bir
 // sorğuda istiqamətə ən uyğununu seçir, Azərbaycan dilində başlıq və diktor mətni yazır (yalnız mənbədəki faktlar; rəqəm yoxlanır,
-// saytın qaydası — qırmızı xətt 2 — həm mənbə mətninə, həm tərcüməyə tətbiq olunur) → fayl yüklənir (video-menbe.cjs) → montaj.
+// saytın qaydası — qırmızı xətt 2 — həm mənbə mətninə, həm tərcüməyə, media qaydası tərcüməyə tətbiq olunur) → fayl yüklənir (video-menbe.cjs) →
+// kadrlar yoxlanır (video-menbe.cjs kadrYoxla: qan, çılpaqlıq, azyaşlının üzü) → montaj.
 // Videoda mənbə yazılır («Mənbə: …», «Görüntü: …»), səs və altyazı bizimdir. YouTube/Instagram pəncərəsi, yayım kadrı götürülmür.
 // Qayda (policy) məcburidir: sosial-video.cjs onu saytın qaydasından verir (app.policyViolation, assets/content-policy.js). Qaydasız
 // çağırış xətadır — xarici mənbənin mətni yoxlanmadan videoya düşə bilməz.
@@ -19,6 +20,7 @@ const fs = require("fs"), path = require("path"), crypto = require("crypto");
 const S = require("./social.cjs");
 const VS = require("./video-ssenari.cjs");
 const M = require("./video-menbe.cjs");
+const VQ = require("./video-qayda.cjs");
 const { dil, istiqamet, cixarilir } = require("./video-dil.cjs");
 
 const FAYL = path.join(__dirname, "..", "video-dunya.json");
@@ -196,7 +198,8 @@ Seçim. Tamaşaçının ən çox baxdığı istiqamətlər (nömrə ilə), vacib
 {istiqametler}
 Hadisənin öz görüntüsü (şahidin, kameranın çəkdiyi an) üstündür.
 Uyğun DEYİL: heyvan faktı, təbiət və kosmos sənədli kadrı, planet, ulduz, kosmik teleskop görüntüsü — heyvan yalnız insan hadisəsinin
-içində ola bilər (məsələn şəhərdə qaçan şir, iti buzdan xilas edən yanğınsöndürənlər); ölüm anı, qan, meyit görünən video; sammit,
+içində ola bilər (məsələn şəhərdə qaçan şir, iti buzdan xilas edən yanğınsöndürənlər); ölüm anı, qan, meyit, çılpaqlıq və ya cinsi
+səhnə görünən video; azyaşlı zərərçəkənin və ya şübhəlinin üzü görünən video; sammit,
 görüş, bəyanat, mətbuat konfransı, siyasi çıxış, tok-şou, statistika, ildönümü; Azərbaycan və onun rəhbərliyi,
 Ermənistan–Azərbaycan mövzusu.
 Heç biri uyğun deyilsə {"sec": 0} qaytar.
@@ -206,6 +209,7 @@ Mətn qaydaları:
 - 4–6 cümlə, 380–650 simvol. Birinci cümlə hadisənin özüdür (nə, harada). Yalnız seçdiyin videonun mətnindəki faktlar: heç nə əlavə etmə, şərh vermə.
 - Rəqəmi mənbədəki kimi yaz: mənbədə rəqəmlə yazılıbsa rəqəmlə, sözlə yazılıbsa sözlə. Mənbədə olmayan rəqəm yazma.
 - Xarici adları Azərbaycan dilində oxunduğu kimi yaz, inisial yazma.
+${VQ.GOSTERIS}
 - basliq: 40–90 simvol, hadisəni deyən sadə cümlə; sonda nöqtə olmasın, «video» sözü olmasın.
 - etiket: 3 mövzu etiketi ({etiket_dili}, «#»-siz, boşluqsuz).
 
@@ -279,6 +283,12 @@ async function hazirla({ now = Date.now(), state, env = process.env, fetch: f = 
     log(`dünya videosu: fayl alınmadı (${err}) — ${c.a.source}: ${u}`);
   }
   if (err) { (state.skip ||= {})[c.a.id] = t; return null; }
+  // Kadr yoxlaması seçimin içində (media qaydası, sahib, 2026-11-27; video-menbe.cjs kadrYoxla): qan, meyit, çılpaqlıq, azyaşlı
+  // zərərçəkənin üzü varsa video götürülmür və bir də sınanmır — pəncərə boş qalmır, seçim növbəti növə keçir (sosial-video.cjs sec).
+  // Yoxlamaq mümkün olmasa (açar, ffmpeg, Gemini) video gedir.
+  const k = await (deps.kadrYoxla || M.kadrYoxla)({ title: s.title, text: s.text, source: c.a.source }, { dir, env, fetch: f, log, deps });
+  if (k.dayan) { fs.rmSync(path.join(dir, M.FAYL), { force: true }); (state.skip ||= {})[c.a.id] = t; log(`dünya videosu: ötürülür (${k.dayan}) — ${c.a.source}: ${s.title}`); return null; }
+  if (k.kecdi) log(`dünya videosu: kadrlar yoxlanmadı (${k.kecdi}) — video gedir`);
   log(`dünya videosu: ${c.a.source} (${c.m.dil}) → ${s.title}`);
   return { id: c.a.id, tur: "dunya", kind: "dunya", title: s.title, summary: "", text: s.text, category: "dunya", source: c.a.source, sourceUrl: c.a.sourceUrl,
     publishedAt: new Date(c.at || now).toISOString(), alts: [], esli: { title: c.a.title, dil: c.m.dil }, istiqamet: s.istiqamet, ssenari: "gemini",
@@ -355,6 +365,7 @@ Qaydalar:
 - Yalnız paylaşımın mətnindəki faktlar: heç nə əlavə etmə, təxmin etmə, şərh vermə. İzahda deyiləni təkrarlama.
 - Rəqəmi mənbədəki kimi yaz; mənbədə olmayan rəqəm yazma. Xarici adları Azərbaycan dilində oxunduğu kimi yaz, inisial yazma.
 - Hər cümlə 40–140 simvol.
+${VQ.GOSTERIS}
 - Tamaşaçı Azərbaycandadır və mövzunu bilmir: izah və sənin cümlələrin birlikdə nə baş verdiyini, harada və niyə xəbər olduğunu aydın
   deməlidir.
 - Paylaşımda izahdan artıq ən az iki cümləyə yetən fakt yoxdursa, mətn reklam, çağırış, sual və ya mənası bilinməyən sözlərdirsə, hadisə
@@ -398,54 +409,49 @@ async function xMetn(c, { env = process.env, fetch: f = globalThis.fetch, policy
 }
 
 // Kadr yoxlaması (sahib, 2026-11-26 və 2026-11-27: «başa düşülməyən olmasın»). Kadrları montaj redaktoru və video arxivi kimi Gemini
-// görür (video-arxiv.cjs kadrlar: klipin 10%-dən sonuna 4 rəngli kadr, 512 px) və diktorun mətni ilə tutuşdurur. Video paylaşılmır:
+// görür (video-menbe.cjs kadrlar: klipin 10%-dən sonuna 4 rəngli kadr, 512 px) və diktorun mətni ilə tutuşdurur. Video götürülmür:
 //   - gorunur: false — mətndə deyilən hadisə kadrlarda görünmür (yalnız ekran yazısı, teleyayımın xəbərdarlıq zolağı, adi oyun və ya
 //     küçə görüntüsü): tamaşaçı nə baş verdiyini görmür;
-//   - qan: true — kadrda ölüm anı, qan, meyit görünür (x_yazici.py-ın qaydası: belə video seçilmir).
-// Kadr təsviri artıq mətnə yazılmır (2026-11-26-da paylaşımın faktı yoxdursa yazılırdı — «Stadionda idmançılar … dayanaraq» kimi boş şərh
-// verdi). Yoxlamaq mümkün olmasa (açar, ffmpeg, Gemini) video gedir: mətni seçimdə yoxlanıb.
+//   - qan: true — kadrda ölüm anı, qan, meyit görünür (x_yazici.py-ın qaydası: belə video seçilmir);
+//   - cilpaq, usaq: true — çılpaqlıq və ya cinsi səhnə, azyaşlı zərərçəkənin və ya şübhəlinin üzü (media qaydası, sahib, 2026-11-27).
+// Yoxlama seçimin içindədir (xHazirla; 2026-11-27, iş 45960946624-dən sonra): rədd olunan video bir də sınanmır, növbəti namizəd götürülür,
+// iş qırmızı olmur. Kadr təsviri mətnə yazılmır (2026-11-26-da paylaşımın faktı yoxdursa yazılırdı — «Stadionda idmançılar … dayanaraq»
+// kimi boş şərh verdi). Yoxlamaq mümkün olmasa (açar, ffmpeg, Gemini) video gedir: mətni seçimdə yoxlanıb.
 const X_KADR_SAY = 4;
 const X_KADR_PROMPT = `Sən 8ulduz.az xəbər saytının video redaktorusan. Qısa şaquli video (Reels, Shorts) X-dəki videodandır. Aşağıda
 diktorun mətni və videonun {n} kadrı var (əvvəlindən sonuna). Videonu yoxla:
 - "gorunur": true — mətndə deyilən hadisə kadrlarda açıq görünür, tamaşaçı mətni dinləyib görüntüyə baxanda nə baş verdiyini anlayır.
 - "gorunur": false — hadisə kadrlarda görünmür: yalnız ekran yazısı, teleyayımın xəbərdarlıq zolağı, hadisəsiz adi oyun, küçə və ya
   studiya görüntüsüdür, ya da görüntü mətnlə uyğun deyil. Əmin deyilsənsə true yaz.
-- "qan": true — yalnız kadrda ölüm anı, qan, meyit və ya ağır yaralı açıq görünürsə.
-- "sebeb": false olanda bir qısa cümlə, {dil}.
+${VQ.KADR_SETIRLER}
+- "sebeb": gorunur false və ya başqa sahə true olanda bir qısa cümlə, {dil}.
 
-Yalnız JSON qaytar: {"gorunur": true, "qan": false, "sebeb": ""}
+Yalnız JSON qaytar: {"gorunur": true, ${VQ.KADR_JSON}, "sebeb": ""}
 
 Mətn: {metn}`;
 function xKadrPromptOf(metn, n, D = dil()) {
   return X_KADR_PROMPT.replace("{n}", String(n)).replace(/\{dil\}/g, D.ssenari.dil).replace("{metn}", () => metn);
 }
-// Videonun kadrları (jpg buferləri): video arxivinin yolu ilə (ffprobe + ffmpeg).
-function xKadrlar(file) {
-  const VA = require("./video-arxiv.cjs"), p = VA.probe(file);
-  return VA.kadrlar(file, p.dur, p.w, p.h).jpg;
-}
-// xeber.json-un X girişi → { dayan: səbəb } (video paylaşılmır), { ok: true } və ya { kecdi: səbəb } (yoxlanmadı, video gedir).
+// X girişi → { dayan: səbəb } (video götürülmür), { ok: true } və ya { kecdi: səbəb } (yoxlanmadı, video gedir).
 async function xKadrYoxla(x, { dir, env = process.env, fetch: f = globalThis.fetch, log = console.log, D = dil(), deps = {} } = {}) {
   const az = x?.metn !== "paylasim" ? "paylaşımın faktları yoxdur, yalnız izah" : VS.serhAzdir(x.text);
   if (az) return { dayan: az };
   if (!env.GEMINI_API_KEY) return { kecdi: "GEMINI_API_KEY yoxdur" };
   let jpg = [];
-  try { jpg = ((deps.kadrlar || xKadrlar)(path.join(dir, M.FAYL)) || []).slice(0, X_KADR_SAY); }
+  try { jpg = ((deps.kadrlar || M.kadrlar)(path.join(dir, M.FAYL)) || []).slice(0, X_KADR_SAY); }
   catch (e) { return { kecdi: `kadrlar alınmadı: ${String(e?.message || e).slice(0, 120)}` }; }
   if (!jpg.length) return { kecdi: "kadr yoxdur" };
-  const parts = [{ text: xKadrPromptOf(clean(x.text), jpg.length, D) }];
-  jpg.forEach((b, i) => parts.push({ text: `Kadr ${i + 1}:` }, { inline_data: { mime_type: "image/jpeg", data: Buffer.from(b).toString("base64") } }));
-  const raw = await VS.gemini(parts, env.GEMINI_API_KEY, f, log, env);
-  if (raw == null) return { kecdi: "Gemini cavab vermir" };
-  let j = null;
-  try { j = JSON.parse(String(raw).replace(/^```(?:json)?\s*|\s*```$/g, "")); } catch {}
-  if (!j || typeof j !== "object") return { kecdi: "cavab JSON deyil" };
-  if (j.qan === true) return { dayan: "kadrda ölüm anı, qan və ya meyit görünür" };
-  if (j.gorunur === false) return { dayan: `deyilən hadisə kadrlarda görünmür${clean(j.sebeb) ? ` (${clean(j.sebeb).slice(0, 160)})` : ""}` };
+  const { j, yox } = await M.kadrSor(xKadrPromptOf(clean(x.text), jpg.length, D), jpg, { env, fetch: f, log });
+  if (yox) return { kecdi: yox };
+  const sebeb = clean(j.sebeb) ? ` (${clean(j.sebeb).slice(0, 160)})` : "";
+  const hokm = VQ.kadrHokmu(j);
+  if (hokm) return { dayan: `${hokm}${sebeb}` };
+  if (j.gorunur === false) return { dayan: `deyilən hadisə kadrlarda görünmür${sebeb}` };
   return { ok: true };
 }
 // Ən çox baxılan X videosu → xeber.json-un girişi (sosial-video.cjs xSec yazır) və ya null. Namizəd ancaq paylaşımın öz faktları ilə
-// şərhə yetən mətn (xMetn) alınanda götürülür; alınmayan bir də sınanmır (state.skip), indi yoxlanmayan (açar, Gemini) növbəti dövrəyə qalır.
+// şərhə yetən mətn (xMetn) alınanda və kadrları yoxlamadan keçəndə (xKadrYoxla) götürülür; alınmayan və rədd olunan bir də sınanmır
+// (state.skip), indi yoxlanmayan (açar, Gemini) növbəti dövrəyə qalır.
 async function xHazirla({ now = Date.now(), state, env = process.env, fetch: f = globalThis.fetch, policy, dir, log = console.log, file = REELS, deps = {} }) {
   if (typeof policy !== "function") throw new Error("X videosu: saytın qaydası (policyViolation) verilməyib");
   const D = dil(), o = xOptions(env, D);
@@ -463,13 +469,17 @@ async function xHazirla({ now = Date.now(), state, env = process.env, fetch: f =
     const err = await (deps.indir || M.indir)(x.u, path.join(dir, M.FAYL), f, "https://x.com/").catch(e => String(e?.message || e).slice(0, 120));
     if (err) { (state.skip ||= {})[c.id] = t; log(`X videosu: fayl alınmadı (${err}) — @${x.a}`); continue; }
     const ad = clean(x.n) || x.a;
-    log(`X videosu: @${x.a} — ${x.v} baxış, mövzu ${x.m}${c.ist ? `, istiqamət ${c.ist}` : ""} → ${xBasliq(c.c)}`);
-    // izah, metn: kadr yoxlaması (xKadrYoxla, «X: kadrları yoxla» addımı) bunlara baxır.
-    return { id: c.id, tur: "x", kind: "x", title: xBasliq(c.c), summary: "", text: m.text, izah: xIzah(c.c), metn: "paylasim", category: "dunya",
+    // izah, metn: kadr yoxlaması (xKadrYoxla) bunlara baxır.
+    const out = { id: c.id, tur: "x", kind: "x", title: xBasliq(c.c), summary: "", text: m.text, izah: xIzah(c.c), metn: "paylasim", category: "dunya",
       bolme: clean(D.x.bolme), source: `${ad} (X)`, sourceUrl: sehife, publishedAt: new Date(c.at).toISOString(), alts: [], baxis: Number(x.v), movzu: x.m,
       ...(c.ist ? { istiqamet: c.ist } : {}), klip_boyu: X_KLIP_BOYU, menbeVideo: { file: M.FAYL, url: x.u, sehife, kredit: `@${x.a} (X)` } };
+    const k = await (deps.kadrYoxla || xKadrYoxla)(out, { dir, env, fetch: f, log, D, deps });
+    if (k.dayan) { fs.rmSync(path.join(dir, M.FAYL), { force: true }); (state.skip ||= {})[c.id] = t; log(`X videosu: ötürülür (kadr: ${k.dayan}) — @${x.a}: ${xBasliq(c.c)}`); continue; }
+    log(k.kecdi ? `X videosu: kadrlar yoxlanmadı (${k.kecdi}) — mətn yoxlanıb, video gedir` : "X videosu: kadrlar mətnə uyğundur");
+    log(`X videosu: @${x.a} — ${x.v} baxış, mövzu ${x.m}${c.ist ? `, istiqamət ${c.ist}` : ""} → ${xBasliq(c.c)}`);
+    return out;
   }
-  log("X videosu: bu dövrədə şərhə yetən faktlı video alınmadı");
+  log("X videosu: bu dövrədə şərhə yetən faktlı, kadrları yoxlamadan keçən video alınmadı");
   return null;
 }
 

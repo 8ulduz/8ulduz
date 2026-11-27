@@ -239,32 +239,53 @@ test("X kadrlar: Gemini compares the video's own frames with the voice text — 
   assert.equal(typeof VA.probe, "function"); assert.equal(typeof VA.kadrlar, "function");
 });
 
-test("X kadrlar: the «x-kadr» step stops an X video with too little text (red, not shared) and leaves xeber.json alone; a non-X video passes; the step sits between ffmpeg and the render", () => {
-  const run = dir => cp.spawnSync(process.execPath, [".github/scripts/sosial-video.cjs", "x-kadr", dir], { cwd: root, encoding: "utf8",
-    env: Object.fromEntries(Object.entries(process.env).filter(([k]) => !["GEMINI_API_KEY", "GITHUB_OUTPUT"].includes(k))) });
-  const dir = tmp(), qisa = JSON.stringify({ ...X, text: `${X.izah} Stadionda idmançılar yaşıl sahə üzərində dayanaraq oyununu davam etdirirlər.` });
-  fs.writeFileSync(path.join(dir, "xeber.json"), qisa);
-  const r = run(dir);
-  assert.equal(r.status, 1, r.stdout + r.stderr);
-  assert.match(r.stdout, /::error::X videosu paylaşılmır — şərh azdır: 2 cümlə/);
-  assert.equal(fs.readFileSync(path.join(dir, "xeber.json"), "utf8"), qisa, "mətn dəyişmir");
-  // Şərhi yetərli, açar yoxdur: yoxlanmır, video gedir.
-  const d1 = tmp();
-  fs.writeFileSync(path.join(d1, "xeber.json"), JSON.stringify(X));
-  const r1 = run(d1);
-  assert.equal(r1.status, 0, r1.stdout + r1.stderr);
-  assert.match(r1.stdout, /kadrlar yoxlanmadı \(GEMINI_API_KEY yoxdur\)/);
-  const d2 = tmp(), xeber = JSON.stringify({ tur: "dunya", text: "Mətn." });
-  fs.writeFileSync(path.join(d2, "xeber.json"), xeber);
-  assert.equal(run(d2).status, 0);
-  assert.equal(fs.readFileSync(path.join(d2, "xeber.json"), "utf8"), xeber);
+// 2026-11-27 (iş 45960946624): kadr yoxlaması ayrıca addım idi — rədd olunan video işi qırmızı edirdi, pəncərə boş qalırdı. İndi seçimin
+// içindədir (xHazirla): rədd olunan video bir də sınanmır, növbəti namizəd götürülür; ffmpeg seçimdən əvvəl quraşdırılır.
+test("X kadrlar: the frame check runs inside the pick — a refused video (also nudity or a minor's face, media rule 2026-11-27) is skipped for good and the next one is taken; ffmpeg comes before the pick step", async () => {
+  const POST = "Newborn twins in Brazil keep hugging each other after birth, just like they did in the womb. Their mother filmed them in Sao Paulo";
+  const ELAVE = "Əkizlər Braziliyada doğulandan sonra da bir-birini qucaqlamağa davam edirlər, ana bətnində olduğu kimi. Onları San-Pauluda anaları çəkib.";
+  const xi = (id, o = {}) => ({ id: String(id), a: "TheFigen_", n: "Figen", m: "maraqli", u: `https://video.twimg.com/amplify_video/${id}/vid/avc1/720x1280/a.mp4?tag=21`, w: 720, h: 1280,
+    t: new Date(NOW - 2 * 3600e3).toISOString(), v: 500000, c: "Yenidoğulmuş əkizlərin bir-birinə sarılaraq yatdığı anlar. Görüntülər milyonlarla insanı təsirləndirib.", ...o });
+  const net = kadr => {
+    const asked = [];
+    const f = async (url, o = {}) => {
+      if (url.startsWith("https://api.fxtwitter.com/")) return { ok: true, status: 200, json: async () => ({ tweet: { text: POST } }) };
+      if (/models\?pageSize/.test(url)) return { ok: true, json: async () => ({ models: [] }) };
+      if (!/generativelanguage/.test(url)) return { ok: false, status: 404 };
+      const p = JSON.parse(o.body).contents[0].parts[0].text, j = /kadrı var/.test(p) ? (asked.push(p), kadr(asked.length)) : { elave: ELAVE };
+      return j == null ? { ok: false, status: 400, json: async () => ({}) } : { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify(j) }] } }] }) };
+    };
+    return { f, asked };
+  };
+  const dir = tmp(), file = path.join(dir, "reels.json");
+  fs.writeFileSync(file, JSON.stringify({ items: [xi(100001), xi(100002, { v: 300000 })] }));
+  const run = (n, o = {}) => VD.xHazirla({ now: NOW, state: o.state, env: { GEMINI_API_KEY: "g", VIDEO_GEMINI_WAIT_MS: "0" }, fetch: n.f, policy: () => false, dir, log: o.log || (() => {}), file,
+    deps: { indir: async (u, f) => (fs.writeFileSync(f, Buffer.from("ftypisom")), ""), kadrlar: () => JPG, ...o.deps } });
+  const st = { skip: {} }, logs = [], n = net(k => (k === 1 ? { gorunur: true, qan: false, usaq: true, sebeb: "Saxlanılan yeniyetmənin üzü görünür" } : { gorunur: true }));
+  const x = await run(n, { state: st, log: s => logs.push(s) });
+  assert.equal(x.sourceUrl, "https://x.com/TheFigen_/status/100002", "növbəti namizəd");
+  assert.ok(st.skip[VD.xId("100001")] && !st.skip[x.id], "rədd olunan bir də sınanmır");
+  assert.equal(n.asked.length, 2);
+  for (const w of ['"cilpaq": true', '"usaq": true', "əmin deyilsənsə false yaz", '{"gorunur": true, "qan": false, "cilpaq": false, "usaq": false, "sebeb": ""}']) assert.ok(n.asked[0].includes(w), w);
+  assert.ok(logs.some(s => /X videosu: ötürülür \(kadr: kadrda azyaşlı zərərçəkənin və ya şübhəlinin üzü görünür .*\(Saxlanılan yeniyetmənin üzü görünür\)\) — @TheFigen_/.test(s)), logs.join(" | "));
+  // Çılpaqlıq: hər ikisi rədd olunur — X videosu yoxdur, iş qırmızı olmur (seçim növbəti növə keçir).
+  const s2 = { skip: {} };
+  assert.equal(await run(net(() => ({ gorunur: true, cilpaq: true })), { state: s2 }), null);
+  assert.deepEqual(Object.keys(s2.skip).sort(), [VD.xId("100001"), VD.xId("100002")].sort());
+  // Yoxlamaq olmur (ffmpeg, Gemini): video gedir — mətni seçimdə yoxlanıb.
+  const s3 = { skip: {} }, l3 = [];
+  const y = await run(net(() => null), { state: s3, log: s => l3.push(s), deps: { kadrlar: () => { throw new Error("ffmpeg yoxdur"); } } });
+  assert.equal(y.sourceUrl, "https://x.com/TheFigen_/status/100001");
+  assert.ok(l3.some(s => /kadrlar yoxlanmadı \(kadrlar alınmadı: ffmpeg yoxdur\) — mətn yoxlanıb, video gedir/.test(s)), l3.join(" | "));
+  assert.equal((await run(net(() => null), { state: { skip: {} } })).sourceUrl, "https://x.com/TheFigen_/status/100001", "Gemini kadra cavab vermir — video gedir");
+  // İş axını: ffmpeg seçimdən əvvəl, hər işdə (PR nümunəsinin montajı da onu işlədir); ayrıca addım və əmr yoxdur.
   const wf = read(".github/workflows/sosial-video.yml");
-  const i = { ffmpeg: wf.indexOf("      - name: ffmpeg və şrift"), kadr: wf.indexOf("      - name: 'X: kadrları yoxla'"), render: wf.indexOf("      - name: Video hazırla") };
-  assert.ok(i.ffmpeg > 0 && i.ffmpeg < i.kadr && i.kadr < i.render, JSON.stringify(i));
-  const step = wf.slice(i.kadr, wf.indexOf("\n      - ", i.kadr + 10));
-  assert.ok(step.includes("if: steps.sec.outputs.hazir == '1' && steps.sec.outputs.tur == 'x'") && step.includes("GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}")
-    && step.includes("run: node .github/scripts/sosial-video.cjs x-kadr video-out"), step);
-  assert.ok(!step.includes("continue-on-error"), "dayanan video: sonrakı addımlar (video, paylaşma) işləmir");
+  const i = { ffmpeg: wf.indexOf("      - name: ffmpeg və şrift"), sec: wf.indexOf("      - name: Xəbər seç"), render: wf.indexOf("      - name: Video hazırla") };
+  assert.ok(i.ffmpeg > 0 && i.ffmpeg < i.sec && i.sec < i.render, JSON.stringify(i));
+  const step = wf.slice(i.ffmpeg, wf.indexOf("\n      - ", i.ffmpeg + 10));
+  assert.ok(!/\n        if:/.test(step) && step.includes("fonts-roboto-unhinted"), step);
+  assert.ok(!wf.includes("X: kadrları yoxla") && !wf.includes("x-kadr"), "ayrıca addım yoxdur");
+  assert.doesNotMatch(read(".github/scripts/sosial-video.cjs"), /cmd === "x-kadr"/);
 });
 
 // Şərh həddi hər videoda (hava videosundan başqa): «Videonu yoxla» addımı paylaşımdan əvvəl, PR nümunəsindən başqa.

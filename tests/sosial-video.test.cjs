@@ -437,9 +437,11 @@ test("sosial-video.yml: separate, read-only workflow; secrets only in the postin
   // Açar: «Paylaş» addımında; seçimdə əvvəl yalnız var/yox (VIDEO_ACAR). 2026-11-27-dən seçim addımı açarın özünü də alır — Instagram
   // Business Discovery (kanal videoları, video-kanal.cjs) bizim açarsız işləmir; PR-da (nümunə) verilmir, başqa heç bir addıma getmir.
   assert.equal(wf.match(/secrets\.FB_PAGE_TOKEN/g).length, 3, "açar: VIDEO_ACAR (var/yox), «Xəbər seç» (Business Discovery) və «Paylaş»");
-  const secim = wf.slice(wf.indexOf("- name: Xəbər seç"), wf.indexOf("- name: ffmpeg və şrift"));
+  // «Xəbər seç» addımı növbəti addıma qədər (2026-11-27-dən ffmpeg ondan əvvəldir — kadr yoxlaması seçimin içindədir).
+  const sa = wf.indexOf("- name: Xəbər seç"), sb = wf.indexOf("\n      - ", sa + 10), secim = wf.slice(sa, sb);
+  assert.ok(sa > 0 && sb > sa && wf.indexOf("- name: ffmpeg və şrift") < sa, "ffmpeg seçimdən əvvəldir");
   assert.ok(secim.includes("FB_PAGE_TOKEN: ${{ github.event_name != 'pull_request' && secrets.FB_PAGE_TOKEN || '' }}"), "PR-da seçimə açar getmir");
-  assert.equal((wf.slice(0, wf.indexOf("- name: Xəbər seç")) + wf.slice(wf.indexOf("- name: ffmpeg və şrift"), wf.indexOf("- name: Paylaş"))).match(/secrets\.FB_PAGE_TOKEN/g), null, "başqa addımda açar yoxdur");
+  assert.equal((wf.slice(0, sa) + wf.slice(sb, wf.indexOf("- name: Paylaş"))).match(/secrets\.FB_PAGE_TOKEN/g), null, "başqa addımda açar yoxdur");
   const post = wf.slice(wf.indexOf("- name: Paylaş"), wf.indexOf("- name: Siyahını saxla"));
   assert.match(post, /github\.event_name != 'pull_request'/);
   assert.match(post, /FB_PAGE_TOKEN: \$\{\{ secrets\.FB_PAGE_TOKEN \}\}/);

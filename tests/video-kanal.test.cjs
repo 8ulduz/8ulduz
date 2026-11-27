@@ -70,6 +70,8 @@ function net({ yaz = () => BESIKTAS, s = { "modern_azz": KANAL }, ig = IG, seen 
   };
 }
 const indir = got => async (u, f, _f, ref) => { got.push([u, ref]); fs.writeFileSync(f, mp4()); return ""; };
+// Kadr yoxlaması seçimin içindədir (2026-11-27): ffmpeg burada yoxdur — saxta kadrlar; Gemini-nin cavabı net()-dəndir.
+const kadrlar = () => [Buffer.from("jpg1"), Buffer.from("jpg2")];
 
 test("kanal: Telegram — the public channel page and the embed page are read into the same posts (real pages, 2026-11-27)", () => {
   const k = K.tgKanal(KANAL);
@@ -232,7 +234,7 @@ test("kanal: the credit names the outlet and the platform, plus the original aut
 
 test("kanal: Telegram — the channel's recent videos with enough text, ranked by views per hour × the strong directions; the chosen post is written, downloaded and credited", async () => {
   const file = cfgFile(), state = SV.readState("/yoxdur", NOW), got = [], logs = [], seen = { asked: [], prompts: [] };
-  const x = await K.hazirla({ now: NOW, state, env: { ...ENV, INSTAGRAM_VIDEO: "0" }, fetch: net({ seen }), policy, dir: tmp(), log: s => logs.push(s), file, deps: { indir: indir(got) } });
+  const x = await K.hazirla({ now: NOW, state, env: { ...ENV, INSTAGRAM_VIDEO: "0" }, fetch: net({ seen }), policy, dir: tmp(), log: s => logs.push(s), file, deps: { indir: indir(got), kadrlar } });
   assert.deepEqual({ tur: x.tur, kind: x.kind, platforma: x.platforma, source: x.source, sourceUrl: x.sourceUrl, sayt: x.sayt, title: x.title, kredit: x.menbeVideo.kredit, klip_boyu: x.klip_boyu },
     { tur: "kanal", kind: "kanal", platforma: "telegram", source: "Modern.az", sourceUrl: "https://t.me/modern_azz/95488", sayt: "https://modern.az/", title: BESIKTAS.basliq, kredit: "Modern.az (Telegram)", klip_boyu: 30 });
   assert.equal(x.text, BESIKTAS.text);
@@ -258,7 +260,7 @@ test("kanal: Telegram — the channel's recent videos with enough text, ranked b
   assert.equal(await K.hazirla({ now: NOW, state: s4, env: { ...ENV, INSTAGRAM_VIDEO: "0" }, fetch: net(), policy, dir: tmp(), log: () => {}, file, deps: { indir: indir([]) } }), null);
   // Saytdakı eyni xəbər tapılır — keçid ona.
   const art = { id: "abcdef0123456789", title: "\"Beşiktaş\" - \"Hapoel Beer-Şeva\" matçı yarımçıq dayandırıldı", source: "Modern.az", sourceUrl: "https://modern.az/x", publishedAt: "2026-11-26T18:40:00Z" };
-  const y = await K.hazirla({ now: NOW, state: SV.readState("/yoxdur", NOW), env: { ...ENV, INSTAGRAM_VIDEO: "0" }, fetch: net(), policy, dir: tmp(), log: () => {}, file, articles: [art, { ...art, id: "0000000000000001", source: "Oxu.az" }], deps: { indir: indir([]) } });
+  const y = await K.hazirla({ now: NOW, state: SV.readState("/yoxdur", NOW), env: { ...ENV, INSTAGRAM_VIDEO: "0" }, fetch: net(), policy, dir: tmp(), log: () => {}, file, articles: [art, { ...art, id: "0000000000000001", source: "Oxu.az" }], deps: { indir: indir([]), kadrlar } });
   assert.deepEqual([y.link, y.xeber], ["https://www.8ulduz.az/abcdef0123456789?h=26112618", art.id]);
 });
 
@@ -286,7 +288,7 @@ test("kanal: the filter — only the video's language, no protocol, war, film or
 test("kanal: Instagram — Business Discovery with our key; only reels with a file, fresh, not protocol; ranked by views per hour; the key never reaches the log", async () => {
   const file = cfgFile(), state = SV.readState("/yoxdur", NOW), got = [], logs = [], seen = { asked: [], prompts: [] };
   const env = { ...ENV, TELEGRAM_VIDEO: "0", FB_PAGE_TOKEN: "EAAsinaqTOKEN1234567890", IG_USER_ID: "17841400000000000" };
-  const x = await K.hazirla({ now: NOW, state, env, fetch: net({ yaz: () => QUTAB, seen }), policy, dir: tmp(), log: s => logs.push(s), file, deps: { indir: indir(got) } });
+  const x = await K.hazirla({ now: NOW, state, env, fetch: net({ yaz: () => QUTAB, seen }), policy, dir: tmp(), log: s => logs.push(s), file, deps: { indir: indir(got), kadrlar } });
   assert.deepEqual({ platforma: x.platforma, source: x.source, sourceUrl: x.sourceUrl, kredit: x.menbeVideo.kredit, muellif: x.muellif, title: x.title },
     { platforma: "instagram", source: "Baku.ws", sourceUrl: "https://www.instagram.com/reel/R1801/", kredit: "Baku.ws (Instagram), @foto_by_gunew", muellif: "@foto_by_gunew", title: QUTAB.basliq });
   assert.deepEqual(got, [["https://scontent.cdninstagram.com/v/1801.mp4?efg=x", "https://www.instagram.com/"]]);
@@ -399,24 +401,63 @@ test("kanal: the frame check stops a video with another outlet's big title block
   assert.deepEqual(await y({ yazi: false, qan: false }), { ok: true }, "küncdə kiçik loqo");
   assert.match((await y({ yazi: true, qan: false, sebeb: "Yuxarıda Baku.ws-in başlıq bloku var" })).dayan, /başqa saytın başlıq bloku və ya yazı örtüyü var \(Yuxarıda Baku\.ws/);
   assert.match((await y({ yazi: false, qan: true })).dayan, /qan/);
-  assert.match((await y(null)).dayan, /kadrlar yoxlanmadı/);
-  assert.match((await y({ yazi: false }, { env: {} })).dayan, /GEMINI_API_KEY/);
-  assert.match((await y({ yazi: false }, { deps: { kadrlar: () => { throw new Error("ffmpeg yoxdur"); } } })).dayan, /kadrlar alınmadı: ffmpeg yoxdur/);
+  // Media qaydası (sahib, 2026-11-27): çılpaqlıq və azyaşlı zərərçəkənin üzü.
+  assert.match((await y({ yazi: false, cilpaq: true })).dayan, /çılpaqlıq və ya cinsi səhnə .*14\.1\.13/);
+  assert.match((await y({ yazi: false, usaq: true, sebeb: "Saxlanılan yeniyetmənin üzü görünür" })).dayan, /azyaşlı zərərçəkənin və ya şübhəlinin üzü .*15\.1\.5.*\(Saxlanılan yeniyetmənin/);
+  // Yoxlanmadı: video yenə getmir, amma «gec» — videonun özü rədd olunmayıb (seçim onu siyahıya yazmır).
+  const gec = await y(null);
+  assert.match(gec.dayan, /kadrlar yoxlanmadı/); assert.equal(gec.gec, true);
+  const acarsiz = await y({ yazi: false }, { env: {} });
+  assert.match(acarsiz.dayan, /GEMINI_API_KEY/); assert.equal(acarsiz.gec, true);
+  const ff = await y({ yazi: false }, { deps: { kadrlar: () => { throw new Error("ffmpeg yoxdur"); } } });
+  assert.match(ff.dayan, /kadrlar alınmadı: ffmpeg yoxdur/); assert.equal(ff.gec, undefined, "faylın özü oxunmur — bu video bir də sınanmır");
   assert.match((await K.kadrYoxla({ ...x, text: "Qısa mətn." }, { dir: tmp(), env: ENV, fetch: cavab({}), deps })).dayan, /şərh azdır/);
   assert.match(K.kadrPromptOf(x, 2), /Baku\.ws saytının Instagram paylaşımından/);
   assert.match(K.KADR_PROMPT, /Küncdəki kiçik loqo/);
-  assert.match(read(".github/scripts/sosial-video.cjs"), /if \(cmd === "kanal-kadr"\)/);
+  for (const w of ['"cilpaq": true', '"usaq": true', "əmin deyilsənsə false yaz", '{"yazi": false, "qan": false, "cilpaq": false, "usaq": false, "sebeb": ""}']) assert.ok(K.KADR_PROMPT.includes(w), w);
+  // Ayrıca addım və əmr yoxdur: yoxlama seçimin içindədir (iş 45960946624).
+  assert.doesNotMatch(read(".github/scripts/sosial-video.cjs"), /cmd === "kanal-kadr"|cmd === "x-kadr"/);
 });
 
-test("kanal: the workflow ships the module and the list, passes the switches and our key to the pick step (documented), and checks the frames before the montage", () => {
+// İş 45960946624 (2026-11-27, 07:47 UTC): kanal Baku.es-in Reels-ini seçdi, ayrıca «Kanal: kadrları yoxla» addımı onu rədd etdi («başqa saytın
+// başlıq bloku»), iş qırmızı oldu, 30 dəqiqəlik pəncərə boş qaldı. İndi yoxlama seçimin içindədir: rədd olunan video bir də sınanmır, növbəti götürülür.
+test("kanal: the frame check runs inside the pick — a refused reel is skipped for good and the next one is taken; unchecked (Gemini down) gives no kanal video this round and burns nothing", async () => {
+  const file = cfgFile({ instagram: [{ ad: "Baku.ws", hesab: "baku.ws_official", fayl: true, yoxlama: "sınaq" }] });
+  const ig = { "baku.ws_official": { business_discovery: { username: "baku.ws_official", followers_count: 900000, media: { data: [reel("1801"), reel("1806", { view_count: 1000 })] } } } };
+  const env = { ...ENV, TELEGRAM_VIDEO: "0", FB_PAGE_TOKEN: "EAAsinaqTOKEN1234567890", IG_USER_ID: "17841400000000000" };
+  const kadrSoruldu = [];
+  const yaz = cavab => p => (/kadrı var/.test(p) ? (kadrSoruldu.push(p), cavab(kadrSoruldu.length)) : QUTAB);
+  const state = SV.readState("/yoxdur", NOW), got = [], logs = [], dir = tmp();
+  const x = await K.hazirla({ now: NOW, state, env, fetch: net({ ig, yaz: yaz(n => (n === 1 ? { yazi: true, qan: false, sebeb: "Yuxarıda böyük başlıq bloku var" } : { yazi: false, qan: false })) }),
+    policy, dir, log: s => logs.push(s), file, deps: { indir: indir(got), kadrlar } });
+  assert.equal(x.sourceUrl, "https://www.instagram.com/reel/R1806/", "növbəti namizəd");
+  assert.ok(state.skip[K.igNamized(reel("1801"), { hesab: "baku.ws_official" }).id], "rədd olunan bir də sınanmır");
+  assert.equal(state.skip[x.id], undefined);
+  assert.deepEqual(got.map(g => g[0]), ["https://scontent.cdninstagram.com/v/1801.mp4?efg=x", "https://scontent.cdninstagram.com/v/1806.mp4?efg=x"]);
+  assert.equal(kadrSoruldu.length, 2);
+  assert.ok(logs.some(s => /ötürülür \(kadr: başqa saytın başlıq bloku və ya yazı örtüyü var \(Yuxarıda böyük başlıq bloku var\)\) — https:\/\/www\.instagram\.com\/reel\/R1801\//.test(s)), logs.join(" | "));
+  assert.ok(fs.existsSync(path.join(dir, M.FAYL)), "seçilənin faylı qalır");
+  // Kadrlarda qan (media qaydası da) — hər ikisi rədd olunur, video yoxdur, ikisi də siyahıda.
+  const s2 = SV.readState("/yoxdur", NOW);
+  assert.equal(await K.hazirla({ now: NOW, state: s2, env, fetch: net({ ig, yaz: yaz(() => ({ yazi: false, qan: false, cilpaq: true })) }), policy, dir: tmp(), log: () => {}, file, deps: { indir: indir([]), kadrlar } }), null);
+  assert.equal(Object.keys(s2.skip).filter(k => [reel("1801"), reel("1806")].some(r => K.igNamized(r, { hesab: "baku.ws_official" }).id === k)).length, 2);
+  // Kadrları yoxlamaq olmur (Gemini kadr sorğusuna cavab vermir): kanal videosu yoxdur, heç nə «yanmır», fayl silinir.
+  const s3 = SV.readState("/yoxdur", NOW), d3 = tmp(), l3 = [];
+  assert.equal(await K.hazirla({ now: NOW, state: s3, env, fetch: net({ ig, yaz: p => (/kadrı var/.test(p) ? null : QUTAB) }), policy, dir: d3, log: s => l3.push(s), file, deps: { indir: indir([]), kadrlar } }), null);
+  assert.deepEqual(Object.keys(s3.skip).filter(k => k === K.igNamized(reel("1801"), { hesab: "baku.ws_official" }).id), []);
+  assert.ok(!fs.existsSync(path.join(d3, M.FAYL)));
+  assert.ok(l3.some(s => /Gemini cavab vermir — kadrlar yoxlanmadı — bu dövrədə kanal videosu yoxdur/.test(s)), l3.join(" | "));
+});
+
+test("kanal: the workflow ships the module and the list, passes the switches and our key to the pick step (documented), and installs ffmpeg before the pick (frames are checked inside it)", () => {
   const wf = read(".github/workflows/sosial-video.yml");
   for (const f of [".github/scripts/video-kanal.cjs", ".github/video-kanal.json"]) assert.ok(wf.split(f).length >= 3, `${f}: PR yolu və sparse-checkout`);
   for (const v of ["TELEGRAM_VIDEO", "TELEGRAM_GUNDE", "TELEGRAM_ARA_MIN", "INSTAGRAM_VIDEO", "INSTAGRAM_GUNDE", "INSTAGRAM_ARA_MIN", "IG_USER_ID", "FB_GRAPH_VERSION"]) assert.ok(wf.includes(`${v}: \${{ vars.${v} }}`), v);
-  const secStep = wf.slice(wf.indexOf("- name: Xəbər seç"), wf.indexOf("- name: ffmpeg və şrift"));
+  const sa = wf.indexOf("- name: Xəbər seç"), secStep = wf.slice(sa, wf.indexOf("\n      - ", sa + 10));
   assert.ok(secStep.includes("FB_PAGE_TOKEN: ${{ github.event_name != 'pull_request' && secrets.FB_PAGE_TOKEN || '' }}") && /Business Discovery/.test(secStep) && /jurnala düşmür/.test(secStep));
-  const kadr = wf.indexOf("- name: 'Kanal: kadrları yoxla'");
-  assert.ok(kadr > wf.indexOf("- name: ffmpeg və şrift") && kadr < wf.indexOf("- name: Video hazırla"));
-  assert.match(wf.slice(kadr, kadr + 600), /steps\.sec\.outputs\.tur == 'kanal'[\s\S]*GEMINI_API_KEY[\s\S]*sosial-video\.cjs kanal-kadr video-out/);
+  assert.ok(secStep.includes("GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}"), "kadrları seçim addımı yoxlayır");
+  assert.ok(wf.indexOf("- name: ffmpeg və şrift") > 0 && wf.indexOf("- name: ffmpeg və şrift") < sa, "ffmpeg seçimdən əvvəl");
+  assert.ok(!wf.includes("Kanal: kadrları yoxla") && !wf.includes("kanal-kadr"), "ayrıca addım yoxdur (iş 45960946624)");
   assert.match(wf, /options: \[avtomatik, hava, xeber, maraqli, dunya, x, kanal\]/);
   // Sənəd: sahibin sözləri, köhnəlmiş Telegram sətri yoxdur.
   const doc = read("docs/sosial-video.md");
