@@ -197,7 +197,7 @@ Seçim. Tamaşaçının ən çox baxdığı istiqamətlər (nömrə ilə), vacib
 Hadisənin öz görüntüsü (şahidin, kameranın çəkdiyi an) üstündür.
 Uyğun DEYİL: heyvan faktı, təbiət və kosmos sənədli kadrı, planet, ulduz, kosmik teleskop görüntüsü — heyvan yalnız insan hadisəsinin
 içində ola bilər (məsələn şəhərdə qaçan şir, iti buzdan xilas edən yanğınsöndürənlər); ölüm anı, qan, meyit görünən video; sammit,
-görüş, bəyanat, mətbuat konfransı, siyasi çıxış, müharibənin gedişi, tok-şou, statistika, ildönümü; Azərbaycan və onun rəhbərliyi,
+görüş, bəyanat, mətbuat konfransı, siyasi çıxış, tok-şou, statistika, ildönümü; Azərbaycan və onun rəhbərliyi,
 Ermənistan–Azərbaycan mövzusu.
 Heç biri uyğun deyilsə {"sec": 0} qaytar.
 
@@ -296,7 +296,7 @@ async function hazirla({ now = Date.now(), state, env = process.env, fetch: f = 
 // İdman (liqaların oyun kadrı) sahibin qərarı ilə götürülür (2026-11-26: «liqaların oyun kadrını niyə götürmürük?» → «3 et»: bütün
 // şəbəkələrdə; «Xəbərdarlıq gəlsə sənə deyərəm»). Eyni mövzu dalbadal getmir (state.xm: mövzu → son vaxt): ən çox baxılanlar
 // idman olsa da hər ikinci video başqa mövzudandır. Götürülmür: oyun qrupu (oyun treylerləri), böyük yayımçıların hesabları
-// (x.qadagan), film və klip kadrı (lent.yayim), müharibə və zorakılıq görüntüsü (x.kenar), saytın qaydasından keçməyən izah.
+// (x.qadagan), film və klip kadrı (lent.yayim), qan, meyit, ölüm anı (x.kenar; 2026-11-27-dək müharibənin özü də — sahib: «müharibə videolarını tamamən qadağan etmək olmaz», «şiddət … ümumi sözdür. onu dəyiş qan qalsın»), saytın qaydasından keçməyən izah.
 const REELS = path.join(__dirname, "..", "..", "data", "reels.json");
 const X_KLIP_BOYU = 30, X_CEHD = 5, X_IZAH_MIN = 40, X_IZAH_MAX = 420, X_BASLIQ_MAX = 100;
 function xOptions(env = process.env, D = dil()) {
@@ -392,7 +392,7 @@ async function xMetn(c, { env = process.env, fetch: f = globalThis.fetch, policy
   const kenar = D.x?.kenar ? new RegExp(D.x.kenar, "iu") : null;
   const a = { id: c.id, kind: "x", title: xBasliq(c.c), category: "dunya", lang: D.lent.dil, source: clean(c.x.n) || c.x.a, sourceUrl: `https://x.com/${c.x.a}/status/${c.x.id}` };
   const text = `${izah} ${elave}`;
-  const why = kenar?.test(elave) ? "müharibə və ya zorakılıq sözü" : VS.checkText(text, `${esli} ${izah}`, a, policy, X_HED) || VS.serhAzdir(text);
+  const why = kenar?.test(elave) ? "qan və ya meyit sözü" : VS.checkText(text, `${esli} ${izah}`, a, policy, X_HED) || VS.serhAzdir(text);
   if (why) return { yox: `əlavə mətn yoxlamadan keçmədi: ${why}` };
   return { text };
 }

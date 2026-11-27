@@ -10,7 +10,7 @@
     "min_baxis": 100000,
     "movzular": { "maraqli": 1.3, "kino": 1.3, "idman": 1.3, "xeber": 1.1, "texnika": 1.1, "elm": 1, "yemek": 0.8 },
     "qadagan": "^(FoxNews|BBC\\w*|CNN\\w*|SkyNews\\w*|NatGeo\\w*|Discovery\\w*|AnimalPlanet|Disney\\w*|netflix\\w*|HBO\\w*|Marvel\\w*|redbull\\w*|IGN|GameSpot)$",
-    "kenar": "(?<![\\p{L}])(raket|bombard|hava zərbəsi|zərbə endir|zərbənin|dron zərbəsi|döyüş|cəbhə|edam|baş kəs|meyit|cəsəd|terror aktı)",
+    "kenar": "(?<![\\p{L}])(qanlı|qan içində|qanlar içində|qana bulaş|qan axır|meyit|cəsəd|ölüm anı|öldürülmə anı|edam|baş kəs|başını kəs)",
     "cixar": "(?<![\\p{L}\\p{N}])(?:heyvan|pişik|it(?:i|in|ə|dən|lə|lər|ləri|lərin|lərə|lərdən)?(?![\\p{L}])|köpək|şir(?:i|ə|lər|ləri|dən)?(?![\\p{L}])|pələng|bəbir|canavar|tülkü|fil(?:i|in|ə|lər|ləri)?(?![\\p{L}])|zürafə|meymun|qorilla|panda|koala|kenquru|delfin|balina|akula|timsah|ilan(?:ı|ın|lar|ları)?(?![\\p{L}])|tısbağa|qartal|quş(?:u|un|lar|ları|ların)?(?![\\p{L}])|tutuquşu|pinqvin|[iİ]nək|dovşan|siçan|sincab|kəpənək|hörümçək|ahtapot|zoopark|akvarium|vəhşi təbiət|vəhşi heyvan|yırtıcı|təbiət|şəlalə|gün batımı|şimal parıltı|aurora|kosmos|kosmik|kosmonavt|astronavt|planet|qalaktika|asteroid|kometa|teleskop|NASA|SpaceX|Mars(?:da|a|ın|dan)?(?![\\p{L}])|Yupiter|Saturn|Günəş sistemi|qara dəlik|orbit|raket buraxıl|peyk|Ay(?:ın)? səth|Ay tutul|Günəş tutul)"
   },
   "lent": {

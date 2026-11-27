@@ -71,7 +71,7 @@ test("seçim: the Beşiktaş fight (2026-11-26) — 7 small clusters are one eve
     // X və dünya videosunun vaxtıdır (siyahı boşdur) — amma öz görüntülü yerli xəbər əvvəl gedir.
     const x = await SV.sec(args(now));
     assert.equal(x.id, bizim.id, `nümayəndə faylı olan xəbərdir — ${logs.join(" | ")}`);
-    assert.equal(x.title, bizim.title);
+    assert.equal(x.title, bizim.title.replace(/ - Video$/, ""), "başlığın « - Video» nişanı videoya yazılmır");
     assert.deepEqual([dunya, xv], [0, 0], "dünya və X videosu soruşulmadı");
     assert.equal(x.menbeVideo.url, FX.mp4);
     assert.equal(x.menbeVideo.kredit, "Bizim.Media");
@@ -198,4 +198,32 @@ test("seçim: night backlog — a story from the no-video night (00:00–07:59 B
     const x = await SV.sec({ articles: [n, late], env: ENV, now: MORNING, state: SV.readState("/yoxdur", MORNING), fetch: net([n, late]).f, cats: [], dir, log: () => {}, menbe: async () => null });
     assert.equal(x.id, n.id, "səhərin ilk pəncərəsində gecənin xəbəri");
   });
+});
+
+// Sahib, 2026-11-27: «Beşiktaşın oyunundan və videoda arxada stadion top və s göstərilir — bunun yerinə həmin oyundan kadrlar
+// göstərilməlidir». Oyun xəbəri yalnız oyunun öz kadrı ilə video olur; başlığın « - Video» nişanı videoya yazılmır.
+test("seçim: a sports match story without the game's own footage is not made with stock stadium/ball clips; with its own file it goes; the « - Video» tag is dropped from the title", async () => {
+  const now = Date.parse(FX.now);
+  const oyun = (id, o = {}) => art(id, { category: "idman", title: 'Batumidə gərgin gecə: "Beşiktaş" qalmaqallı qarşılaşmadan qalib ayrıldı - Video', alts: alts("Report", "Oxu.az", "Trend", "Qafqazinfo"), ...o });
+  const run = async (articles, menbe) => withOutput(async dir => {
+    const state = SV.readState("/yoxdur", now), logs = [];
+    const x = await SV.sec({ articles, env: ENV, now, state, fetch: net(articles).f, cats: [], dir, log: s => logs.push(s), menbe: async a => menbe(a) });
+    return { x, logs, state };
+  });
+  let r = await run([oyun("e1")], () => null);
+  assert.equal(r.x, null);
+  assert.ok(r.logs.some(s => /idman oyunu: oyunun öz kadrı tapılmadı — bank klipi \(stadion, top\) göstərilmir/.test(s)), r.logs.join(" | "));
+  assert.ok(r.state.skip[oyun("e1").id], "bir də sınanmır");
+  r = await run([oyun("e2")], a => mvOf(a));
+  assert.equal(r.x?.id, oyun("e2").id);
+  assert.ok(r.x.menbeVideo, "oyunun öz kadrı ilə gedir");
+  assert.equal(r.x.title, 'Batumidə gərgin gecə: "Beşiktaş" qalmaqallı qarşılaşmadan qalib ayrıldı');
+  // Oyun olmayan idman xəbəri və başqa bölmə əvvəlki kimidir.
+  assert.equal(SV.oyunXeberi({ category: "idman", title: "Oyunçu «Neftçi» ilə müqaviləni uzatdı" }), false);
+  assert.equal(SV.oyunXeberi({ category: "gundem", title: "Qarşılaşma 2:1 bitdi" }), false);
+  assert.equal(SV.oyunXeberi({ category: "idman", title: "Avropa Liqasının V turunda «Beşiktaş» qalib gəlib" }), true);
+  assert.equal(SV.oyunXeberi({ category: "idman", title: "«Qarabağ» «Çelsi» ilə 2:2" }), true);
+  assert.equal(SV.nisansiz("Bakıda QƏZA - VİDEO - FOTO"), "Bakıda QƏZA");
+  assert.equal(SV.nisansiz("Final - Yenilənir"), "Final");
+  assert.equal(SV.nisansiz("Prezident - Ali Baş Komandan"), "Prezident - Ali Baş Komandan");
 });

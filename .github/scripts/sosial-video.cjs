@@ -431,9 +431,24 @@ async function kanalSec({ now, state, env, fetch: f, policy, articles, tur, dir,
   return out;
 }
 
+// İdman oyunu: xəbər oyunun özü haqqındadır (matç, tur, qol, hesab, qalib/məğlub, azarkeşlər) — bank klipi ilə göstərilmir (xeberSec).
+const OYUN_SOZ = /(?<![\p{L}])(?:matç\p{L}*|oyun(?!çu)\p{L}*|qarşılaşma\p{L}*|tur(?:u|da|un|unda|unun)?(?![\p{L}])|qol\p{L}*|qalib|qələbə\p{L}*|məğlub\p{L}*|heç-heçə\p{L}*|final\p{L}*|derbi\p{L}*|azarkeş\p{L}*)|\d+\s?:\s?\d+/iu;
+const oyunXeberi = a => a?.category === "idman" && OYUN_SOZ.test(`${S.clean(a.title)} ${S.clean(a.summary || "")}`);
+// Başlığın sonundakı mənbə nişanı videoda və postda yazılmır (2026-11-27: «Batumidə gərgin gecə: … qalib ayrıldı - Video»):
+// « - Video», « - FOTO», « + VİDEO», « - YENİLƏNİR», « - CANLI».
+const NISAN = new Set(["video", "foto", "fotolar", "foto+video", "video+foto", "yenilənir", "canlı", "fotosessiya"]);
+function nisansiz(t) {
+  let s = S.clean(t);
+  for (;;) {
+    const m = s.match(/\s*[-–—+|]\s*([^-–—+|]{3,16})$/u);
+    if (!m || !NISAN.has(m[1].trim().toLocaleLowerCase("az").replace(/\s+/g, ""))) return s;
+    s = s.slice(0, m.index).trim();
+  }
+}
+
 // xeber.json: video-xeber.cjs-in girişi + paylaşma üçün keçid.
 function entry(a, text, cats = []) {
-  return { id: a.id, title: S.clean(a.title), summary: a.summary || "", text, category: a.category, bolme: cats.find(c => c.slug === a.category)?.label || "",
+  return { id: a.id, title: nisansiz(a.title), summary: a.summary || "", text, category: a.category, bolme: cats.find(c => c.slug === a.category)?.label || "",
     source: a.source, sourceUrl: a.sourceUrl, publishedAt: a.publishedAt, alts: (a.alts || []).map(x => ({ source: x?.source })), link: S.shareUrl(a) };
 }
 
@@ -692,14 +707,21 @@ async function xeberSec({ articles, env, now, state, f, policy, cats, dir, log, 
       // Mənbənin öz videosu (video-menbe.cjs): varsa videonun görüntüsü odur. Bank klipləri ehtiyatdır — fayl montajda oxunmasa onlarla.
       // Seçimdə yoxlanıbsa (got.mv: fayl və ya null) səhifələr bir də oxunmur.
       mv = got.mv !== undefined ? got.mv : await menbe(got.a, got.page, { env, fetch: f, log, dir }).catch(e => { log(`mənbə videosu: alınmadı — ${String(e?.message || e).slice(0, 160)}`); return null; });
-      klip = await VS.goruntu(sc?.axtar || [], dir, { env, fetch: f, log, category: got.a.category, istifade: new Set(Object.keys(state.klip || {})),
-        yer: sc?.yer || [], xeber: sc?.text ? { title: got.a.title, text: sc.text, yer: sc.yer } : null, arxiv });
-      if (only || !footage || klip.length >= KLIP_MIN) break;
-      // Bank klipi çatmır, amma mənbənin videosu var: video onunla gedir (yarımçıq bank klipləri atılır).
-      if (mv) { for (const k of klip) fs.rmSync(path.join(dir, k.file), { force: true }); klip = []; break; }
-      for (const k of klip) fs.rmSync(path.join(dir, k.file), { force: true });
-      sc = { uygun: false, sebeb: `uyğun görüntü ${klip.length} klip, ən az ${KLIP_MIN}` };
-      klip = [];
+      // İdman oyunu (sahib, 2026-11-27: «Beşiktaşın oyunundan … videoda arxada stadion top və s göstərilir — bunun yerinə həmin oyundan
+      // kadrlar göstərilməlidir»): oyunun öz kadrı (mənbə videosu, Telegram pəncərəsi də) yoxdursa bank klipi ilə video olmur. Belə
+      // hadisənin əsl görüntüsü çox vaxt saytların Telegram kanalında və Instagram-ında olur — onu kanal videosu götürür (video-kanal.cjs).
+      if (!only && !mv && oyunXeberi(got.a)) {
+        sc = { uygun: false, sebeb: "idman oyunu: oyunun öz kadrı tapılmadı — bank klipi (stadion, top) göstərilmir" };
+      } else {
+        klip = await VS.goruntu(sc?.axtar || [], dir, { env, fetch: f, log, category: got.a.category, istifade: new Set(Object.keys(state.klip || {})),
+          yer: sc?.yer || [], xeber: sc?.text ? { title: got.a.title, text: sc.text, yer: sc.yer } : null, arxiv });
+        if (only || !footage || klip.length >= KLIP_MIN) break;
+        // Bank klipi çatmır, amma mənbənin videosu var: video onunla gedir (yarımçıq bank klipləri atılır).
+        if (mv) { for (const k of klip) fs.rmSync(path.join(dir, k.file), { force: true }); klip = []; break; }
+        for (const k of klip) fs.rmSync(path.join(dir, k.file), { force: true });
+        sc = { uygun: false, sebeb: `uyğun görüntü ${klip.length} klip, ən az ${KLIP_MIN}` };
+        klip = [];
+      }
     }
     log(`video: ötürülür (${sc.sebeb || "uyğun deyil"}) — ${S.clean(got.a.title)}`);
     sil(got.mv);
@@ -833,5 +855,5 @@ async function main() {
 }
 
 module.exports = { options, readState, due, pick, entry, networks, sec, paylas, fbText, igText, havaOptions, havaDue, havaHazirla, bakuClock,
-  maraqliOptions, maraqliDue, maraqliSec, maraqliSay, cekisi, dunyaSec, xSec, kanalSec, hadiseler, yasBasi, videoIpucu };
+  maraqliOptions, maraqliDue, maraqliSec, maraqliSay, cekisi, dunyaSec, xSec, kanalSec, hadiseler, yasBasi, videoIpucu, oyunXeberi, nisansiz };
 if (require.main === module) main().catch(e => { console.error(`video: ${String(e?.message || e)}`); process.exitCode = 1; });
