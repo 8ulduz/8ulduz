@@ -1,8 +1,16 @@
 name: X xəbərləri yazıcısı
 # X-in türk dilli rəsmi hesablarının videolu paylaşımlarından 8ULDUZ-un öz xəbərləri (oz_x.py, docs/x-yazici.md).
-# Sahib, 2026-11-18: «bunu avtomatlaşdır. claude nin açıq bağlı olmasına bağlama»; icazə: iş yalnız oz_x.json-u dəyişir
-# və birbaşa main-ə göndərir. Mətni Gemini yazır (GEMINI_API_KEY, pulsuz səviyyə; sahib 2026-11-18: «Başqa yol» —
-# Claude API açarı yoxdur). Açar yoxdursa iş yalnız X-i oxuyur və namizədləri sayır, heç nə yazmır. Dərc etmir: xəbəri yavaş dövrədə dərc hissəsi (oz_derc) hədlərlə verir.
+# Sahib, 2026-11-18: «bunu avtomatlaşdır. claude nin açıq bağlı olmasına bağlama». Mətni Gemini yazır (GEMINI_API_KEY, pulsuz
+# səviyyə; sahib 2026-11-18: «Başqa yol» — Claude API açarı yoxdur). Açar yoxdursa iş yalnız X-i oxuyur və namizədləri sayır,
+# heç nə yazmır. Dərc etmir: xəbəri yavaş dövrədə dərc hissəsi (oz_derc) hədlərlə verir.
+#
+# Növbə budağı. Sahib, 2026-11-27 («bu təklifini daha dərindən araşdır … nələr etmək olar kodda? … tap və düzəlt»): iş yalnız
+# oz_x.json-u dəyişir və onu yalnız x-novbe budağına göndərir, main-ə heç nə yazmır (2026-11-18-in «birbaşa main» icazəsi bununla
+# əvəz olunub). Səbəb: main-ə hər yazı ayrıca Pages yığımı (37–58 s), Fastly CDN-in təmizlənməsi, bütün faylların yeni ETag-ı və
+# oxucunun service worker-inin dəyişməmiş faylları yenidən yükləməsi idi; 2026-11-26-da (UTC) main-ə 87 «X xəbərləri növbəyə əlavə
+# edildi» yazısı (bot yazılarının 43%-i), üst-üstə düşən yığımlar 2026-11-27-də Pages-i düşürdü. Kod main-dən gəlir, növbə
+# budaqdan; xəbər axını da növbəni budaqdan oxuyur (pipeline.sh pull_reel_src). Budaq valideynsiz başlayır, içində yalnız oz_x.json.
+# Budaq yoxdursa (ilk iş) main-in indiki oz_x.json-u ilə yaranır: keçiddə heç bir sətir itmir. main-in oz_x.json-u o andan donur.
 
 on:
   schedule:
@@ -15,6 +23,9 @@ permissions:
 concurrency:
   group: x-yazici
   cancel-in-progress: false
+
+env:
+  NOVBE: x-novbe   # növbə budağı; pipeline.sh-dakı NOVBE_BRANCH ilə eynidir
 
 jobs:
   yaz:
@@ -33,20 +44,50 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           if [ -z "$GEMINI_API_KEY" ] && [ -n "$ANTHROPIC_API_KEY" ]; then pip install --disable-pip-version-check -q anthropic; fi
+      - name: Növbəni x-novbe budağından götür (budaq yoxdursa main-in oz_x.json-u ilə yaranır)
+        run: |
+          set -euo pipefail
+          git config user.name 8ulduz-bot   # pull --rebase da commit qurur: ad olmasa budaq irəli gedəndə iş düşür (2026-11-19)
+          git config user.email bot@8ulduz.az
+          # Budaq tam adı ilə (refs/heads/...): eyni adlı teq qısa addan öndə gələ bilər (video-arxiv, 2026-11-26).
+          code=0
+          git ls-remote --exit-code --heads origin "refs/heads/$NOVBE" >/dev/null || code=$?
+          if [ "$code" = 2 ]; then
+            # İlk iş: main-in indiki oz_x.json-u ilə valideynsiz commit (budaqda yalnız bu fayl). Budaq bu arada yaranıbsa push
+            # rədd olunur (sürətli irəliləmə deyil) və onun nüsxəsi oxunur: heç nəyin üstünə yazılmır.
+            blob="$(git hash-object -w oz_x.json)"
+            tree="$(printf '100644 blob %s\toz_x.json\n' "$blob" | git mktree)"
+            commit="$(git commit-tree "$tree" -m "X növbəsi main-in oz_x.json-u ilə başladı")"
+            git push -q origin "$commit:refs/heads/$NOVBE" || echo "budaq bu arada yaranıb, onun nüsxəsi oxunur"
+          elif [ "$code" != 0 ]; then
+            echo "::error::$NOVBE budağı oxunmadı (ls-remote: $code): növbəyə toxunulmur"; exit 1
+          fi
+          git fetch -q --depth 1 origin "+refs/heads/$NOVBE:refs/remotes/origin/$NOVBE"
+          git worktree add -q -B "$NOVBE" "$RUNNER_TEMP/novbe" "refs/remotes/origin/$NOVBE"
+          # Yazıcı budağın nüsxəsini oxuyur və yazır; main-in donmuş nüsxəsi onu əvəz etmir.
+          cp "$RUNNER_TEMP/novbe/oz_x.json" oz_x.json
       - name: Yaz
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: python -u .github/scripts/x_yazici.py
-      - name: Növbəni main-ə göndər (yalnız oz_x.json)
+      - name: Növbəni x-novbe budağına göndər (yalnız oz_x.json; main-ə heç nə)
         run: |
-          if git diff --quiet -- oz_x.json; then echo "dəyişiklik yoxdur"; exit 0; fi
-          git config user.name 8ulduz-bot   # pull --rebase da commit qurur: ad olmasa main irəli gedəndə iş düşür (2026-11-19)
-          git config user.email bot@8ulduz.az
+          cd "$RUNNER_TEMP/novbe"
+          if cmp -s "$GITHUB_WORKSPACE/oz_x.json" oz_x.json; then echo "dəyişiklik yoxdur"; exit 0; fi
+          cp "$GITHUB_WORKSPACE/oz_x.json" oz_x.json
           git add oz_x.json
           git commit -q -m "X xəbərləri növbəyə əlavə edildi"
           for i in 1 2 3 4 5; do
-            git pull --rebase -q origin main && git push -q origin HEAD:main && exit 0
+            # Budaq irəli gedibsə dəyişiklik onun üstünə köçür. Toqquşmada (eyni sətirlər) heç nə yazılmır: budaqdakı sətirlər qalır,
+            # bu işin videoları növbəti işdə yenidən namizəd olur. Birləşmə JSON-u pozubsa da yazılmır.
+            if git pull --rebase -q origin "refs/heads/$NOVBE"; then
+              python3 -c 'import json,sys; d=json.load(open(sys.argv[1], encoding="utf-8")); assert d.get("v") == 1' oz_x.json \
+                || { echo "::error::növbə faylı birləşmədən sonra pozulub: yazılmır"; exit 1; }
+              git push -q origin "HEAD:refs/heads/$NOVBE" && exit 0
+            else
+              git rebase --abort 2>/dev/null || true
+            fi
             sleep $((i * 5))
           done
           echo "push alınmadı"; exit 1

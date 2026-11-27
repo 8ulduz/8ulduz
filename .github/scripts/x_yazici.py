@@ -7,7 +7,8 @@ bağlama»). İş axını: .github/workflows/x-yazici.yml. Təlimat və qaydalar
 3. Gemini (GEMINI_API_KEY, pulsuz səviyyə; Claude açarı varsa və Gemini-ninki yoxdursa Claude) namizədlərdən ən çoxu PER_RUN xəbər seçib Azərbaycan dilində yazır: yalnız id, kind, title, lead,
    body. Ünvanlar, ölçü, tarix, slot və mənbə mətni (src) modeldən yox, X-in cavabından götürülür.
 4. Hər sətir oz_x.check-dən keçir; keçməyən yazılmır. MAX_AGE_DAYS gündən köhnə sətirlər silinir.
-5. Yalnız oz_x.json dəyişir; commit və push iş axınındadır (sahibin icazəsi, 2026-11-18: yalnız bu fayl, birbaşa main).
+5. Yalnız oz_x.json dəyişir; commit və push iş axınındadır: yalnız bu fayl, yalnız x-novbe budağına, main-ə heç nə (sahib,
+   2026-11-27; əvvəl 2026-11-18-in icazəsi ilə birbaşa main-ə gedirdi). İş axını budağın nüsxəsini ROOT/oz_x.json-a qoyur.
 
 Açar yoxdursa: X-dən oxuyur, namizədləri sayır, heç nə yazmır (FxTwitter-in GitHub-dan işlədiyinin yoxlaması).
 """
