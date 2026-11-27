@@ -165,6 +165,9 @@ async function check({ env = process.env, f = fetch, now = Date.now() } = {}) {
         const h = m[1].replace(/\.+$/, "").toLowerCase();
         if (h !== u.toLowerCase() && !kesf.includes(h)) muellif.set(h, [...new Set([...(muellif.get(h) || []), u])]);
       }
+      // Kredit sətri: Reels mətnində mənbəni deyən sətir (@ad, «mənbə», «görüntü», «video:», kamera emojisi, ©).
+      const kredit = kim ? [] : reel.slice(0, 8).map(x => (String(x.caption || "").split("\n").find(s => /@|mənbə|menbe|görüntü|video:|📹|🎥|📸|©|credit|source/i.test(s)) || "(kredit yoxdur)").trim().slice(0, 90));
+      if (kredit.length) out.info.push(`kredit ${u}: ${kredit.map(s => s.replace(/`/g, "'")).join(" ‖ ")}`);
       out.kesf.push({ u: kim ? `${u} ← ${kim}` : u, error: err(r), followers: b?.followers_count ?? null, n: list.length, reels: reel.length, fayl: reel.filter(x => x.media_url).length,
         views: reel.map(x => x.view_count).filter(v => v != null).slice(0, 6), son: reel[0]?.timestamp || "", link: reel.find(x => x.media_url)?.permalink || reel[0]?.permalink || "" });
     };
