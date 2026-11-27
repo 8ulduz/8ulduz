@@ -170,11 +170,40 @@ Sahib: «nə heyvan nə təbiət nə kosmos ... eyni məsələni neçə dəfə d
 | 15 | ekstremal hadisələr | xilas, son anda, təhlükəli an, rekord, təbii fəlakət, hücum etdi | 1,5 | **1,7** |
 
 - **Zəif mövzu** (×0,6; sahibin siyahısı əlavə olunub). Başlıqda rəsmi səfər və görüş («ilə görüşüb», «görüş keçirib», səfir, nümayəndə heyəti), bəyanat, statistika, neft qiyməti (Brent, barel), ildönümü, yubiley olanda. Əvvəlki sözlər də qalır: sammit, forum, memorandum, «günü münasibətilə», hava proqnozu və s. Zəif söz varsa xəbər rəsmi tədbirdir: güclü istiqamət əmsalı verilmir («Şəhid ailələri ilə görüş keçirilib» — 0,6).
-- **Sıra.** Xəbər videosunda sıra belədir: mənbə sayı × bölmə əmsalı × (zəif 0,6 və ya ən güclü istiqamət) × videolu xəbər 1,3. Məsələn, 4 mənbəli «Xırdalanda avtobus çuxura düşdü» (4×1,4 = 5,6) 6 mənbəli «Bakıda beynəlxalq sammit keçiriləcək»dən (6×0,6 = 3,6) öndədir. Mənbə həddi (4) dəyişmir.
+- **Sıra.** Xəbər videosunda sıra belədir: mənbə sayı × bölmə əmsalı × (zəif 0,6 və ya ən güclü istiqamət) × videolu xəbər 1,3 (mənbə səhifəsində öz faylı tapılanda 1,6 — 2026-11-27, aşağıda «Seçim: bir hadisə, öz görüntü, gecə»). Məsələn, 4 mənbəli «Xırdalanda avtobus çuxura düşdü» (4×1,4 = 5,6) 6 mənbəli «Bakıda beynəlxalq sammit keçiriləcək»dən (6×0,6 = 3,6) öndədir. Mənbə həddi (4) dəyişmir; öz faylı olan xəbərə 2 mənbə bəs edir (2026-11-27).
 - **X** (`video-dunya.cjs` `xNamizedler`): sıra baxış × qrup əmsalı × istiqamətin X əmsalıdır. Qrup əmsalları belədir: maraqlı 1,3, məşhurlar və kino 1,3, idman 1,3 (əvvəl 1), xəbər 1,1, texnika 1,1, elm 1 (kosmos sözləri süzülür), yemək 0,8.
 - **Dünya** (`video-dunya.cjs` `PROMPT`, `ISTIQAMET`): Gemini-yə istiqamətlər sahibin nömrələri ilə və vaciblik sırası ilə verilir: 6 qəzalar, 15 ekstremal, 10 xarici futbol, 11 avto yarışlar və yarış qəzaları, 4 polis, 3 insan hekayəsi, 2 tanınmış adam, 13 Türkiyə, 12 konsert, 8 hava hadisəsi, 14 texnologiya, 5 fırıldaq. Yerli istiqamətlər (1, 7, 9) dünya videosunda yoxdur. Mənbələrin istiqamətləri (`video-dunya.json` `istiqamet`) eyni nömrələrlədir.
 - **Ölüm anı, qan, meyit göstərilmir** (`x_yazici.py`-dakı qayda qalır, dünya göstərişinə də yazılıb). X videosunun kadrında belə şey görünsə video paylaşılmır (aşağıda «X videoları»).
 - Yoxlama: `tests/video-movzu.test.cjs`.
+
+## Seçim: bir hadisə, öz görüntü, gecə (sahibin qərarı, 2026-11-27)
+
+Sahib rəqibin Reels-ini göstərdi: Baku.ws, «"Beşiktaş"ın 10-dan çox azarkeşi saxlanılıb», stadionun öz kadrı ilə. Bizdə bu hadisənin videosu olmadı. Düzəliş «A» təsdiqləndi: «A B ni də» (B və Telegram yolu — mənbə videosunun yeni yolları, `video-menbe.cjs`, ayrıca işdir).
+
+**Nə oldu (2026-11-26, lent və iş jurnalları).**
+- «Beşiktaş» – «Hapoel Beer-Şeva» matçında (Batumi) dava lentdə təxminən 17:30 UTC-dən idi. Hadisə ~15 qrupa bölünmüşdü, hər birində 1–6 mənbə. Saytın qrupları (`updater.py` `group_duplicates`) qəsdən dardır: lentdə ayrı xəbərlər yaxşıdır, video üçün isə hadisə birdir.
+- Bizim.Media-nın «“Beşiktaş” – “Hapoel” matçında insident yarandı - Video» xəbərinin (3 mənbə) səhifəsində öz faylı var idi (`cdn.bizim.media`), `video-menbe.cjs` onu götürə bilir. Amma 4 mənbə həddinə görə namizəd deyildi. 18:47 dövrəsinin lentində (18:39) ilk «Beşiktaş» parçası 44 namizəddən 21-ci idi.
+- 19:17-də pəncərəni dünya videosu tutdu (TRT Haber, İstanbulda tramvay), 19:47-də gündəlik hədd doldu («24 saatda 30 video»), sonra gecə gəldi və 3 saatlıq yaş həddi keçdi.
+
+**Nə edildi** (`.github/scripts/sosial-video.cjs` `hadiseler`, `pick`, `sec`; profil `.github/video-dil/az.json`):
+1. **Bir hadisə bir dəfə sayılır.** Eyni hadisənin parçaları bir qrupdur:
+   - başlıq eynidir (`titleKey`) və ya `social.cjs`-in mövzu qaydası (`sameTopic`);
+   - və ya 4 saat içində başlıqlarda dırnaqdakı iki ad ortaqdır (klub, təşkilat: “Beşiktaş” – “Hapoel”);
+   - və ya bir xüsusi ad və ən azı 3 söz kökü ortaqdır və bu, qısa başlığın yarısıdır.
+
+   Ad tək başına bəs deyil («Bakıda metro açıldı» ≠ «Bakıda məktəb açıldı»). Ölkə adları sayılmır, çünki dırnaqda yazılmır: «Rusiya» + «Ukrayna» qaydası müharibənin 9 xəbərini bir «hadisə» edirdi. Böyük hərfli söz («DAVA») ad deyil: o, «Beşiktaş»ın İsrail klubu ilə oyunundakı davanı İsrail parlamentindəki dava ilə birləşdirirdi. Mənbə sayı = ən böyük parçanın mənbələri + digər parçalardakı yeni saytlar, hər sayt bir dəfə. Nümayəndə videolu parçadır, sonra ən çox mənbəli. Videoda «Mənbə: …» bütün hadisənindir. Hadisədən bir video olandan sonra qalan parçalar 3 gün bir də video olmur (`state.q`).
+2. **Öz görüntü həddi endirir.** Mənbə səhifəsində hadisənin öz faylı tapılan xəbərə 4 deyil, 2 mənbə bəs edir (`lent.min_menbe_kadr`). Sırada belə xəbər 1,6 qat önə keçir (`lent.ceki.menbe_emsal`; əvvəl videolu xəbər 1,3 idi, «video» sözü olub faylı tapılmayan xəbər üçün 1,3 qalır). Faylı olmayan xəbərə yenə 4 mənbə lazımdır.
+   - Xərc: səhifələr bütün lent üçün oxunmur. Yalnız sıranın ilk 4 hadisəsindən (`SECIM_MAX`) videolu olanlara baxılır (lentin `video` nişanı və ya başlıqda «video»/«VİDEO»). Dövrədə ən çox 4 yoxlama olur. Yoxlanan xəbərin səhifəsi adi seçimdə bir də oxunmur.
+   - Fayl qrupun başqa parçasının səhifəsindədirsə, video həmin parça ilə gedir: mətn görüntü ilə eyni hadisədən olur.
+3. **Öz görüntülü yerli xəbər əvvəl gedir.** Növbə: hava videosu → öz görüntülü xəbər → X → dünya → xəbər. X və dünya videosunun gündəlik həddi və arası dəyişmir, onlar növbəti pəncərəyə qalır. Gündəlik 30 video həddi, 30 dəqiqəlik ara və 08:00–23:59 saatları da dəyişmir.
+4. **Gecə yığını.** Gecə (00:00–07:59 Bakı) dərc olunan xəbərin 3 saatı 08:00-dan sayılır, dərc vaxtından yox. Gecənin hadisəsi 08:00–10:59 pəncərələrində namizəddir. Pəncərədə (məsələn 23:30) dərc olunan xəbərin yaşı əvvəlki kimidir.
+
+**Yoxlama.** Real lentlə (main, 2026-11-26 19:00 UTC nüsxəsi) 19:17 pəncərəsi təkrarlandı. Davanın 7 parçası bir hadisədir, 15 mənbə: sırada birincidir. Fayl Bizim.Media-nın səhifəsində tapılır (yoxlanan 3-cü səhifə), video dünya videosundan əvvəl Bizim.Media-nın xəbəri ilə gedir. 18:47 lentində birinci Tokayevin «TikTok» xəbəri idi (Bizim.Media «- Video»): faylı olsaydı o gedərdi, dava isə 19:17-də. Testlər: `tests/video-secim.test.cjs`, real parçalar `tests/fixtures/video-besiktas.json`.
+
+**Qalan hədlər.**
+- Başlığında «video» olmayan və lentdə video nişanı olmayan 2–3 mənbəli xəbərin səhifəsinə baxılmır (xərc).
+- Qruplaşma başlığa baxır və səhv edə bilər. Məsələn, «Kim Çen In Putinə hərbi yardımı dayandırıb» Trampın Putinə çağırışı ilə bir qrupa düşdü (1 mənbə əlavə etdi). Səhv birləşmə yalnız sıranı və mənbə sayını bir az dəyişir.
+- 26 noyabrda son maneə gündəlik hədd (30) idi; onu dəyişmək sahibin qərarıdır.
 
 ## Seçimlərimiz
 
@@ -191,7 +220,7 @@ Sahib: «nə heyvan nə təbiət nə kosmos ... eyni məsələni neçə dəfə d
 | Facebook mətni | Başlıq, izah (≤900 simvol), «Ətraflı: https://www.8ulduz.az/<nömrə>?h=<saat>», 3 heşteq; eyni keçid ilk şərhdə də | Sahibin göstərişi (keçid basılan olsun). Meta keçidsiz mətni üstün tutur — ona görə keçid ilk şərhdə də var; yayılma zəif olarsa mətndəki keçidi götürmək bir sətirlik dəyişiklikdir |
 | Instagram mətni | Başlıq, izah, «Ətraflı: 8ulduz.az (keçid profildədir)», 4 heşteq | Instagram keçidi basılan etmir; profildəki keçid 8ulduz.az/ig/ səhifəsinə aparır |
 | Tezlik | 30 dəqiqədən bir, 08–23 Bakı vaxtı, gündə ≤30 (2026-11-24-dək 2 saatdan bir, ≤8) | Rəqiblər gündə ~6 Reels (baku.ws ~30); Facebook API həddi 30; Instagram həddi 100 (şəkilli postlar 2026-11-26-dan gündə ≤12, həddi kod hər videodan əvvəl yoxlayır) |
-| Mövzu | social.cjs seçimi: 4+ mənbəli xəbər, Prezident bölməsi; sıra mənbə sayı × tamaşaçı marağı (2026-11-26-dan: bölmə, zəif mövzu və 15 istiqamət — yuxarıda «Rəqib təhlili» və «Video mövzuları»); eyni mövzu 24 saatda bir dəfə | Əvvəl sıra yalnız mənbə sayı idi: ən çox yazılan xəbər çox vaxt rəsmi tədbirdir və ən az baxılır |
+| Mövzu | social.cjs seçimi: 4+ mənbəli xəbər, Prezident bölməsi; sıra mənbə sayı × tamaşaçı marağı (2026-11-26-dan: bölmə, zəif mövzu və 15 istiqamət — yuxarıda «Rəqib təhlili» və «Video mövzuları»); eyni mövzu 24 saatda bir dəfə. 2026-11-27-dən: bir hadisənin parçaları bir sayılır, öz görüntülü xəbərə 2 mənbə bəs edir və o, X/dünya videosundan əvvəl gedir, gecənin xəbəri səhər namizəddir (yuxarıda «Seçim: bir hadisə, öz görüntü, gecə») | Əvvəl sıra yalnız mənbə sayı idi: ən çox yazılan xəbər çox vaxt rəsmi tədbirdir və ən az baxılır. Böyük hadisə lentdə çox qrupa bölünürdü və heç biri 4 mənbəyə çatmırdı |
 
 Götürmədiklərimiz: başqasının kadrları (aşağıda), musiqi (Meta-nın lisenziyalı musiqisi API ilə əlçatan deyil, başqa musiqi müəllif hüququ riskidir), «❗️⚡️» kimi təcili işarələr (hər xəbərdə olsa mənasını itirir; istəsəniz Prezident və ya 10+ mənbəli xəbərə əlavə etmək olar).
 
@@ -306,7 +335,7 @@ Qalan risk sahibə məlumdur: böyük yayımçıların görüntüsünü platform
   - Yoxlanan 25 səhifənin hamısında eyni fayl var idi. Publika-nın xəbər hissəsində isə öz faylı yox idi.
 - Atılan: reklam və banner, saytın hər səhifəsində olan fayl (baş səhifədə də varsa), 150 MB-dan böyük və ya 150 KB-dan kiçik fayl, video olmayan cavab.
 - Fayl montajda yoxlanır (`video-xeber.cjs` `menbeKlip`): ən az 4 s, ən az 240 p. Keçməsə video bank klipləri ilə hazırlanır.
-- Mənbə videosu olanda bank klipi çatmasa da video gedir. Videolu xəbər seçimdə 1,3 qat önə keçir (`lent.ceki.video_emsal`).
+- Mənbə videosu olanda bank klipi çatmasa da video gedir. Videolu xəbər seçimdə 1,3 qat önə keçir (`lent.ceki.video_emsal`). Faylı tapılan xəbər 1,6 qat (`lent.ceki.menbe_emsal`, 2026-11-27); ona 2 mənbə bəs edir və X/dünya videosundan əvvəl gedir (yuxarıda «Seçim: bir hadisə, öz görüntü, gecə»).
 - 2026-11-26 yoxlaması: Bizim.Media, İnterPress, Konkret.az (bax.tv), İki Sahil (newstube.az) faylı açıq verir. Publika.az da bu siyahıda idi, amma səhv idi: tapılan fayl sonrakı köhnə xəbərin TRT faylı idi. Saytların çoxu (Lent.az, Modern.az, Qol.az, Xəzər Xəbər, Teleqraf və s.) YouTube pəncərəsi qoyur — onlardan götürülmür.
 
 **Dünya videoları** (`.github/scripts/video-dunya.cjs`, mənbələr `.github/video-dunya.json`).
@@ -827,7 +856,7 @@ Açar `FB_PAGE_TOKEN` artıq var (social.yml ilə eyni sirr). Açar yoxdursa iş
 | `VIDEO_SAAT` | 8-23 | Bakı vaxtı ilə hansı saatlarda (daxil) |
 | `VIDEO_GUNDE` | 30 | 24 saatda ən çox video (Facebook həddi 30; 2026-11-24-dək 8). Instagram-a video kvota qalanda gedir (kod hər videodan əvvəl yoxlayır), TikTok öz həddi qədər (qaralama 24 saatda 5) |
 | `VIDEO_MIN_SOURCES` | `SOCIAL_MIN_SOURCES` və ya 4 | neçə mənbə yazanda |
-| `MENBE_VIDEO` | (açıq) | `0` — xəbərin mənbə saytındakı video götürülmür (yalnız bank klipləri) |
+| `MENBE_VIDEO` | (açıq) | `0` — xəbərin mənbə saytındakı video götürülmür (yalnız bank klipləri); öz görüntülü xəbərin növbəsi (2 mənbə, X/dünyadan əvvəl) də bağlanır |
 | `MENBE_YAYIM` | (bağlı) | `1` — oyun, film, klip kadrı da götürülür (platformaların avtomatik hüquq yoxlaması riski) |
 | `DUNYA_VIDEO` | (açıq) | `0` — dünya videoları hazırlanmır |
 | `DUNYA_GUNDE`, `DUNYA_ARA_MIN` | 8, 90 | dünya videosu: 24 saatda ən çox və iki video arası dəqiqə |

@@ -6,8 +6,10 @@
 //   (arada video-xeber.cjs <qovluq>/xeber.json <qovluq>/video.mp4 videonu hazırlayır)
 //   node sosial-video.cjs paylas <qovluq>                 videonu Facebook Reels və Instagram Reels-ə yükləyir
 //
-// Seçim social.cjs-dəkidir (son 3 saatda 4+ mənbəli azərbaycanca xəbər və ya Prezident bölməsi; eyni xəbər/başlıq/mövzu iki dəfə
-// getmir) + izah (mənbə səhifəsinin tam cümlələri, describe()). İzahı tapılmayan xəbər video olmur. Tezlik: VIDEO_MIN_GAP_MIN
+// Seçim social.cjs-in qaydası ilədir (son 3 saatda 4+ mənbəli azərbaycanca xəbər və ya Prezident bölməsi; eyni xəbər/başlıq/mövzu iki
+// dəfə getmir) + izah (mənbə səhifəsinin tam cümlələri, describe()). İzahı tapılmayan xəbər video olmur. 2026-11-27-dən (sahib, «A»):
+// bir hadisənin parçaları bir sayılır (hadiseler), öz görüntülü xəbərə 2 mənbə bəs edir və X/dünya videosundan əvvəl gedir (pick kadr),
+// gecənin xəbərinin 3 saatı 08:00-dan sayılır (yasBasi). Tezlik: VIDEO_MIN_GAP_MIN
 // (120, 10 dəqiqə dözümlə — due()) dəqiqədən bir, yalnız Bakı vaxtı ilə VIDEO_SAAT (8-23) saatlarında, 24 saatda ən çox VIDEO_GUNDE (8).
 // Fayl ictimai ünvana qoyulmur: hər iki şəbəkəyə birbaşa yüklənir (rupload.facebook.com, «resumable upload»). Repoya video yazılmır.
 //
@@ -67,7 +69,7 @@ function readState(file, now) {
   let s = {};
   try { s = JSON.parse(fs.readFileSync(file, "utf8")) || {}; } catch {}
   const sec = now / 1000, keep = o => Object.fromEntries(Object.entries(o && typeof o === "object" ? o : {}).filter(([, t]) => sec - t < KEEP_S));
-  return { v: keep(s.v), skip: keep(s.skip), t: keep(s.t), facebook: keep(s.facebook), instagram: keep(s.instagram), klip: keep(s.klip), hava: keep(s.hava), m: keep(s.m), dv: keep(s.dv), dm: keep(s.dm), xv: keep(s.xv), xm: keep(s.xm), tv: keep(s.tv), iv: keep(s.iv), km: keep(s.km),
+  return { v: keep(s.v), skip: keep(s.skip), t: keep(s.t), facebook: keep(s.facebook), instagram: keep(s.instagram), klip: keep(s.klip), hava: keep(s.hava), m: keep(s.m), dv: keep(s.dv), dm: keep(s.dm), xv: keep(s.xv), xm: keep(s.xm), tv: keep(s.tv), iv: keep(s.iv), km: keep(s.km), q: keep(s.q),
     topics: (Array.isArray(s.topics) ? s.topics : []).filter(x => x && sec - (x.posted || 0) < S.TOPIC_H * 3600), _last: s._last || 0 };
 }
 const writeState = (file, state) => { fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, JSON.stringify(state)); };
@@ -205,7 +207,12 @@ async function sourcePage(a, f) {
 // Başlıqda zəif mövzu sözü varsa xəbər rəsmi tədbirdir: güclü istiqamət əmsalı verilmir. Heyvan, təbiət, kosmos (x.cixar) insan hadisəsi
 // olmadan zəif sayılır. Əmsallar profildədir (lent.ceki: bolme, zeif, zeif_emsal, guclu); prezident bölməsinə bölmə əmsalı yoxdur.
 // Mənbə həddi (min_menbe) dəyişmir.
-function cekisi(a, D = dil()) {
+// Videolu xəbər: lentin nişanı (a.video, updater.py is_video) və ya başlıqda «video» — «VİDEO» da (JS-in /i-si «İ»-ni «i» saymır).
+const VIDEO_SOZ = /v[iİ]deo/i;
+const videoIpucu = a => Boolean(a?.video) || VIDEO_SOZ.test(String(a?.title || "")) || (a?.alts || []).some(x => VIDEO_SOZ.test(String(x?.title || "")));
+// kadr: mənbə səhifəsində hadisənin öz video faylı TAPILIB (video-menbe.cjs; sahib, 2026-11-27, «A»): videolu (×1,3) əvəzinə
+// lent.ceki.menbe_emsal (×1,6). Yalnız «video» sözü faylın olması demək deyil (çox vaxt YouTube pəncərəsidir) — ona görə ×1,3 qalır.
+function cekisi(a, D = dil(), { kadr = false } = {}) {
   const c = D.lent.ceki || {}, title = S.clean(a?.title);
   let k = Number(c.bolme?.[a?.category]) || 1;
   if (D.re.zeif && D.re.zeif.test(title)) k *= Number(c.zeif_emsal) || 1;
@@ -215,24 +222,162 @@ function cekisi(a, D = dil()) {
     else if (cixarilir(title, D)) k *= Number(c.zeif_emsal) || 1;
   }
   // Videolu xəbər (mənbədə hadisənin öz görüntüsü var; video-menbe.cjs onu videomuza qoyur): ən çox baxılanların hamısı belədir.
-  if (a?.video || (a?.alts || []).some(x => /video/i.test(String(x?.title || "")))) k *= Number(c.video_emsal) || 1;
+  if (kadr) k *= Number(c.menbe_emsal) || Number(c.video_emsal) || 1;
+  else if (videoIpucu(a)) k *= Number(c.video_emsal) || 1;
   return k;
 }
 
+// --- Bir hadisə bir dəfə sayılır (sahib, 2026-11-27, «A»; docs/sosial-video.md «Seçim: bir hadisə, öz görüntü, gecə») ---------------
+// 2026-11-26-da «Beşiktaş» – «Hapoel Beer-Şeva» matçındakı dava (Batumi) lentdə 17:30-dan idi, amma ~15 qrupa bölünmüşdü (hər birində
+// 1–6 mənbə): heç biri tək başına 4 mənbəyə çatmırdı, ən yaxşısı 18:47-də 21-ci idi. Bizim.Media-nın öz faylı olan «insident yarandı
+// - Video» (3 mənbə) video olmadı, Baku.ws isə stadionun öz kadrı ilə verdi. Saytın qrupları (updater.py group_duplicates) qəsdən
+// dardır — lentdə ayrı xəbərlər yaxşıdır; video üçün isə hadisə birdir. Burada eyni hadisənin parçaları birləşir, mənbələr bir dəfə
+// sayılır. Eyni hadisə: başlıq eynidir (titleKey), social.cjs-in mövzu qaydası (sameTopic), və ya 4 saat içində:
+//   - başlıqlarda dırnaqdakı iki ad ortaqdır (klub, təşkilat: “Beşiktaş” – “Hapoel”); ölkə adları dırnaqda yazılmır — «Rusiya» +
+//     «Ukrayna» müharibənin hər xəbərində var, iki ad qaydası onları bir «hadisə» edirdi;
+//   - bir xüsusi ad və ən azı 3 söz kökü ortaqdır və bu, qısa başlığın yarısıdır («Beşiktaş»ın matçı dayandırıldı ≈ «Beşiktaş» –
+//     «Hapoel» matçında insident … dayandırıldı). Ad tək başına bəs deyil: «Bakıda metro açıldı» ≠ «Bakıda məktəb açıldı». Böyük
+//     hərfli söz («DAVA», «SON DƏQİQƏ») ad sayılmır: 18:47 lentində «“Beşiktaş”ın İsrail klubu ilə qarşılaşmasında DAVA» «İsrail azana
+//     qarşı çıxdı - Parlamentdə dava düşdü» ilə birləşirdi («İsrail», «DAVA», «qarşı» — 8 kökdən 3-ü).
+// Qrup zəncirlə böyüyür (A≈B, B≈C).
+const NEAR_S = 4 * 3600;   // social.cjs NEAR_H: eyni hadisənin parçaları saatlar içində gəlir
+const ortaq = (x, y) => x.filter(w => y.includes(w)).length;
+const kok5 = s => s.toLocaleLowerCase("az").slice(0, 5);
+// Xüsusi adlar: topicOf-un adlarından (social.cjs stems: ilk 5 hərf) yalnız «Böyük + kiçik» yazılanlar; dirnaq — dırnaqdakılar.
+function adlari(a, t) {
+  const title = S.clean(a.title), w = new Set((title.match(/\p{Lu}\p{Ll}{3,}/gu) || []).map(kok5));
+  const q = new Set([...title.matchAll(/[«"“„]([^«»"“”„]{2,40})[»"”“]/gu)].flatMap(m => (m[1].match(/\p{Lu}\p{Ll}{3,}/gu) || []).map(kok5)));
+  return { ad: t.names.filter(n => w.has(n)), dirnaq: t.names.filter(n => q.has(n)) };
+}
+function eyniHadise(x, y) {
+  if (x.key === y.key || S.sameTopic(x.t, y.t)) return true;
+  if (Math.abs(x.t.at - y.t.at) >= NEAR_S) return false;
+  if (ortaq(x.dirnaq, y.dirnaq) >= 2) return true;
+  const soz = ortaq(x.t.head, y.t.head);
+  return ortaq(x.ad, y.ad) >= 1 && soz >= 3 && soz * 2 >= Math.min(x.t.head.length, y.t.head.length);
+}
+const menbeSayi = a => 1 + (Array.isArray(a?.alts) ? a.alts.length : 0);
+const adi = s => S.clean(s).toLocaleLowerCase("az");
+const adlar = a => [a?.source, ...(a?.alts || []).map(y => y?.source)].map(adi);
+
+// Gecə yığını (sahib, 2026-11-27, «A»): video gecə getmir (VIDEO_SAAT 8-23: 00:00–07:59). Bu vaxt dərc olunan xəbərin yaşı (3 saat)
+// səhərin ilk pəncərəsindən (08:00) sayılır, dərc vaxtından yox: gecənin hadisəsi 08:00–10:59 pəncərələrində namizəddir. Pəncərədən
+// əvvəl (önizləmə) və pəncərədə dərc olunan xəbərin yaşı dərc vaxtındandır.
+function yasBasi(at, now, opt) {
+  const d = new Date(now + 4 * 3600e3), open = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), opt.from) - 4 * 3600e3;
+  if (now < open) return at;
+  const gece = Math.max(0, 24 - (opt.to - opt.from + 1)) * 3600e3;
+  return at >= open - gece && at < open ? open : at;
+}
+
+// Lentin dilindəki son xəbərlər hadisə qrupları ilə: { uzv: [{ a, at, key, t }], say, prez }. uzv sırası nümayəndə sırasıdır:
+// videolu əvvəl (mənbə səhifəsində fayl ola bilər), sonra çox mənbəli, sonra təzə. say: ən böyük parçanın mənbə sayı + digər
+// parçalardakı yeni saytlar (adı ilə; 8ULDUZ sayılmır). Tək xəbərdə say əvvəlki kimidir (1 + alts).
+function hadiseler(articles, now, opt, D = dil()) {
+  const lang = D.lent.dil || "az", list = [];
+  for (const a of articles || []) {
+    if (!/^[0-9a-f]{16}$/.test(String(a?.id || "")) || a.lang !== lang || !S.clean(a.title)) continue;
+    const at = Date.parse(a.publishedAt || "");
+    if (!Number.isFinite(at) || at - now > 10 * 60e3 || now - yasBasi(at, now, opt) > opt.maxAgeH * 3600e3) continue;
+    const t = S.topicOf(a, at / 1000);
+    list.push({ a, at, key: S.titleKey(a), t, ...adlari(a, t) });
+  }
+  const p = list.map((_, i) => i), kok = i => (p[i] === i ? i : (p[i] = kok(p[i])));
+  for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) if (kok(i) !== kok(j) && eyniHadise(list[i], list[j])) p[kok(i)] = kok(j);
+  const qruplar = new Map();
+  list.forEach((x, i) => { const r = kok(i); if (!qruplar.has(r)) qruplar.set(r, []); qruplar.get(r).push(x); });
+  return [...qruplar.values()].map(uzv => {
+    uzv.sort((x, y) => Number(videoIpucu(y.a)) - Number(videoIpucu(x.a)) || menbeSayi(y.a) - menbeSayi(x.a) || y.at - x.at);
+    const boyuk = uzv.reduce((m, x) => (menbeSayi(x.a) > menbeSayi(m.a) ? x : m)), var_ = new Set(adlar(boyuk.a));
+    let say = menbeSayi(boyuk.a);
+    for (const x of uzv) for (const s of adlar(x.a)) if (s && s !== "8ulduz" && !var_.has(s)) { var_.add(s); say++; }
+    return { uzv, say, prez: uzv.some(x => x.a.category === "prezident") };
+  });
+}
+
+// Qrupun nümayəndəsi: öz mənbələri + qrupun digər xəbərləri və onların mənbələri (alts). Videoda «Mənbə: …» bütün hadisəni göstərir,
+// mənbə videosu (video-menbe.cjs, 4 səhifəyə qədər) bu səhifələrə də baxır — videolu səhifələr əvvəl.
+function birlesik(x, uzv) {
+  const a = x.a, var_ = new Set(adlar(a)), elave = [];
+  const al = (y, ip) => { const k = adi(y?.source); if (!k || k === "8ulduz" || var_.has(k)) return; var_.add(k); elave.push({ y, ip }); };
+  for (const o of uzv) {
+    if (o === x) continue;
+    al({ source: o.a.source, sourceUrl: o.a.sourceUrl, title: o.a.title, publishedAt: o.a.publishedAt, lang: o.a.lang }, Boolean(o.a.video) || VIDEO_SOZ.test(String(o.a.title || "")));
+    for (const z of o.a.alts || []) al(z, VIDEO_SOZ.test(String(z?.title || "")));
+  }
+  if (!elave.length) return a;
+  const hamisi = [...(a.alts || []).map(y => ({ y, ip: VIDEO_SOZ.test(String(y?.title || "")) })), ...elave];
+  return { ...a, alts: [...hamisi.filter(e => e.ip), ...hamisi.filter(e => !e.ip)].map(e => e.y) };
+}
+
 // Ən vacib, hələ video olmamış, izahı olan xəbər. Seçilməyənlər state.skip-ə düşür (hər dövrədə yenidən oxunmasın).
-async function pick({ articles, state, now, opt, fetch: f, policy, log, only = "" }) {
-  const sec = Math.floor(now / 1000);
-  // Lentin dili profildədir (lent.dil): yalnız o dildəki xəbərlər namizəddir. Sıra tamaşaçı marağı ilə çəkilir (cekisi).
-  const list = only ? (articles || []).filter(a => a.id === only) : S.candidates(articles, now, { ...opt, lang: dil().lent.dil, weight: a => cekisi(a) });
-  for (const a of list) {
-    if (!only && (state.v[a.id] || state.skip[a.id] || state.t[S.titleKey(a)])) continue;
-    const topic = S.topicOf(a, Date.parse(a.publishedAt) / 1000 || sec);
-    if (!only && state.topics.some(t => S.sameTopic(t, topic))) { state.skip[a.id] = sec; log(`video: eyni mövzuda video var, ötürülür — ${S.clean(a.title)}`); continue; }
-    if (!only && VS.protokol(a)) { state.skip[a.id] = sec; log(`video: protokol xəbəri (görüş, qəbul, təbrik) — kadrla göstərilmir, ötürülür — ${S.clean(a.title)}`); continue; }
-    const page = await sourcePage(a, f);
-    const text = S.describe(a, page, policy, dil().re.herf);
-    if (!text) { state.skip[a.id] = sec; log(`video: izah tapılmadı, ötürülür — ${S.clean(a.title)}`); continue; }
-    return { a, text, topic, page };
+// Namizəd hadisə qrupudur (hadiseler): mənbə həddi qrupun mənbələrinə, sıra mənbə sayı × nümayəndənin çəkisinə (cekisi) görədir.
+// Qrupun bir xəbərindən video olubsa (state.v, state.q, state.t) və ya biri paylaşılmış mövzudadırsa, hadisə bir də getmir.
+// kadr (sahib, 2026-11-27, «A»): yalnız mənbə səhifəsində öz video faylı olan xəbər. Belə xəbərə 4 deyil, lent.min_menbe_kadr (2)
+// mənbə bəs edir və X/dünya videosundan əvvəl gedir (sec). Səhifələr bütün lent üçün oxunmur: sıranın ilk SECIM_MAX hadisəsindən
+// videolu olanlara (videoIpucu) baxılır — sırada videolu xəbər «faylı var» kimi (×menbe_emsal) çəkilir, video yoxdursa düşür.
+// Hər yoxlama yox: dövrədə ən çox SECIM_MAX dəfə; yoxlanan xəbər yaddaşdadır (memo), adi seçimdə onun səhifəsi bir də yoxlanmır.
+// Qaytarır: { a, text, topic, page, qrup, mv? } — mv: tapılmış fayl (kadr), null — yoxlanıb, yoxdur; sahə yoxdursa — yoxlanmayıb.
+async function pick({ articles, state, now, opt, fetch: f, policy, log, only = "", kadr = false, menbe = MV.menbeVideo, env = process.env, dir = "", memo = new Map() }) {
+  const sec = Math.floor(now / 1000), D = dil();
+  if (only) {   // əl ilə (VIDEO_XEBER): verilən xəbər, qrupsuz və yoxlamasız
+    for (const a of (articles || []).filter(a => a.id === only)) {
+      const page = await sourcePage(a, f), text = S.describe(a, page, policy, D.re.herf);
+      if (text) return { a, text, topic: S.topicOf(a, Date.parse(a.publishedAt) / 1000 || sec), page, qrup: [a.id] };
+    }
+    return null;
+  }
+  const kadrMin = num(D.lent.min_menbe_kadr, 2);
+  const yarar = x => {
+    if (!VS.protokol(x.a)) return true;
+    state.skip[x.a.id] = sec; log(`video: protokol xəbəri (görüş, qəbul, təbrik) — kadrla göstərilmir, ötürülür — ${S.clean(x.a.title)}`); return false;
+  };
+  const rows = [];
+  for (const g of hadiseler(articles, now, opt, D)) {
+    const uzv = g.uzv.filter(x => !state.skip[x.a.id]);
+    if (!uzv.length || g.uzv.some(x => state.v[x.a.id] || state.q?.[x.a.id] || state.t[x.key])) continue;
+    if (g.uzv.some(x => state.topics.some(t => S.sameTopic(t, x.t)))) {
+      for (const x of uzv) state.skip[x.a.id] = sec;
+      log(`video: eyni mövzuda video var, ötürülür — ${S.clean(uzv[0].a.title)}${g.uzv.length > 1 ? ` (+${g.uzv.length - 1} eyni hadisə)` : ""}`);
+      continue;
+    }
+    // Prezident bölməsi mənbə sayından asılı deyil (social.cjs candidates qaydası).
+    const say = g.prez ? Math.max(g.say, opt.minSources) : g.say, a = birlesik(uzv[0], g.uzv), ip = videoIpucu(a);
+    if (kadr ? !(say >= opt.minSources || (ip && say >= kadrMin)) : say < opt.minSources) continue;
+    rows.push({ g, uzv, say, ip, score: say * cekisi(a, D, { kadr: kadr && ip }), at: uzv[0].at });
+  }
+  rows.sort((x, y) => y.score - x.score || y.at - x.at);
+  const qrup = r => r.g.uzv.map(x => x.a.id);
+  if (kadr) {
+    for (const r of rows.slice(0, SECIM_MAX)) {
+      if (!r.ip || memo.size >= SECIM_MAX) continue;
+      const x = r.uzv.find(yarar);
+      if (!x || memo.has(x.a.id)) continue;
+      const a = birlesik(x, r.g.uzv), page = await sourcePage(a, f);
+      if (dir) fs.mkdirSync(dir, { recursive: true });
+      const mv = await menbe(a, page, { env, fetch: f, log, dir }).catch(e => { log(`mənbə videosu: alınmadı — ${String(e?.message || e).slice(0, 160)}`); return null; });
+      memo.set(x.a.id, null);   // yoxlanıb: tapılsa da bu xəbər bir də yoxlanmır (ya indi seçilir, ya ötürülür)
+      if (!mv) continue;
+      // Fayl qrupun başqa xəbərinin səhifəsindəndirsə, video o xəbərlə gedir: mətn görüntü ilə eyni hadisədən olsun.
+      const oz = y => y.a.sourceUrl === mv.sehife || (y.a.alts || []).some(z => z?.sourceUrl === mv.sehife);
+      const sahib = oz(x) ? x : r.uzv.find(y => y !== x && oz(y) && !VS.protokol(y.a)) || x;
+      const b = sahib === x ? a : birlesik(sahib, r.g.uzv), bpage = sahib === x ? page : await sourcePage(b, f);
+      const text = S.describe(b, bpage, policy, D.re.herf);
+      if (!text) { state.skip[sahib.a.id] = sec; fs.rmSync(path.join(dir, mv.file), { force: true }); log(`video: izah tapılmadı, ötürülür — ${S.clean(b.title)}`); continue; }
+      log(`video: öz görüntülü xəbər — ${r.say} mənbə${r.g.uzv.length > 1 ? ` (${r.g.uzv.length} xəbər bir hadisə)` : ""}, görüntü: ${mv.kredit} — ${S.clean(b.title)}`);
+      return { a: b, text, topic: sahib.t, page: bpage, qrup: qrup(r), mv };
+    }
+    return null;
+  }
+  for (const r of rows) {
+    for (const x of r.uzv) {
+      if (!yarar(x)) continue;
+      const a = birlesik(x, r.g.uzv), page = await sourcePage(a, f);
+      const text = S.describe(a, page, policy, D.re.herf);
+      if (!text) { state.skip[x.a.id] = sec; log(`video: izah tapılmadı, ötürülür — ${S.clean(a.title)}`); continue; }
+      if (r.g.uzv.length > 1) log(`video: ${r.g.uzv.length} xəbər bir hadisədir — ${r.say} mənbə: ${S.clean(a.title)}`);
+      return { a, text, topic: x.t, page, qrup: qrup(r), ...(memo.has(x.a.id) ? { mv: null } : {}) };
+    }
   }
   return null;
 }
@@ -478,6 +623,14 @@ async function sec({ articles, env = process.env, now = Date.now(), state, fetch
     const why = due(state, now, opt);
     if (why) { log(`video: ${why}`); return null; }
   }
+  // Öz görüntülü yerli xəbər (sahib, 2026-11-27, «A»): mənbə səhifəsində hadisənin öz video faylı olan xəbər X və dünya videosundan
+  // əvvəl gedir (2 mənbə bəs edir, pick kadr). Onların gündəlik həddi və arası dəyişmir: pəncərəni növbəti dəfəyə saxlayırlar.
+  // memo: bu dövrədə yoxlanan mənbə səhifələri (adi seçimdə bir də oxunmur).
+  const xArgs = { articles, env, now, state, f, policy, cats, dir, log, arxiv, only, opt, post, menbe, memo: new Map() };
+  if (!only && ["", "avtomatik", "xeber"].includes(tur) && env.MENBE_VIDEO !== "0") {
+    const r = await xeberSec(xArgs, true);
+    if (r.x || r.dur) return r.x || null;
+  }
   // X videosu — «Çox baxılan» (video-dunya.cjs xHazirla; sahib, 2026-11-26): vaxtıdırsa əvvəl o; VIDEO_TUR=x — dərhal. Yalnız profildə
   // X mövzuları (x.movzular) olan dildə: izahlar (reels.json «c») azərbaycancadır.
   const xVar = Object.keys(dil().x?.movzular || {}).length > 0;
@@ -508,25 +661,37 @@ async function sec({ articles, env = process.env, now = Date.now(), state, fetch
     if (!why) { const x = await maraqliSec(mArgs); if (x || tur === "maraqli") return x; }
     else { log(`video: ${why}`); if (tur === "maraqli") return null; }
   }
-  // Sahib, 2026-11-22: «Xəbər uzun olsun biraz və videogörüntü olsun o xəbərə uyğun». Gemini mənbənin mətnindən 4–7 cümləlik
-  // diktor mətni yazır, Pixabay/Pexels-dən xəbərə uyğun klip gəlir (alınmasa tünd fon). video-ssenari.cjs.
-  // Xəbər kadrla göstərilmirsə və ya mətn yoxlamadan keçmirsə («uygun: false»), növbəti xəbər (ən çox SECIM_MAX).
-  // Yalnız əl ilə seçilən xəbərdə (VIDEO_XEBER) Gemini alınmasa mənbənin öz cümlələri gedir.
-  // Keyfiyyət həddi: görüntü mənbəyi varsa, KLIP_MIN-dən az uyğun klip tapılan xəbər ötürülür (yanlış və ya boş görüntülü video yox).
+  const r = await xeberSec(xArgs, false);
+  if (r.x || r.dur) return r.x || null;
+  log(only ? `video: ${only} lentdə yoxdur və ya izahı tapılmadı` : "video: uyğun xəbər yoxdur");
+  // Uyğun xəbər yoxdur: pəncərə boş qalmasın — maraqlı video (öz fasiləsi gözlənmir, gündəlik həddə qədər).
+  if (!only && tur !== "xeber" && !maraqliDue(state, now, mo, true)) return await maraqliSec(mArgs);
+  return null;
+}
+
+// Sahib, 2026-11-22: «Xəbər uzun olsun biraz və videogörüntü olsun o xəbərə uyğun». Gemini mənbənin mətnindən 4–7 cümləlik
+// diktor mətni yazır, Pixabay/Pexels-dən xəbərə uyğun klip gəlir (alınmasa tünd fon). video-ssenari.cjs.
+// Xəbər kadrla göstərilmirsə və ya mətn yoxlamadan keçmirsə («uygun: false»), növbəti xəbər (ən çox SECIM_MAX).
+// Yalnız əl ilə seçilən xəbərdə (VIDEO_XEBER) Gemini alınmasa mənbənin öz cümlələri gedir.
+// Keyfiyyət həddi: görüntü mənbəyi varsa, KLIP_MIN-dən az uyğun klip tapılan xəbər ötürülür (yanlış və ya boş görüntülü video yox).
+// kadr: yalnız öz görüntülü xəbər (pick kadr). Qaytarır: { x } — seçildi; { dur: true } — bu dövrədə video yoxdur (Gemini); {} — xəbər yoxdur.
+async function xeberSec({ articles, env, now, state, f, policy, cats, dir, log, arxiv, only, opt, post, menbe, memo }, kadr) {
   const footage = VS.MENBELER.some(m => env[m.env]) || arxiv.some(e => e.menbe === "Sahib");
   let got = null, sc = null, klip = [], mv = null;
+  const sil = m => { if (m?.file) fs.rmSync(path.join(dir, m.file), { force: true }); };
   for (let i = 0; i < SECIM_MAX; i++) {
-    got = await pick({ articles, state, now, opt, fetch: f, policy, log, only });
+    got = await pick({ articles, state, now, opt, fetch: f, policy, log, only, kadr, menbe, env, dir, memo });
     if (!got) break;
     const bolme = cats.find(c => c.slug === got.a.category)?.label || "";
     sc = await VS.ssenari({ ...got.a, bolme }, got.page, { env, fetch: f, policy, log, fallback: got.text });
     // Gemini işləmir (gündəlik limit və s.): mənbənin cümlələri və ümumi kadrla video olmur — növbəti dövrədə yenidən.
-    if (!only && !sc) { log("video: Gemini mətni yoxdur — bu dövrədə video hazırlanmır, növbəti dövrədə yenidən"); return null; }
+    if (!only && !sc) { sil(got.mv); log("video: Gemini mətni yoxdur — bu dövrədə video hazırlanmır, növbəti dövrədə yenidən"); return { dur: true }; }
     if (only || sc.uygun !== false) {
       fs.mkdirSync(dir, { recursive: true });
       // Son 3 günün videolarında işlənmiş kliplər yenidən götürülmür (state.klip, «Pixabay:123»): eyni kadr hər gün görünməsin.
       // Mənbənin öz videosu (video-menbe.cjs): varsa videonun görüntüsü odur. Bank klipləri ehtiyatdır — fayl montajda oxunmasa onlarla.
-      mv = await menbe(got.a, got.page, { env, fetch: f, log, dir }).catch(e => { log(`mənbə videosu: alınmadı — ${String(e?.message || e).slice(0, 160)}`); return null; });
+      // Seçimdə yoxlanıbsa (got.mv: fayl və ya null) səhifələr bir də oxunmur.
+      mv = got.mv !== undefined ? got.mv : await menbe(got.a, got.page, { env, fetch: f, log, dir }).catch(e => { log(`mənbə videosu: alınmadı — ${String(e?.message || e).slice(0, 160)}`); return null; });
       klip = await VS.goruntu(sc?.axtar || [], dir, { env, fetch: f, log, category: got.a.category, istifade: new Set(Object.keys(state.klip || {})),
         yer: sc?.yer || [], xeber: sc?.text ? { title: got.a.title, text: sc.text, yer: sc.yer } : null, arxiv });
       if (only || !footage || klip.length >= KLIP_MIN) break;
@@ -537,15 +702,11 @@ async function sec({ articles, env = process.env, now = Date.now(), state, fetch
       klip = [];
     }
     log(`video: ötürülür (${sc.sebeb || "uyğun deyil"}) — ${S.clean(got.a.title)}`);
+    sil(got.mv);
     state.skip[got.a.id] = Math.floor(now / 1000);
     got = null;
   }
-  if (!got) {
-    log(only ? `video: ${only} lentdə yoxdur və ya izahı tapılmadı` : "video: uyğun xəbər yoxdur");
-    // Uyğun xəbər yoxdur: pəncərə boş qalmasın — maraqlı video (öz fasiləsi gözlənmir, gündəlik həddə qədər).
-    if (!only && tur !== "xeber" && !maraqliDue(state, now, mo, true)) return await maraqliSec(mArgs);
-    return null;
-  }
+  if (!got) return {};
   const x = { ...entry(got.a, sc?.text || got.text, cats), ...(sc?.text ? { ssenari: "gemini" } : {}), ...(sc?.etiket?.length ? { hashtags: sc.etiket } : {}),
     ...(klip.length ? { klipler: klip.map(k => k.file), goruntu: klip.map(goruntuSetir), goruntuMenbe: VS.kredit(klip) } : {}),
     ...(mv ? { menbeVideo: mv } : {}) };
@@ -553,11 +714,13 @@ async function sec({ articles, env = process.env, now = Date.now(), state, fetch
   if (post) {
     const t = Math.floor(now / 1000);
     state.v[x.id] = t; state._last = t;
+    // Hadisənin qalan parçaları (eyni hadisə, başqa qrup) bir də video olmasın: state.q (3 gün).
+    for (const id of got.qrup || []) if (id !== x.id) (state.q ||= {})[id] = t;
     for (const k of klip) (state.klip ||= {})[`${k.p}:${k.id}`] = t;
   }
-  log(`video: seçildi — ${x.title} (${x.link})`);
+  log(`video: seçildi — ${x.title} (${x.link})${kadr ? " — öz görüntüsü ilə, X və dünya videosundan əvvəl" : ""}`);
   output("hazir", "1");
-  return x;
+  return { x };
 }
 
 // paylas: hazır videonu hər şəbəkəyə yükləyir. Nəticə state-ə yazılır; hamısı alınmasa iş qırmızıdır.
@@ -670,5 +833,5 @@ async function main() {
 }
 
 module.exports = { options, readState, due, pick, entry, networks, sec, paylas, fbText, igText, havaOptions, havaDue, havaHazirla, bakuClock,
-  maraqliOptions, maraqliDue, maraqliSec, maraqliSay, cekisi, dunyaSec, xSec, kanalSec };
+  maraqliOptions, maraqliDue, maraqliSec, maraqliSay, cekisi, dunyaSec, xSec, kanalSec, hadiseler, yasBasi, videoIpucu };
 if (require.main === module) main().catch(e => { console.error(`video: ${String(e?.message || e)}`); process.exitCode = 1; });
