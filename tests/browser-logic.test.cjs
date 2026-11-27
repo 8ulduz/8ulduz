@@ -2214,18 +2214,28 @@ test('owner 2026-11-13: a reload keeps the newest stories — cached minute feed
 });
 test('speed red line: un-proxied originals are still shown, but never with high priority', () => {
   const phone = app({ matchMedia: q => ({ matches: q === '(hover:none)' }) }).api, desktop = app().api;
-  const heavy = { id: 'h', title: 'Ağır şəkil', source: 'Qafqazinfo', sourceUrl: 'https://qafqazinfo.az/a', imageUrl: 'https://qafqazinfo.az/uploads/1/tramp.jpg', publishedAt: new Date().toISOString(), category: 'gundem' };
+  const heavy = { id: 'h', title: 'Ağır şəkil', source: 'Metbuat.az', sourceUrl: 'https://metbuat.az/a', imageUrl: 'https://metbuat.az/uploads/1/tramp.jpg', publishedAt: new Date().toISOString(), category: 'gundem' };
   const light = { ...heavy, id: 'l', sourceUrl: 'https://apa.az/a', imageUrl: 'https://apa.az/img/1.jpg' };
   assert.equal(phone.heavyImage(heavy.imageUrl), true);
   assert.equal(phone.heavyImage('https://wsrv.nl/?url=x'), false);
   for (const ctx of [phone, desktop]) {
-    assert.ok(ctx.cardAt(heavy, 'h3').includes('qafqazinfo.az/uploads/1/tramp.jpg'), 'şəkil həmişə görünür («şəkil gəlmir» olmasın)');
+    assert.ok(ctx.cardAt(heavy, 'h3').includes('metbuat.az/uploads/1/tramp.jpg'), 'şəkil həmişə görünür («şəkil gəlmir» olmasın)');
     assert.ok(ctx.cardAt(light, 'h3').includes('https://wsrv.nl/'), 'kiçildilən şəkil proksidən gəlir');
     assert.ok(ctx.img(heavy, '', true).includes('loading="lazy"') && !ctx.img(heavy, '', true).includes('fetchpriority'), 'ağır orijinal yüksək prioritet almır');
     assert.ok(ctx.img(light, '', true).includes('fetchpriority="high"'), 'kiçildilən ilk şəkil yüksək prioritetdədir');
   }
   const { imageCandidates } = desktop;
-  assert.deepEqual([...imageCandidates({ imageUrl: 'https://qafqazinfo.az/1.jpg', alts: [{ imageUrl: 'https://apa.az/2.jpg' }] })], ['https://apa.az/2.jpg', 'https://qafqazinfo.az/1.jpg'], 'proksidən keçməyən sayt sona düşür');
+  assert.deepEqual([...imageCandidates({ imageUrl: 'https://metbuat.az/1.jpg', alts: [{ imageUrl: 'https://apa.az/2.jpg' }] })], ['https://apa.az/2.jpg', 'https://metbuat.az/1.jpg'], 'proksidən keçməyən sayt sona düşür');
+});
+test('speed: Qafqazinfo and Sportinfo pictures come through wsrv.nl (2026-11-27: 29 + 13 of 29 + 13 came, 380 → 8 KB and 145 → 11 KB on average), but stay last so the chosen picture does not change', () => {
+  const { img, sized, heavyImage, imageCandidates } = app().api;
+  for (const u of ['https://qafqazinfo.az/uploads/1795789767/bernhem.jpg', 'https://www.sportinfo.az/media/2026/11/27/a.jpg']) {
+    assert.equal(sized(u, 360), `https://wsrv.nl/?url=${encodeURIComponent(u)}&w=360&we&output=webp&q=70`, 'kiçildilmiş şəkil: ' + u);
+    assert.equal(heavyImage(u), false, 'ağır orijinal sayılmır: ' + u);
+    assert.ok(img({ imageUrl: u }, '', true).includes('fetchpriority="high"'), 'ilk ekranda yüksək prioritet: ' + u);
+    assert.deepEqual([...imageCandidates({ imageUrl: u, alts: [{ imageUrl: 'https://apa.az/2.jpg' }] })], ['https://apa.az/2.jpg', u], 'sıra əvvəlki kimidir: ' + u);
+  }
+  for (const u of ['https://metbuat.az/a.webp', 'https://cdn.sporx.com/img/a.jpg', 'https://goygol-ih.gov.az/a.jpg']) assert.equal(sized(u, 360), u, 'wsrv.nl ala bilmir, orijinal: ' + u);
 });
 
 // CSP: daxili skript yalnız hash ilə, daxili hadisə işləyicisi yoxdur.

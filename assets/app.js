@@ -492,14 +492,17 @@ function imageCandidatesRaw(a) {
   // Qoşa ünvan düzəldilir.
   // Kəsilmiş kiçik şəkil sona.
   const all = [...new Set(values.filter(u => typeof u === "string").map(u => u.replace(/^https?:\/\/[^/]*?(https?:\/\/)/i, "$1")).filter(u => /^https?:\/\//i.test(u) && !/\/(?:resize\/?)?$|static\.president\.az\/assets\/president-administration-/i.test(u)))], cut = u => /_t\.\w+$|\/thumbs?\/|[?&]ratio=|\/fit\/\d/i.test(u);
-  // Proksidən keçməyən sayt (PROXY_SKIP) sona.
-  const blocked = u => PROXY_SKIP.test(hostOf(u));
+  // Proksidən keçməyən sayt (PROXY_SKIP) sona. Qafqazinfo və Sportinfo da sona (2026-11-27-dək proksisiz idilər): hansı şəklin göstərildiyi dəyişmir.
+  const blocked = u => PROXY_SKIP.test(u = hostOf(u)) || /(?:^|\.)(?:qafqaz|sport)info\.az$/i.test(u);
   return [...all.filter(u => !cut(u) && !blocked(u)), ...all.filter(u => cut(u) && !blocked(u)), ...all.filter(blocked)];
 }
 function imgUrl(a) { return imageCandidates(a)[0] || ""; }
 // xidmət işləmirsə (8 uğursuz cəhd) bu ziyarətdə birbaşa mənbədən.
 const PROXY_MAX_FAILS = 8;
-const PROXY_SKIP = /(?:^|\.)metbuat\.az$|(?:^|\.)goygol-ih\.gov\.az$|(?:^|\.)sporx\.com$|(?:^|\.)qafqazinfo\.az$|(?:^|\.)sportinfo\.az$/i;
+// wsrv.nl bu saytların şəklini ala bilmir (2026-11-27 yoxlaması: metbuat və sporx 404, goygol-ih cavab vermir), orijinal birbaşa gəlir.
+// Qafqazinfo və Sportinfo çıxdı: həmin gün lentdəki 29 + 13 şəklin hamısı wsrv.nl-dən gəldi, orta 380 → 8 KB və 145 → 11 KB.
+// Telefonda «Son xəbərlər»in ilk kartı onlardandırsa ilk ekran 170–640 KB-lıq orijinalı yükləyirdi. Alınmasa imgFail orijinala keçir.
+const PROXY_SKIP = /(?:^|\.)(?:metbuat\.az|goygol-ih\.gov\.az|sporx\.com)$/i;
 const proxyBad = new Map();
 // Proksidən keçməyən ünvan: sona düşür, əvvəlcədən yüklənmir.
 const heavyImage = u => typeof u === "string" && !u.startsWith("https://wsrv.nl/") && (PROXY_SKIP.test(hostOf(u)) || (proxyBad.get(hostOf(u)) || 0) > 0);
