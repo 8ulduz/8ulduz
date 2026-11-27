@@ -153,14 +153,23 @@ async function check({ env = process.env, f = fetch, now = Date.now() } = {}) {
   out.kesf = [];
   const kesf = String(env.META_KESF ?? "").split(",").map(s => s.trim()).filter(Boolean);
   if (ig && kesf.length) {
-    for (const u of kesf) {
-      const q = v => `business_discovery.username(${u}){username,followers_count,media_count,media.limit(12){media_product_type,media_type,media_url,permalink,timestamp,like_count,comments_count${v ? ",view_count" : ""}}}`;
+    // Orijinal müəlliflər (2026-11-27, sahib: «onlar aldığı mənbələrdən bizdə ala bilmərik?»): bu hesabların Reels mətnlərindəki @adlar
+    // (kredit) toplanır və onların öz hesabı da yoxlanır — biznes/yaradıcı hesabdırmı, fayl verirmi.
+    const muellif = new Map();
+    const bax = async (u, kim = "") => {
+      const q = v => `business_discovery.username(${u}){username,followers_count,media_count,media.limit(25){media_product_type,media_type,media_url,permalink,timestamp,like_count,comments_count,caption${v ? ",view_count" : ""}}}`;
       let r = await get(encodeURIComponent(ig), { fields: q(true) });
       if (r?.error) r = await get(encodeURIComponent(ig), { fields: q(false) });
       const b = r?.business_discovery, list = b?.media?.data || [], reel = list.filter(x => x.media_product_type === "REELS");
-      out.kesf.push({ u, error: err(r), followers: b?.followers_count ?? null, n: list.length, reels: reel.length, fayl: reel.filter(x => x.media_url).length,
-        views: reel.map(x => x.view_count).filter(v => v != null), son: reel[0]?.timestamp || "", link: reel.find(x => x.media_url)?.permalink || reel[0]?.permalink || "" });
-    }
+      if (!kim) for (const x of reel) for (const m of String(x.caption || "").matchAll(/@([A-Za-z0-9_.]{3,30})/g)) {
+        const h = m[1].replace(/\.+$/, "").toLowerCase();
+        if (h !== u.toLowerCase() && !kesf.includes(h)) muellif.set(h, [...new Set([...(muellif.get(h) || []), u])]);
+      }
+      out.kesf.push({ u: kim ? `${u} ← ${kim}` : u, error: err(r), followers: b?.followers_count ?? null, n: list.length, reels: reel.length, fayl: reel.filter(x => x.media_url).length,
+        views: reel.map(x => x.view_count).filter(v => v != null).slice(0, 6), son: reel[0]?.timestamp || "", link: reel.find(x => x.media_url)?.permalink || reel[0]?.permalink || "" });
+    };
+    for (const u of kesf) await bax(u);
+    for (const [h, kim] of [...muellif].slice(0, num(env.META_KESF_MUELLIF, 25))) await bax(h, kim.join(", "));
   }
   return out;
 }
