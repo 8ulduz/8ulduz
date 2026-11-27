@@ -215,7 +215,7 @@ async function cachedShell(req, event) {
   // və keş heç vaxt yenilənmirdi (v33-də belə idi: köhnə app.js telefonda qalırdı).
   const savedText = saved && (listed || CODE_FILE.test(path)) ? saved.clone().text().catch(() => null) : null;
   let izP;
-  const same = async (m) => typeof m?.[rel] === "string" && m[rel] === await (izP ||= savedText.then((t) => t == null ? null : izOf(t)));
+  const same = async (m) => typeof m?.[rel] === "string" && m[rel] === await (izP = izP || savedText.then((t) => t == null ? null : izOf(t)));
   // 36 saatdan köhnə nüsxəni son 36 saatda alınmış kod.json təsdiqləyirsə təzədir (eyni fayl endirilmir, tarixi köhnəlir).
   const old = !!saved && tooOld(saved) && !(listed && await same(await kodSaved(cache)));
   let tell = !old; // səhifəyə saxlanmış nüsxə verilirsə təzə kod barədə xəbər gedir; təzəsi verilibsə ehtiyac yoxdur
