@@ -178,8 +178,7 @@ function tooOld(res) {
   const at = Date.parse(res.headers.get("date") || "");
   return at > 0 && Date.now() - at > SHELL_MAX_AGE_MS;
 }
-// Kod izləri (v184, docs/sw-versiyalar.md): Pages hər yayımda bütün ETag-ları dəyişir. Kod faylı əvvəl kod.json ilə tutuşdurulur,
-// izi eynidirsə endirilmir. kod.json alınmasa, faylı yoxsa və ya iz fərqlidirsə əvvəlki yol. Siyahını kicilt.cjs yazır (kod.cjs).
+// Kod izləri (v184, docs/sw-versiyalar.md): Pages hər yayımda bütün ETag-ları dəyişir; izi kod.json-dakı ilə eyni olan fayl endirilmir.
 const KOD_URL = new URL("assets/kod.json", SCOPE_URL).href, KOD_FILE = /\.(?:js|css|webmanifest)$/;
 const KOD_OK = typeof crypto === "object" && !!crypto.subtle && typeof TextEncoder === "function"; // iz hesablanmırsa kod.json gözlənilmir
 let kodAt = 0, kodP = null;
@@ -217,7 +216,7 @@ async function cachedShell(req, event) {
   const savedText = saved && (listed || CODE_FILE.test(path)) ? saved.clone().text().catch(() => null) : null;
   let izP;
   const same = async (m) => typeof m?.[rel] === "string" && m[rel] === await (izP ||= savedText.then((t) => t == null ? null : izOf(t)));
-  // 36 saatdan köhnə nüsxə: son 36 saatda alınmış kod.json eyni izi deyirsə təzədir (eyni fayl yenidən endirilmir, tarixi köhnəlir).
+  // 36 saatdan köhnə nüsxəni son 36 saatda alınmış kod.json təsdiqləyirsə təzədir (eyni fayl endirilmir, tarixi köhnəlir).
   const old = !!saved && tooOld(saved) && !(listed && await same(await kodSaved(cache)));
   let tell = !old; // səhifəyə saxlanmış nüsxə verilirsə təzə kod barədə xəbər gedir; təzəsi verilibsə ehtiyac yoxdur
   const get = () => fetch(new Request(key, { cache: "no-cache" }));
