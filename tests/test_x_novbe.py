@@ -185,10 +185,12 @@ class PipelineQueueTest(unittest.TestCase):
     """pipeline.sh-ın öz növbə funksiyaları və əsas döngünün növbə sətirləri; gh saxtadır: $FAKE/<ref>/<fayl>."""
 
     FAKE_GH = r'''
-gh_t() {   # saxta «gh api»: $FAKE/<ref>/<fayl>; $FAKE/down varsa şəbəkə xətası; yoxdursa gh kimi 404
+gh_t() {   # saxta «gh api»: $FAKE/<ref>/<fayl>; $FAKE/down varsa şəbəkə xətası (içində ref yazılıbsa yalnız o ref üçün); yoxdursa gh kimi 404
   local url="${@: -1}" file ref
-  [ -e "$FAKE/down" ] && { echo "gh: connect: connection refused" >&2; return 1; }
   file="${url#*/contents/}"; file="${file%%\?*}"; ref="${url##*\?ref=}"
+  if [ -e "$FAKE/down" ] && { [ ! -s "$FAKE/down" ] || [ "$(cat "$FAKE/down")" = "$ref" ]; }; then
+    echo "gh: Get \"https://api.github.com/\": context deadline exceeded" >&2; return 1
+  fi
   [ -f "$FAKE/$ref/$file" ] || { echo "gh: No commit found for the ref $ref (HTTP 404)" >&2; return 1; }
   cat "$FAKE/$ref/$file"
 }
@@ -223,10 +225,11 @@ gh_t() {   # saxta «gh api»: $FAKE/<ref>/<fayl>; $FAKE/down varsa şəbəkə x
     put "$REPO_DIR/oz_x.json" '{"v": 1, "reels": [{"id": "m0"}, {"id": "m1"}]}'; cp "$REPO_DIR/oz_x.json" "$MAIN"
     touch "$STATE/code-sync"; cycle_start
     same "$CUR/oz_x.json" "$REPO_DIR/oz_x.json" "budaq yoxdursa main yazısı növbəni gətirir"
-    # Şəbəkə xətası (404 deyil): heç nə dəyişmir, main-ə də keçmir.
-    touch "$FAKE/down"; rm -f "$STATE/novbe.yeni"
+    # Budağın sorğusu vaxtında cavab vermir (404 deyil), main isə cavab verir: main-ə keçilmir, heç nə dəyişmir.
+    printf refs/heads/x-novbe > "$FAKE/down"; rm -f "$STATE/novbe.yeni"
     pull_reel_src && fail "xəta uğur sayılmır"
-    [ ! -e "$STATE/novbe.yeni" ] || fail "xətada yeni nüsxə yoxdur"
+    [ ! -e "$STATE/novbe.yeni" ] || fail "budaq cavab verməyəndə main-in nüsxəsi götürülmür"
+    : > "$FAKE/down"; pull_reel_src && fail "şəbəkə yoxdur"
     rm "$FAKE/down"
 
     # Yazıcı budağı main-in nüsxəsi ilə yaratdı və yazdı.

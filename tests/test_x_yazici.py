@@ -408,7 +408,7 @@ class WorkflowTest(unittest.TestCase):
         self.assertIn("git config user.name 8ulduz-bot", wf, "pull --rebase üçün də ad: budaq irəli gedəndə iş düşməsin")
         # budaq yoxdursa (ls-remote 2) main-in nüsxəsi ilə yaranır, başqa xətada iş dayanır; yazıcı budağın nüsxəsini oxuyur
         self.assertRegex(code, r'ls-remote --exit-code --heads origin "refs/heads/\$NOVBE"[\s\S]*"\$code" = 2[\s\S]*git hash-object -w oz_x\.json'
-                               r'[\s\S]*"\$code" != 0[\s\S]*exit 1')
+                               r'[\s\S]*elif \[ "\$code" != 0 \]; then\n\s+echo "::error::[^\n]*"; exit 1\n\s+fi\n')
         self.assertLess(code.index('cp "$RUNNER_TEMP/novbe/oz_x.json" oz_x.json'), code.index("run: python -u .github/scripts/x_yazici.py"))
         self.assertNotIn("OZ_DERC", wf)
         self.assertNotIn("echo \"$ANTHROPIC_API_KEY", wf)
