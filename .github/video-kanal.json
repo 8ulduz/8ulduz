@@ -31,7 +31,10 @@
     {"ad":"İki Sahil","kanal":"ikisahil","yoxlama":"ikisahil.az → t.me/ikisahil; təsvir: «https://ikisahil.az» (təsdiqli)"},
     {"ad":"Xezerxeber","kanal":"xezerxeberresmi","yoxlama":"xezerxeber.az → t.me/xezerxeberresmi; təsvir: «https://www.xezerxeber.az/»"},
     {"ad":"AZƏRTAC","kanal":"azertacnews","yoxlama":"azertag.az → t.me/azertacnews; başlıq «AZERTAC» (təsdiqli)"},
-    {"ad":"Fanat.az","kanal":"fanat_az","yoxlama":"fanat.az → t.me/fanat_az; başlıq «Fanat.az»"}
+    {"ad":"Fanat.az","kanal":"fanat_az","yoxlama":"fanat.az → t.me/fanat_az; başlıq «Fanat.az»"},
+    {"ad":"Patrul.az","kanal":"patrulazofficial","yoxlama":"sahib 2026-11-27 («Yenə əlavə et»); patrul.az → patrulaz.az, sayt → t.me/patrulazofficial və instagram.com/patrul.az; başlıq «PATRUL.AZ»"},
+    {"ad":"Maraqli.tv","kanal":"maraqli_tv","yoxlama":"sahib 2026-11-27 («Yenə əlavə et»); saytı yoxdur — instagram.com/maraqli.tv bio → t.me/maraqli_tv; başlıq «Maraqlı.TV»"},
+    {"ad":"Baku.es","kanal":"baku_es","yoxlama":"sahib 2026-11-27 («Yenə əlavə et»); saytı yoxdur (baku.es domeni satışdadır) — başlıq «BakuES Operativ Xəbər kanalı», instagram.com/baku.es bio: «Operativ xəbər portalı»"}
   ],
   "instagram": [
     {"ad":"Baku.ws","hesab":"baku.ws_official","fayl":true,"yoxlama":"baku.ws → instagram.com/baku.ws_official; Business Discovery 2026-11-27: 5 Reels-in 5-də fayl"},
@@ -44,6 +47,9 @@
     {"ad":"Publika.az","hesab":"publika.az_","fayl":null,"yoxlama":"publika.az → instagram.com/publika.az_; fayl yoxlanmayıb"},
     {"ad":"Metbuat","hesab":"metbuat.az","fayl":null,"yoxlama":"metbuat.az → instagram.com/metbuat.az; fayl yoxlanmayıb"},
     {"ad":"Gəncəxəbər","hesab":"gencexeber.az","fayl":null,"yoxlama":"gencexeber.az → instagram.com/gencexeber.az, Telegram kanalının (gencexeberaz) təsviri də; fayl yoxlanmayıb"},
+    {"ad":"Patrul.az","hesab":"patrul.az","fayl":true,"yoxlama":"sahib 2026-11-27 («Yenə əlavə et»); patrulaz.az → instagram.com/patrul.az; Business Discovery 2026-11-27: 15 Reels-in 13-də fayl"},
+    {"ad":"Maraqli.tv","hesab":"maraqli.tv","fayl":true,"yoxlama":"sahib 2026-11-27 («Yenə əlavə et»); saytı yoxdur; Business Discovery 2026-11-27: 5 Reels-in 5-də fayl"},
+    {"ad":"Baku.es","hesab":"baku.es","fayl":true,"yoxlama":"sahib 2026-11-27 («Yenə əlavə et»); saytı yoxdur; Business Discovery 2026-11-27: 1 Reels-in 1-də fayl"},
     {"ad":"Report","hesab":"report.az","fayl":false,"aktiv":false,"yoxlama":"report.az → instagram.com/report.az; Business Discovery: 3 Reels-in heç birində fayl yoxdur (yükləmə bağlıdır)"},
     {"ad":"Baku TV","hesab":"baku.tv","fayl":false,"aktiv":false,"yoxlama":"baku.tv → instagram.com/baku.tv; Business Discovery: 9 Reels-in heç birində fayl yoxdur (yükləmə bağlıdır)"}
   ]

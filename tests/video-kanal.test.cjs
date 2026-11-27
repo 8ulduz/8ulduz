@@ -102,13 +102,18 @@ test("kanal: only verified channels of listed sources — the site still has to 
     assert.equal(m.sayt, `https://${Q.azSources[m.ad][0]}/`);
     assert.equal(policy({ title: "Neytral", source: m.ad, sourceUrl: m.sayt }), false, m.ad);
   }
-  // Koordinatorun sınağı: faylı açıq üç hesab; yükləməsi bağlı hesablar söndürülüb; siyahıda olmayan saytlar yoxdur.
-  assert.deepEqual(L.instagram.filter(m => m.fayl === true).map(m => m.hesab), ["baku.ws_official", "oxuaz", "qafqazinfo_az"]);
+  // Koordinatorun sınağı: faylı açıq hesablar; yükləməsi bağlı hesablar söndürülüb. Patrul.az, Maraqli.tv, Baku.es siyahıya sahibin
+  // sözü ilə düşüb (2026-11-27: «Yenə əlavə et») — azSources-dadır, hər birinin Telegram kanalı və Instagram hesabı var.
+  assert.deepEqual(L.instagram.filter(m => m.fayl === true).map(m => m.hesab), ["baku.ws_official", "oxuaz", "qafqazinfo_az", "patrul.az", "maraqli.tv", "baku.es"]);
   const hamisi = JSON.parse(read(".github/video-kanal.json"));
   assert.ok(hamisi.instagram.filter(m => ["report.az", "baku.tv"].includes(m.hesab)).every(m => m.aktiv === false));
-  assert.ok(!/patrul|maraqli\.tv|baku\.es/.test(JSON.stringify(hamisi.telegram) + JSON.stringify(hamisi.instagram)));
+  for (const ad of ["Patrul.az", "Maraqli.tv", "Baku.es"]) {
+    assert.ok(Q.azSources[ad], `${ad}: azSources`);
+    assert.ok(L.telegram.some(m => m.ad === ad) && L.instagram.some(m => m.ad === ad), ad);
+    assert.ok([...hamisi.telegram, ...hamisi.instagram].filter(m => m.ad === ad).every(m => /sahib 2026-11-27 \(«Yenə əlavə et»\)/.test(m.yoxlama)), `${ad}: sahibin qərarı yazılıb`);
+  }
   // Siyahıda olmayan sayt, müxalifət adı və yoxlamasız sətir atılır.
-  const f = cfgFile({ telegram: [{ ad: "Patrul.az", kanal: "patrulaz", yoxlama: "x" }, { ad: "Oxu.az", kanal: "meydan_tv", yoxlama: "x" }, { ad: "Oxu.az", kanal: "oxuaze" }],
+  const f = cfgFile({ telegram: [{ ad: "Namelum.az", kanal: "namelumaz", yoxlama: "x" }, { ad: "Oxu.az", kanal: "meydan_tv", yoxlama: "x" }, { ad: "Oxu.az", kanal: "oxuaze" }],
     instagram: [{ ad: "Baku.ws", hesab: "toplum.tv", yoxlama: "x" }] });
   const X = K.menbeler(f);
   assert.deepEqual([X.telegram, X.instagram], [[], []]);
@@ -272,7 +277,7 @@ test("kanal: the filter — only the video's language, no protocol, war, film or
   assert.match(suz(c(`Bakının Xətai rayonunda iki avtomobil toqquşub.${LONG}`, { fwd: { ad: "", kanal: "" } })).yox, /yönləndirilib/);
   assert.match(suz(c(`Bakının Xətai rayonunda iki avtomobil toqquşub.${LONG}\nMənbə: Meydan TV`)).yox, /müxalifət/);
   assert.match(suz(c(`Bakının Xətai rayonunda iki avtomobil toqquşub.${LONG}`, { muellif: "@meydantv" })).yox, /müxalifət/);
-  assert.match(suz(c(`Bakının Xətai rayonunda iki avtomobil toqquşub.${LONG}`, { m: { ...m, ad: "Patrul.az", sayt: "https://patrul.az/" } })).yox, /qaydasından keçmir/);
+  assert.match(suz(c(`Bakının Xətai rayonunda iki avtomobil toqquşub.${LONG}`, { m: { ...m, ad: "Namelum.az", sayt: "https://namelum.az/" } })).yox, /qaydasından keçmir/);
   // Sıra: eyni baxış sürətində qəza (güclü istiqamət) önə, forum (rəsmi tədbir) geriyə keçir.
   const qeza = K.bal(c(`Bakıda yol qəzası olub, iki avtomobil toqquşub.${LONG}`), NOW), forum = K.bal(c(`Bakıda beynəlxalq forum keçirilir, iştirakçılar toplaşıb.${LONG}`), NOW);
   assert.ok(qeza > 1000 && forum < 1000, `${qeza} / ${forum}`);
@@ -370,7 +375,7 @@ test("kanal: the montage takes the entry under the site's own address; YouTube a
   assert.equal(montaj({ ...x, summary: x.text }), false);
   assert.equal(montaj({ ...x, sayt: "" }), true);
   assert.equal(montaj({ ...x, sayt: "https://meydan.tv/" }), true);
-  assert.equal(montaj({ ...x, source: "Patrul.az", sayt: "https://patrul.az/" }), true, "siyahıda olmayan sayt");
+  assert.equal(montaj({ ...x, source: "Namelum.az", sayt: "https://namelum.az/" }), true, "siyahıda olmayan sayt");
   const meta = V.storyFields(x);
   assert.deepEqual([meta.kind, meta.url, meta.sayt, meta.sourceUrl], ["kanal", "https://8ulduz.az/", "https://modern.az/", "https://t.me/modern_azz/95488"]);
   // YouTube və TikTok: öz qaydaları ilə ötürülür — Telegram «mənbə qaydası», Instagram «sosial şəbəkədəndir».
