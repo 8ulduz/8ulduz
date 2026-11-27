@@ -217,7 +217,7 @@ test("keçid: on opening the minute feed is fetched alongside the full feed and 
   const at = m => `2026-11-26T14:${String(m).padStart(2, "0")}:00+00:00`;
   const row = (id, m, extra = {}) => ({ id, title: "Xəbər " + id, summary: "", category: "gundem", lang: "az", sourceUrl: `https://apa.az/${id}`, imageUrl: `https://apa.az/${id}.jpg`, publishedAt: at(m), ...extra });
   ctx.feed = {
-    articles: [row("kohne", 30), row("prez", 40, { category: "prezident" }), row("agir", 39, { imageUrl: "https://sportinfo.az/a.jpg" }), row("idman1", 38, { category: "idman" }),
+    articles: [row("kohne", 30), row("prez", 40, { category: "prezident" }), row("agir", 39, { imageUrl: "https://metbuat.az/a.jpg" }), row("idman1", 38, { category: "idman" }),
       row("ru", 37, { lang: "ru", title: "Новости", summary: "" }), row("sekilsiz", 50, { imageUrl: "" }), ...Array.from({ length: 10 }, (_, i) => row("t" + i, 20 + i))],
   };
   run(ctx, 'S.lang = "az"; S.data = { articles: [{ id: "kohne" }] }; location.hash = "#/"; warmLatest(feed)');
