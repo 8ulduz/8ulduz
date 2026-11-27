@@ -33,7 +33,7 @@ STUCK_AFTER="${STUCK_AFTER:-240}"        # dövrə bu qədər irəliləməsə i�
 PUSH_FAILS_MAX="${PUSH_FAILS_MAX:-15}"   # GitHub qısa kəsilsə iş gözləyir; bu qədər dövrə ardıcıl alınmasa yeni iş
 BRANCH="${BRANCH:-main}"
 LIVE_BRANCH="${LIVE_BRANCH:-live}"
-# X növbəsi (oz_x.json) main-də deyil, bu budaqdadır (sahib 2026-11-27; docs/x-yazici.md «Növbə budağı»). Yazıcı yalnız oraya yazır.
+# X növbə faylı (kod siyahısındakı *_x.json) main-də deyil, bu budaqdadır (sahib 2026-11-27; docs/x-yazici.md «Növbə budağı»). Yazıcı yalnız oraya yazır.
 NOVBE_BRANCH="${NOVBE_BRANCH:-x-novbe}"
 RUN_ID="${GITHUB_RUN_ID:-0}"
 GH="${GH:-gh}"
@@ -393,11 +393,11 @@ tixac_loop() {
 # başladır: hər 20 dəqiqəlik pəncərədə (UTC dəqiqə 5, 25, 45-dən sonra) bir dəfə; əvvəlki iş hələ gedirsə və ya növbədədirsə yox.
 # Yalnız dispatch: açar və X sorğusu bu işə gəlmir, xəbər dövrəsində şəbəkə sorğusu yoxdur; cron ehtiyat qalır.
 #
-# X növbəsi (kod siyahısındakı *_x.json, yəni oz_x.json). Sahib, 2026-11-27 («bu təklifini daha dərindən araşdır … nələr etmək olar
+# X növbəsi (kod siyahısındakı *_x.json). Sahib, 2026-11-27 («bu təklifini daha dərindən araşdır … nələr etmək olar
 # kodda? … tap və düzəlt»): yazıcı növbəni main-ə yox, yalnız NOVBE_BRANCH budağına yazır. main-ə hər yazı ayrıca Pages yığımı
 # (37–58 s), Fastly CDN-in təmizlənməsi və bütün faylların yeni ETag-ı idi: 2026-11-26-da (UTC) main-ə 87 belə yazı (bot yazılarının 43%-i).
 # Növbə API ilə gəlir (git deyil: publish_main ilə toqquşmur), JSON yoxlanır, əsas döngü onu növbəti dövrənin əvvəlində koda qoyur
-# (apply_queue: yerli fayl işi, şəbəkə yoxdur). main-in oz_x.json-u keçid anında donur (docs/x-yazici.md «Növbə budağı»):
+# (apply_queue: yerli fayl işi, şəbəkə yoxdur). main-in növbə faylı keçid anında donur (docs/x-yazici.md «Növbə budağı»):
 # - budaq yoxdursa (HTTP 404; yazıcının ilk işi onu main-in nüsxəsi ilə yaradır) main oxunur;
 # - bu işdə budaq bir dəfə oxunubsa (novbe-budaq) main heç vaxt mənbə deyil: şəbəkə xətası, vaxt bitməsi və ya budağın 404-ü
 #   son nüsxəni saxlayır, main-in köhnə nüsxəsinə keçmir; main yazısından sonrakı copy_code da onu kod qovluğuna qaytarmır.
@@ -540,7 +540,7 @@ done
 own_rows_live 0   # götürülmüş main-dəki öz sətirlərin səhifələri artıq saytdadır
 guard_outputs
 seed_slots
-# X növbəsi: yuxarıdakı copy_code main-in donmuş oz_x.json-unu qoydu. Yavaş dövrə onu oxumazdan əvvəl x-novbe-dəki nüsxə gəlir
+# X növbəsi: yuxarıdakı copy_code main-in donmuş növbə faylını qoydu. Yavaş dövrə onu oxumazdan əvvəl x-novbe-dəki nüsxə gəlir
 # (bir-iki sorğu, hər biri ən çox 15 s; alınmasa xyazici_loop dəqiqədə bir yenə soruşur).
 pull_reel_src || { sleep 5; pull_reel_src; }
 rm -f "$STATE/novbe.yeni"
@@ -577,7 +577,7 @@ while :; do
   touch "$STATE/heartbeat"
   if [ -e "$STATE/code-sync" ]; then
     rm -f "$STATE/code-sync"
-    # main-in oz_x.json-u donub: x-novbe oxunubsa main-in nüsxəsi kod qovluğuna köçürülmür (növbəni apply_queue qoyur)
+    # main-in növbə faylı donub: x-novbe oxunubsa main-in nüsxəsi kod qovluğuna köçürülmür (növbəni apply_queue qoyur)
     if [ -e "$STATE/novbe-budaq" ]; then copy_code "$REPO_DIR" "$CUR" "$(novbe_file)"; else copy_code "$REPO_DIR" "$CUR"; fi
   fi
   if [ -e "$STATE/novbe.yeni" ]; then rm -f "$STATE/novbe.yeni"; apply_queue; fi   # xyazici_loop: Videolentin təzə videoları (yerli fayl)
