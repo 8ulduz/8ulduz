@@ -86,7 +86,7 @@ jobs:
       paylas: ${{ steps.sec.outputs.hazir == '1' && github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.paylas) && (steps.sec.outputs.tur != 'maraqli' || vars.MARAQLI_VIDEO == '1') && '1' || '0' }}
       yoxlandi: ${{ steps.yoxla.outcome == 'success' && '1' || '0' }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 1
           sparse-checkout: |
@@ -431,7 +431,7 @@ jobs:
       group: veb-video
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 1
           sparse-checkout: |
