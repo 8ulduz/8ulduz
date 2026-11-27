@@ -18,11 +18,14 @@
 //   - reklam və saytın hər səhifəsində olan fayl (banner; baş səhifədə də varsa atılır);
 //   - film, serial, musiqi klipi və treyler kadrı (profil lent.yayim) — YouTube Content ID və Meta Rights Manager avtomatik tanıyır.
 //     Açmaq: Variables MENBE_YAYIM=1. Liqaların oyun kadrı (qol, icmal) 2026-11-26-dan götürülür (sahib: «3 et»).
-// Fayl seçim addımında yüklənir (ffmpeg hələ yoxdur): ölçü həddi və faylın imzası (ftyp/EBML) yoxlanır; müddət və ölçü montajda
+// Fayl seçim addımında yüklənir: ölçü həddi və faylın imzası (ftyp/EBML) yoxlanır; müddət və ölçü montajda
 // (video-xeber.cjs render) yoxlanır — keçməsə bank klipləri ilə davam edir. Hamısını söndürmək: Variables MENBE_VIDEO=0.
+// Kadr yoxlaması (kadrYoxla; media qaydası, sahib, 2026-11-27): mənbənin öz videosunda (xəbər və dünya videosu) qan, meyit, ölüm anı,
+// çılpaqlıq və azyaşlı zərərçəkənin üzü varsa o video götürülmür. Seçimin içində işləyir (ffmpeg seçimdən əvvəl quraşdırılır).
 "use strict";
 const fs = require("fs"), path = require("path");
 const { dil } = require("./video-dil.cjs");
+const VQ = require("./video-qayda.cjs");
 
 const UA = "Mozilla/5.0 (compatible; 8ulduz-bot; +https://8ulduz.az/)";
 const FAYL = "klip-menbe.mp4";   // «klip-*.mp4» montajdan sonra silinir (sosial-video.yml); konteyneri ffmpeg məzmundan tanıyır
@@ -173,4 +176,50 @@ async function menbeVideo(a, page, { env = process.env, fetch: f = globalThis.fe
   return null;
 }
 
-module.exports = { menbeVideo, linkler, meqale, sayt, ozunku, PLATFORMA, QRUP, telegramlar, TG_MAX, videodur, yayim, indir, FAYL, MAX_BYTES, MIN_BYTES, YAD, REKLAM };
+// --- Kadr yoxlaması (seçimin içində) -----------------------------------------------------------------------------------------------
+// Videonun 4 kadrı (jpg buferləri) video arxivinin yolu ilə (ffprobe + ffmpeg; video-arxiv.cjs kadrlar). X və kanal videosu da bunu işlədir.
+function kadrlar(file) {
+  const VA = require("./video-arxiv.cjs"), p = VA.probe(file);
+  return VA.kadrlar(file, p.dur, p.w, p.h).jpg;
+}
+// Kadrlar Gemini-yə (göstəriş + «Kadr N:» + şəkil): { j } (cavabın JSON-u) və ya { yox: səbəb } (Gemini cavab vermədi, cavab JSON deyil).
+async function kadrSor(prompt, jpg, { env = process.env, fetch: f = globalThis.fetch, log = console.log } = {}) {
+  const parts = [{ text: prompt }];
+  jpg.forEach((b, i) => parts.push({ text: `Kadr ${i + 1}:` }, { inline_data: { mime_type: "image/jpeg", data: Buffer.from(b).toString("base64") } }));
+  const raw = await require("./video-ssenari.cjs").gemini(parts, env.GEMINI_API_KEY, f, log, env);
+  if (raw == null) return { yox: "Gemini cavab vermir" };
+  let j = null;
+  try { j = JSON.parse(String(raw).replace(/^```(?:json)?\s*|\s*```$/g, "")); } catch {}
+  return j && typeof j === "object" ? { j } : { yox: "cavab JSON deyil" };
+}
+// Mənbənin öz videosu (xəbər videosunun menbeVideo-su, dünya videosu): media qaydasının kadr sahələri (video-qayda.cjs KADR_SETIRLER).
+// Göstəriş sərtdir: əmin olmayanda false. Bank klipi (Pixabay, Pexels) yoxlanmır — onlar xəbərin kadrı deyil.
+const KADR_SAY = 4;
+const KADR_PROMPT = `Sən 8ulduz.az xəbər saytının video redaktorusan. Qısa şaquli videonun (Reels, Shorts) görüntüsü xəbər mənbəyinin
+öz videosundandır ({menbe}); üstünə öz başlığımızı, altyazımızı və səsimizi qoyuruq. Aşağıda başlıq, diktorun mətni və videonun {n}
+kadrı var (əvvəlindən sonuna). Videonu media qaydası ilə yoxla:
+${VQ.KADR_SETIRLER}
+- "sebeb": true olan sahə üçün bir qısa cümlə, {dil}.
+
+Yalnız JSON qaytar: {${VQ.KADR_JSON}, "sebeb": ""}
+
+Başlıq: {basliq}
+Mətn: {metn}`;
+const clean = s => String(s ?? "").replace(/\s+/g, " ").trim();
+const kadrPromptOf = (x, n, D = dil()) => KADR_PROMPT.replace("{menbe}", () => clean(x?.menbeVideo?.kredit || x?.source) || "mənbə").replace("{n}", String(n))
+  .replace(/\{dil\}/g, D.ssenari.dil).replace("{basliq}", () => clean(x?.title)).replace("{metn}", () => clean(x?.text));
+// x: { title, text, source, menbeVideo? } → { dayan: səbəb } (bu video götürülmür), { ok: true } və ya { kecdi: səbəb } (yoxlanmadı:
+// açar, ffmpeg, kadr, Gemini — video gedir).
+async function kadrYoxla(x, { dir, env = process.env, fetch: f = globalThis.fetch, log = console.log, D = dil(), deps = {} } = {}) {
+  if (!env.GEMINI_API_KEY) return { kecdi: "GEMINI_API_KEY yoxdur" };
+  let jpg = [];
+  try { jpg = ((deps.kadrlar || kadrlar)(path.join(dir, x?.menbeVideo?.file || FAYL)) || []).slice(0, KADR_SAY); }
+  catch (e) { return { kecdi: `kadrlar alınmadı: ${String(e?.message || e).slice(0, 120)}` }; }
+  if (!jpg.length) return { kecdi: "kadr yoxdur" };
+  const r = await kadrSor(kadrPromptOf(x, jpg.length, D), jpg, { env, fetch: f, log });
+  if (r.yox) return { kecdi: r.yox };
+  const why = VQ.kadrHokmu(r.j);
+  return why ? { dayan: `${why}${clean(r.j.sebeb) ? ` (${clean(r.j.sebeb).slice(0, 160)})` : ""}` } : { ok: true };
+}
+
+module.exports = { kadrlar, kadrSor, kadrYoxla, KADR_PROMPT, kadrPromptOf, menbeVideo, linkler, meqale, sayt, ozunku, PLATFORMA, QRUP, telegramlar, TG_MAX, videodur, yayim, indir, FAYL, MAX_BYTES, MIN_BYTES, YAD, REKLAM };

@@ -2,8 +2,8 @@
 // olsun biraz və videogörüntü olsun o xəbərə uyğun.» Əvvəl video tünd fonda başlıq və bir cümlə idi (~15 s).
 //
 //   ssenari()  Gemini mənbə səhifəsinin mətnindən 5–7 cümləlik diktor mətni (ən az 4 cümlə, 450–700 simvol, ~35–45 s; sahib: «4-7 cümlədə olsun. uzun da olsun») və video bankı üçün 4–6 ingiliscə
-//              axtarış ifadəsi yazır; «uygun: false» — xəbəri ümumi kadrla göstərmək olmur (görüş, qəbul), başqa xəbər seçilir. Mətn yoxlanır: hər rəqəm mənbədə olmalıdır, kiril/keçid/nida yoxdur, saytın qaydasından
-//              (policyViolation) keçir. Keçməsə başqa xəbər; Gemini işləməsə (limit) bu dövrədə video hazırlanmır.
+//              axtarış ifadəsi yazır; «uygun: false» — xəbəri ümumi kadrla göstərmək olmur (görüş, qəbul), başqa xəbər seçilir. Mətn yoxlanır: hər rəqəm mənbədə olmalıdır, kiril/keçid/nida yoxdur, media qaydasından
+//              (video-qayda.cjs, başlıqla birlikdə) və saytın qaydasından (policyViolation) keçir. Keçməsə başqa xəbər; Gemini işləməsə (limit) bu dövrədə video hazırlanmır.
 //   goruntu()  Pexels və ya Pixabay video bankından (pulsuz lisenziya: kommersiya istifadəsi, dəyişdirmə, sosial şəbəkə —
 //              https://www.pexels.com/license/, https://pixabay.com/service/license-summary/) ifadələrə uyğun 4–5 klip yükləyir.
 //              2026-11-22: Pexels yeni API açarı vermir, ona görə Pixabay da var (açarı olan mənbə işləyir). Əvvəl şaquli (portrait), yoxdursa üfüqi klip (video modulu onu tam enində ortada göstərir).
@@ -17,6 +17,7 @@
 const fs = require("fs"), path = require("path");
 const S = require("./social.cjs");
 const { dil, fmt } = require("./video-dil.cjs");
+const VQ = require("./video-qayda.cjs");
 
 const GEMINI = "https://generativelanguage.googleapis.com/v1beta/models";
 const FALLBACK_MODELS = ["gemini-3.6-flash", "gemini-3.5-flash", "gemini-flash-latest", "gemini-flash-lite-latest"];   // siyahı alınmasa
@@ -98,6 +99,7 @@ Qaydalar:
 - Rəqəmləri mənbədəki kimi rəqəmlə yaz. Keçid, emoji, nida və sual işarəsi{yad} yoxdur. {nisbi} yoxdur.
 - Neytral xəbər dili. Ən vacib fakt birinci cümlədə. Şərh və qiymətləndirmə yoxdur.
 - Adları inisialsız yaz: «Cey. Di. Vens» yox, «ABŞ vitse-prezidenti Vens»; «İ. Əliyev» yox, «İlham Əliyev».
+${VQ.GOSTERIS}
 Videonun görüntüsü üçün 6–8 ingiliscə axtarış ifadəsi də yaz (Pixabay video bankı, 2–4 söz) — montaj planı kimi, SIRA İLƏ: birinci
 ifadə xəbərin əsas səhnəsidir (başlıq ekranda olanda, birinci cümlə ilə görünür), sonra diktor mətninin hər cümləsinə bir səhnə, cümlələrin sırası ilə.
 Video bankında çox olan sadə səhnə yaz: 2–3 söz, adi isimlər ("police car lights", "crime scene tape", "night village road") —
@@ -170,6 +172,10 @@ function checkText(text, source, a, policy = () => false, hed = {}) {
   const have = new Set([...(source.match(NUM) || []).map(normNum), ...(source.match(/\b[IVXL]{1,7}\b/g) || []).map(roman).filter(Boolean).map(String)]);
   const extra = (text.match(NUM) || []).map(normNum).filter(n => !have.has(n));
   if (extra.length) return `mənbədə olmayan rəqəm: ${extra.slice(0, 3).join(", ")}`;
+  // Media qaydası (sahib, 2026-11-27: «Hamısını əlavə et»; video-qayda.cjs): diktor mətni və videonun başlığı birlikdə. Xəbər videosunun
+  // başlığı mənbədəndir — qaydanı pozan başlıqla video olmur.
+  const mq = VQ.yoxla([clean(a?.title), text].filter(Boolean).join(". "), D);
+  if (mq) return `media qaydası: ${mq}`;
   if (policy({ ...a, summary: text })) return "saytın qaydasından keçmir";
   return "";
 }

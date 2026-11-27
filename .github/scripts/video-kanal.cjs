@@ -14,8 +14,8 @@
 // Axın (sosial-video.cjs kanalSec): vaxtı çatan platforma → kanalların son videoları (TELEGRAM_MAX_SAAT 12, INSTAGRAM_MAX_SAAT 48 saat) →
 // süzgəc (aşağıda) → sıra: baxış sürəti (baxış ÷ saat) × güclü istiqamət (video-dil.cjs istiqamet) → Gemini yalnız paylaşımın mətnindən
 // başlıq və 3–6 cümləlik diktor mətni yazır (rəqəm mənbədə olmalıdır, VS.checkText + VS.serhAzdir, saytın qaydası) → yalnız seçilənin
-// faylı yüklənir (video-menbe.cjs indir: ölçü və imza) → «Kanal: kadrları yoxla» addımı (kadrYoxla): başqa saytın böyük başlıq bloku və
-// ya yazı örtüyü, qan varsa video paylaşılmır.
+// faylı yüklənir (video-menbe.cjs indir: ölçü və imza) → kadrlar seçimin içində yoxlanır (kadrYoxla): başqa saytın böyük başlıq bloku və
+// ya yazı örtüyü, qan, çılpaqlıq, azyaşlı zərərçəkənin üzü varsa video götürülmür, növbəti namizəd sınanır (CEHD-ə qədər).
 // Qırmızı xətt 2: mənbə siyahıdakı saytdır — paylaşım saytın qaydasından (policyViolation, ünvan saytın öz ünvanı ilə) keçir; müxalifət
 // kanalı, hesabı, müəllifi və paylaşımda müxalifət saytı mənbə kimi göstərilibsə götürülmür (muxalifet, muxalifetMetn). Paylaşımda adı
 // çəkilən müəllif (@foto_by_gunew) mənbə deyil, görüntünün sahibidir: kreditdə yazılır, müxalifət yoxlamasından keçir.
@@ -25,6 +25,7 @@ const fs = require("fs"), path = require("path"), crypto = require("crypto");
 const S = require("./social.cjs");
 const VS = require("./video-ssenari.cjs");
 const M = require("./video-menbe.cjs");
+const VQ = require("./video-qayda.cjs");
 const { dil, istiqamet, cixarilir } = require("./video-dil.cjs");
 
 const FAYL = path.join(__dirname, "..", "video-kanal.json");
@@ -320,10 +321,12 @@ Qaydalar:
 - 3–5 cümlə, 200–600 simvol. Birinci cümlə hadisənin özüdür (nə, harada). Yalnız paylaşımın mətnindəki faktlar: heç nə əlavə etmə,
   təxmin etmə, şərh vermə. Tamaşaçı mövzunu bilmir: mətn nə baş verdiyini, harada və niyə xəbər olduğunu aydın deməlidir.
 - Rəqəmi mənbədəki kimi yaz; mənbədə olmayan rəqəm yazma. Adları inisialsız yaz.
+${VQ.GOSTERIS}
 - basliq: 30–100 simvol, hadisəni deyən sadə cümlə; sonda nöqtə olmasın, «video» sözü olmasın.
 - etiket: 3 mövzu etiketi ({etiket_dili}, «#»-siz, boşluqsuz).
 - "uygun": false — paylaşım reklam, müsabiqə, abunə çağırışı, rəsmi görüş, qəbul, təbrik, başsağlığı, siyasi bəyanatdırsa; mətndə üç
-  cümləyə yetən aydın fakt yoxdursa; videoda ölüm anı, qan, meyit, ağır yaralı və ya işgəncə varsa (müharibə xəbəri özü qadağan deyil); mətn yalnız oyunun hesabıdırsa.
+  cümləyə yetən aydın fakt yoxdursa; videoda ölüm anı, qan, meyit, ağır yaralı və ya işgəncə varsa (müharibə xəbəri özü qadağan deyil); videoda
+  çılpaqlıq və ya cinsi səhnə varsa; mətn yalnız oyunun hesabıdırsa.
 
 Yalnız JSON qaytar: {"uygun": true, "basliq": "...", "text": "...", "etiket": ["...", "...", "..."]}
 
@@ -382,12 +385,22 @@ async function hazirla({ now = Date.now(), state, env = process.env, fetch: f = 
       const err = await (deps.indir || M.indir)(c.video, path.join(dir, M.FAYL), f, REFERER[p]).catch(e => String(e?.message || e).slice(0, 120));
       if (err) { (state.skip ||= {})[c.id] = t; log(`kanal videosu: fayl alınmadı (${err}) — ${c.link}`); continue; }
       const ist = istiqamet(`${s.title} ${s.text}`), xb = xeberTap(articles, c, now);
-      log(`kanal videosu: ${c.m.ad} (${AD[p]}) — ${c.baxis} baxış${ist ? `, istiqamət ${ist.ad}` : ""} → ${s.title}`);
-      return { id: c.id, tur: "kanal", kind: "kanal", platforma: p, title: s.title, summary: "", text: s.text, category: "", source: c.m.ad, sourceUrl: c.link,
+      const x = { id: c.id, tur: "kanal", kind: "kanal", platforma: p, title: s.title, summary: "", text: s.text, category: "", source: c.m.ad, sourceUrl: c.link,
         sayt: c.m.sayt, publishedAt: new Date(c.at).toISOString(), alts: [], esli: { metn: c.metn.slice(0, 600), hesab: c.m.kanal || c.m.hesab }, ssenari: "gemini",
         baxis: c.baxis, ...(ist ? { istiqamet: ist.ad } : {}), ...(s.etiket ? { hashtags: s.etiket } : {}), ...(c.muellif ? { muellif: c.muellif } : {}),
         ...(xb ? { link: S.shareUrl(xb), xeber: xb.id } : {}), klip_boyu: KLIP_BOYU,
         menbeVideo: { file: M.FAYL, url: c.video, sehife: c.link, kredit: kredit(c.m.ad, p, c.muellif) } };
+      // Kadr yoxlaması seçimin içində (2026-11-27, iş 45960946624: ayrıca addım Baku.es-in Reels-ini rədd etdi, iş qırmızı oldu, 30 dəqiqəlik
+      // pəncərə boş qaldı). Rədd olunan video bir də sınanmır, növbəti namizəd; yoxlamaq mümkün deyilsə (açar, Gemini) bu dövrədə kanal
+      // videosu yoxdur — seçim növbəti növə keçir.
+      const k = await (deps.kadrYoxla || kadrYoxla)(x, { dir, env, fetch: f, log, deps });
+      if (k.dayan) {
+        fs.rmSync(path.join(dir, M.FAYL), { force: true });
+        if (k.gec) { log(`kanal videosu: ${k.dayan} — bu dövrədə kanal videosu yoxdur`); return null; }
+        (state.skip ||= {})[c.id] = t; log(`kanal videosu: ötürülür (kadr: ${k.dayan}) — ${c.link}`); continue;
+      }
+      log(`kanal videosu: ${c.m.ad} (${AD[p]}) — ${c.baxis} baxış${ist ? `, istiqamət ${ist.ad}` : ""} → ${s.title}`);
+      return x;
     }
   }
   return null;
@@ -415,45 +428,40 @@ async function tgEmbed(post, { fetch: f = globalThis.fetch, log = console.log, d
   return { file: M.FAYL, url: p.video, sehife: p.link, kredit: kredit(ad, "telegram", muellifOf(p.text, [p.kanal, asil])), telegram: p.post, bytes };
 }
 
-// --- Kadr yoxlaması («Kanal: kadrları yoxla», ffmpeg-dən sonra) -----------------------------------------------------------------------
+// --- Kadr yoxlaması (seçimin içində, hazirla) ----------------------------------------------------------------------------------------
 // Xəbər saytının videosunda onun öz dizaynı ola bilər (Baku.ws Reels-lərində başlıq bloku). Su nişanı silinmir (docs/sosial-video.md);
 // başqa saytın böyük başlıq bloku və ya yazı örtüyü olan video bizim başlıq və altyazımızla toqquşur — götürülmür. Küncdəki kiçik loqo olar.
-// Kadrları Gemini görür (video-arxiv.cjs kadrlar, X videosunun yoxlaması kimi). X-dən fərqli olaraq yoxlamaq mümkün olmasa video getmir:
-// başqa saytın başlıq bloku yoxlanmadan bizim səhifəyə düşməsin.
+// Media qaydası (sahib, 2026-11-27): qan, meyit, çılpaqlıq, azyaşlı zərərçəkənin üzü (video-qayda.cjs KADR_SETIRLER). Kadrları Gemini görür
+// (video-menbe.cjs kadrlar, X videosunun yoxlaması kimi). X-dən fərqli olaraq yoxlamaq mümkün olmasa video getmir: başqa saytın başlıq
+// bloku yoxlanmadan bizim səhifəyə düşməsin.
 const KADR_PROMPT = `Sən 8ulduz.az xəbər saytının video redaktorusan. Videonu {menbe} saytının {platforma} paylaşımından götürürük; üstünə
 öz başlığımızı, altyazımızı və səsimizi qoyuruq. Aşağıda videonun {n} kadrı var (əvvəlindən sonuna). Yoxla:
 - "yazi": true — kadrda başqa saytın və ya hesabın böyük başlıq bloku, xəbər başlığı, ekranın böyük hissəsini tutan yazı zolağı və ya
   mətn örtüyü var. Küncdəki kiçik loqo, kiçik su nişanı və ya kiçik hesab adı sayılmır — onda false.
-- "qan": true — yalnız kadrda ölüm anı, qan, meyit və ya ağır yaralı açıq görünürsə.
+${VQ.KADR_SETIRLER}
 - "sebeb": true olanda bir qısa cümlə, {dil}.
 
-Yalnız JSON qaytar: {"yazi": false, "qan": false, "sebeb": ""}
+Yalnız JSON qaytar: {"yazi": false, ${VQ.KADR_JSON}, "sebeb": ""}
 
 Mətnimiz: {metn}`;
 const kadrPromptOf = (x, n, D = dil()) => KADR_PROMPT.replace("{menbe}", () => clean(x.source)).replace("{platforma}", AD[x.platforma] || "Telegram")
   .replace("{n}", String(n)).replace(/\{dil\}/g, D.ssenari.dil).replace("{metn}", () => clean(x.text));
-function kadrlar(file) {
-  const VA = require("./video-arxiv.cjs"), p = VA.probe(file);
-  return VA.kadrlar(file, p.dur, p.w, p.h).jpg;
-}
-// xeber.json-un kanal girişi → { dayan: səbəb } (video paylaşılmır) və ya { ok: true }.
+// Kanal girişi → { dayan: səbəb } (video götürülmür) və ya { ok: true }. gec: true — videonun özü yox, yoxlama alınmadı (açar, Gemini):
+// hazirla onu siyahıya (skip) yazmır, bu dövrədə kanal videosu vermir.
 async function kadrYoxla(x, { dir, env = process.env, fetch: f = globalThis.fetch, log = console.log, D = dil(), deps = {} } = {}) {
   const az = VS.serhAzdir(x?.text);
   if (az) return { dayan: az };
-  if (!env.GEMINI_API_KEY) return { dayan: "kadrlar yoxlanmadı (GEMINI_API_KEY yoxdur)" };
+  if (!env.GEMINI_API_KEY) return { dayan: "kadrlar yoxlanmadı (GEMINI_API_KEY yoxdur)", gec: true };
   let jpg = [];
-  try { jpg = ((deps.kadrlar || kadrlar)(path.join(dir, M.FAYL)) || []).slice(0, KADR_SAY); }
+  try { jpg = ((deps.kadrlar || M.kadrlar)(path.join(dir, M.FAYL)) || []).slice(0, KADR_SAY); }
   catch (e) { return { dayan: `kadrlar alınmadı: ${String(e?.message || e).slice(0, 120)}` }; }
   if (!jpg.length) return { dayan: "kadr yoxdur" };
-  const parts = [{ text: kadrPromptOf(x, jpg.length, D) }];
-  jpg.forEach((b, i) => parts.push({ text: `Kadr ${i + 1}:` }, { inline_data: { mime_type: "image/jpeg", data: Buffer.from(b).toString("base64") } }));
-  const raw = await VS.gemini(parts, env.GEMINI_API_KEY, f, log, env);
-  if (raw == null) return { dayan: "Gemini cavab vermir — kadrlar yoxlanmadı" };
-  let j = null;
-  try { j = JSON.parse(String(raw).replace(/^```(?:json)?\s*|\s*```$/g, "")); } catch {}
-  if (!j || typeof j !== "object") return { dayan: "kadr yoxlamasının cavabı JSON deyil" };
-  if (j.qan === true) return { dayan: "kadrda ölüm anı, qan və ya meyit görünür" };
-  if (j.yazi === true) return { dayan: `başqa saytın başlıq bloku və ya yazı örtüyü var${clean(j.sebeb) ? ` (${clean(j.sebeb).slice(0, 160)})` : ""}` };
+  const { j, yox } = await M.kadrSor(kadrPromptOf(x, jpg.length, D), jpg, { env, fetch: f, log });
+  if (yox) return { dayan: yox === "Gemini cavab vermir" ? "Gemini cavab vermir — kadrlar yoxlanmadı" : "kadr yoxlamasının cavabı JSON deyil", gec: true };
+  const sebeb = clean(j.sebeb) ? ` (${clean(j.sebeb).slice(0, 160)})` : "";
+  const hokm = VQ.kadrHokmu(j);
+  if (hokm) return { dayan: `${hokm}${sebeb}` };
+  if (j.yazi === true) return { dayan: `başqa saytın başlıq bloku və ya yazı örtüyü var${sebeb}` };
   return { ok: true };
 }
 

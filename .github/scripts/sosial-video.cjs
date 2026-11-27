@@ -613,7 +613,8 @@ function output(key, value) {
 // sec: vaxtıdırsa xəbəri seçir. Paylaşma rejimində seçim dərhal «video» sayılır (_last): video alınmasa da eyni xəbər hər
 // 30 dəqiqədə yenidən hazırlanmasın.
 // arxiv: öz video arxivi (VA.kitabxana(): «video-arxiv» budağı, oxunmasa data/video-arxiv.json) — xəbərin yeri məlum olanda əvvəl oradan.
-async function sec({ articles, env = process.env, now = Date.now(), state, fetch: f = globalThis.fetch, policy = () => false, cats = [], dir, log = console.log, app = null, arxiv = [], maraqli = VM.hazirla, dunya = VD.hazirla, xvideo = VD.xHazirla, menbe = MV.menbeVideo, xarici = policy, kanal = VK.hazirla }) {
+// kadr: mənbə videosunun kadr yoxlaması (video-menbe.cjs kadrYoxla; media qaydası) — testlər əvəz edir.
+async function sec({ articles, env = process.env, now = Date.now(), state, fetch: f = globalThis.fetch, policy = () => false, cats = [], dir, log = console.log, app = null, arxiv = [], maraqli = VM.hazirla, dunya = VD.hazirla, xvideo = VD.xHazirla, menbe = MV.menbeVideo, xarici = policy, kanal = VK.hazirla, kadr = MV.kadrYoxla }) {
   const opt = options(env), post = env.VIDEO_PAYLAS !== "0";
   // İş axını seçimə VIDEO_ACAR=1/0 (açar var/yox) verir; açarın özü (FB_PAGE_TOKEN) yalnız Instagram kanal videoları üçündür (video-kanal.cjs).
   const hasKey = env.VIDEO_ACAR ? env.VIDEO_ACAR === "1" : networks(env).length > 0;
@@ -641,7 +642,7 @@ async function sec({ articles, env = process.env, now = Date.now(), state, fetch
   // Öz görüntülü yerli xəbər (sahib, 2026-11-27, «A»): mənbə səhifəsində hadisənin öz video faylı olan xəbər X və dünya videosundan
   // əvvəl gedir (2 mənbə bəs edir, pick kadr). Onların gündəlik həddi və arası dəyişmir: pəncərəni növbəti dəfəyə saxlayırlar.
   // memo: bu dövrədə yoxlanan mənbə səhifələri (adi seçimdə bir də oxunmur).
-  const xArgs = { articles, env, now, state, f, policy, cats, dir, log, arxiv, only, opt, post, menbe, memo: new Map() };
+  const xArgs = { articles, env, now, state, f, policy, cats, dir, log, arxiv, only, opt, post, menbe, kadr, memo: new Map() };
   if (!only && ["", "avtomatik", "xeber"].includes(tur) && env.MENBE_VIDEO !== "0") {
     const r = await xeberSec(xArgs, true);
     if (r.x || r.dur) return r.x || null;
@@ -690,7 +691,9 @@ async function sec({ articles, env = process.env, now = Date.now(), state, fetch
 // Yalnız əl ilə seçilən xəbərdə (VIDEO_XEBER) Gemini alınmasa mənbənin öz cümlələri gedir.
 // Keyfiyyət həddi: görüntü mənbəyi varsa, KLIP_MIN-dən az uyğun klip tapılan xəbər ötürülür (yanlış və ya boş görüntülü video yox).
 // kadr: yalnız öz görüntülü xəbər (pick kadr). Qaytarır: { x } — seçildi; { dur: true } — bu dövrədə video yoxdur (Gemini); {} — xəbər yoxdur.
-async function xeberSec({ articles, env, now, state, f, policy, cats, dir, log, arxiv, only, opt, post, menbe, memo }, kadr) {
+// Mənbənin öz videosunun kadrları seçimin içində yoxlanır (kadrYoxla; media qaydası, sahib, 2026-11-27): qan, meyit, çılpaqlıq, azyaşlı
+// zərərçəkənin üzü varsa xəbər ötürülür (növbəti namizəd); əl ilə seçilən xəbərdə (VIDEO_XEBER) isə yalnız mənbə videosu atılır.
+async function xeberSec({ articles, env, now, state, f, policy, cats, dir, log, arxiv, only, opt, post, menbe, memo, kadr: kadrYoxla = MV.kadrYoxla }, kadr) {
   const footage = VS.MENBELER.some(m => env[m.env]) || arxiv.some(e => e.menbe === "Sahib");
   let got = null, sc = null, klip = [], mv = null;
   const sil = m => { if (m?.file) fs.rmSync(path.join(dir, m.file), { force: true }); };
@@ -707,10 +710,16 @@ async function xeberSec({ articles, env, now, state, f, policy, cats, dir, log, 
       // Mənbənin öz videosu (video-menbe.cjs): varsa videonun görüntüsü odur. Bank klipləri ehtiyatdır — fayl montajda oxunmasa onlarla.
       // Seçimdə yoxlanıbsa (got.mv: fayl və ya null) səhifələr bir də oxunmur.
       mv = got.mv !== undefined ? got.mv : await menbe(got.a, got.page, { env, fetch: f, log, dir }).catch(e => { log(`mənbə videosu: alınmadı — ${String(e?.message || e).slice(0, 160)}`); return null; });
+      const k = mv ? await kadrYoxla({ title: got.a.title, text: sc?.text || got.text, source: got.a.source, menbeVideo: mv }, { dir, env, fetch: f, log })
+        .catch(e => ({ kecdi: String(e?.message || e).slice(0, 160) })) : {};
+      if (k.kecdi) log(`mənbə videosu: kadrlar yoxlanmadı (${k.kecdi}) — video gedir`);
+      if (k.dayan) { sil(mv); log(`mənbə videosu: götürülmür — ${k.dayan}`); mv = null; }
       // İdman oyunu (sahib, 2026-11-27: «Beşiktaşın oyunundan … videoda arxada stadion top və s göstərilir — bunun yerinə həmin oyundan
       // kadrlar göstərilməlidir»): oyunun öz kadrı (mənbə videosu, Telegram pəncərəsi də) yoxdursa bank klipi ilə video olmur. Belə
       // hadisənin əsl görüntüsü çox vaxt saytların Telegram kanalında və Instagram-ında olur — onu kanal videosu götürür (video-kanal.cjs).
-      if (!only && !mv && oyunXeberi(got.a)) {
+      if (!only && k.dayan) {
+        sc = { uygun: false, sebeb: `mənbə videosunun kadrı: ${k.dayan}` };
+      } else if (!only && !mv && oyunXeberi(got.a)) {
         sc = { uygun: false, sebeb: "idman oyunu: oyunun öz kadrı tapılmadı — bank klipi (stadion, top) göstərilmir" };
       } else {
         klip = await VS.goruntu(sc?.axtar || [], dir, { env, fetch: f, log, category: got.a.category, istifade: new Set(Object.keys(state.klip || {})),
@@ -826,31 +835,9 @@ async function main() {
     if (res.failed.length && !res.posted.length) process.exitCode = 1;
     return;
   }
-  if (cmd === "x-kadr") {
-    // «Çox baxılan» X videosu (sahib, 2026-11-27: «belə çox qısa və şərhi çox az və başa düşülməyən olmasın videolar»): şərh azdırsa,
-    // deyilən hadisə kadrlarda görünmürsə və ya kadrda ölüm, qan, meyit varsa iş dayanır — video paylaşılmır (video-dunya.cjs
-    // xKadrYoxla). ffmpeg quraşdırılandan sonra işləyir (sosial-video.yml «X: kadrları yoxla»). Video seçimdə siyahıya yazılıb
-    // (state.xv): eyni video bir də seçilmir. Yoxlamaq mümkün olmasa video gedir (mətni seçimdə yoxlanıb).
-    const x = JSON.parse(fs.readFileSync(path.join(a1, "xeber.json"), "utf8"));
-    if (x.tur !== "x") return;
-    let r = null;
-    try { r = await VD.xKadrYoxla(x, { dir: a1 }); }
-    catch (e) { console.log(`::warning::X videosu: kadrlar yoxlanmadı — ${String(e?.message || e).slice(0, 300)}`); return; }
-    if (r?.dayan) { console.log(`::error::X videosu paylaşılmır — ${r.dayan}`); process.exitCode = 1; return; }
-    console.log(r?.kecdi ? `X videosu: kadrlar yoxlanmadı (${r.kecdi}) — mətn seçimdə yoxlanıb` : "X videosu: kadrlar mətnə uyğundur");
-    return;
-  }
-  if (cmd === "kanal-kadr") {
-    // Kanal videosu (video-kanal.cjs kadrYoxla): kadrda başqa saytın böyük başlıq bloku, yazı örtüyü, qan varsa və ya yoxlamaq mümkün
-    // deyilsə iş dayanır — video paylaşılmır. Video seçimdə siyahıya yazılıb (state.tv, state.iv): bir də seçilmir.
-    const x = JSON.parse(fs.readFileSync(path.join(a1, "xeber.json"), "utf8"));
-    if (x.tur !== "kanal") return;
-    const r = await VK.kadrYoxla(x, { dir: a1 }).catch(e => ({ dayan: `kadrlar yoxlanmadı — ${String(e?.message || e).slice(0, 200)}` }));
-    if (r?.dayan) { console.log(`::error::Kanal videosu paylaşılmır — ${r.dayan}`); process.exitCode = 1; return; }
-    console.log("Kanal videosu: kadrlarda başqa saytın başlıq bloku və ya yazı örtüyü yoxdur");
-    return;
-  }
-  console.error("İşlədilmə: sosial-video.cjs sec <news.json> <qovluq> | numune <xəbər.json> <qovluq> | numune-hava <open-meteo.json> <qovluq> | numune-maraqli <video.json> <qovluq> | x-kadr <qovluq> | kanal-kadr <qovluq> | paylas <qovluq>");
+  // Kadr yoxlaması (X, kanal, dünya videosu və mənbə videolu xəbər) 2026-11-27-dən seçimin içindədir (sec): əvvəlki ayrıca addımlar
+  // («X: kadrları yoxla», «Kanal: kadrları yoxla») videonu rədd edəndə iş qırmızı olurdu və pəncərə boş qalırdı (iş 45960946624).
+  console.error("İşlədilmə: sosial-video.cjs sec <news.json> <qovluq> | numune <xəbər.json> <qovluq> | numune-hava <open-meteo.json> <qovluq> | numune-maraqli <video.json> <qovluq> | paylas <qovluq>");
   process.exitCode = 2;
 }
 
