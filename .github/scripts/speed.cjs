@@ -222,7 +222,7 @@ const HELPER = `(() => {
     fn();
     while (performance.now() - t0 < max) { await new Promise(r => setTimeout(r, 30)); if (first != null && vis != null && performance.now() - last > quiet) break; }
     mo.disconnect();
-    const net = performance.getEntriesByType("resource").filter(e => !/wsrv\\.nl|\\.(jpe?g|png|webp|gif|svg)(\\?|$)|goatcounter|ytimg|yandex|googlevideo/.test(e.name));
+    const net = performance.getEntriesByType("resource").filter(e => !/wsrv\\.nl|img\\.8ulduz\\.az|\\.(jpe?g|png|webp|gif|svg)(\\?|$)|goatcounter|ytimg|yandex|googlevideo/.test(e.name));
     const lts = __lt.slice(lt0);
     return { first: first == null ? null : Math.round(first - t0), vis: vis == null ? null : Math.round(vis - t0), firstDom, stable: Math.round(last - t0), lt: Math.round(lts.reduce((s, x) => s + x, 0)), ltMax: Math.round(Math.max(0, ...lts)),
       dom: v.querySelectorAll("*").length, title: (v.querySelector("h1,h2")?.textContent || "").trim().slice(0, 40),
@@ -230,8 +230,9 @@ const HELPER = `(() => {
   };
 })()`;
 
-// Slayder şəklinin açarı: wsrv.nl sorğusunda url= parametri (640 və 800 px variantları eyni şəkildir), başqa hostda ünvanın özü.
-const heroKey = u => { try { const x = new URL(u); return x.hostname === "wsrv.nl" ? x.searchParams.get("url") : x.origin + x.pathname; } catch { return null; } };
+// Slayder şəklinin açarı: şəkil keşinin (img.8ulduz.az) və wsrv.nl-in sorğusunda url= parametri (640 və 800 px variantları, Worker
+// alınmayanda eyni sorğunun wsrv.nl nüsxəsi eyni şəkildir), başqa hostda ünvanın özü.
+const heroKey = u => { try { const x = new URL(u); return x.hostname === "wsrv.nl" || x.hostname === "img.8ulduz.az" ? x.searchParams.get("url") : x.origin + x.pathname; } catch { return null; } };
 const heroCache = new Map();
 async function heroOf(base) { // index.html-dəki hazır slayderin ilk şəkli
   if (heroCache.has(base)) return heroCache.get(base);

@@ -217,9 +217,11 @@ const storage = {
 
 /* ---- köməkçilər */
 const $ = (s, r = document) => r.querySelector(s);
+// document.createElement-in qısa adı (2026-11-27, yer: şəkil keşinin ehtiyat yolu app.min.js həddinə sığsın); çıxış eynidir.
+function newEl(t) { return document.createElement(t); }
 const optional = fn => { try { return fn(); } catch (e) { console.warn("blok göstərilmədi:", e); return ""; } };
 const ESC = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
-const _dec = document.createElement("textarea");
+const _dec = newEl("textarea");
 function decode(s) {
   if (!s) return "";
   let cur = String(s);
@@ -506,10 +508,15 @@ const PROXY_SKIP = /(?:^|\.)(?:metbuat\.az|goygol-ih\.gov\.az|sporx\.com)$/i;
 const proxyBad = new Map();
 // Proksidən keçməyən ünvan: sona düşür, əvvəlcədən yüklənmir.
 const heavyImage = u => typeof u === "string" && !u.startsWith("https://wsrv.nl/") && (PROXY_SKIP.test(hostOf(u)) || (proxyBad.get(hostOf(u)) || 0) > 0);
+// Şəkil keşi (sahib 2026-11-27: «Bəli, qur»; docs/img-worker.md): kiçildilmiş şəkil öz domenimizdən — img.8ulduz.az (Cloudflare Worker + R2),
+// sorğu wsrv.nl-inkinin eynisidir. Alınmasa eyni ünvan wsrv.nl-dən (viaWsrv), sonra orijinal (imgFail). Worker iki dəfə alınmayıb wsrv.nl
+// gəlibsə (limit — Cloudflare 1027 —, server dayanıb) bu ziyarətin qalanında şəkillər birbaşa wsrv.nl-dən: proxyBad-ın Worker üçün sayğacı.
+const IMG = "https://img.8ulduz.az/", WSRV = "https://wsrv.nl/";
+let imgBad = 0;
 function sized(url, width, logo) {
   const host = hostOf(url);
   if (!url || !host || (!logo && ((S.proxyFails || 0) >= PROXY_MAX_FAILS || (proxyBad.get(host) || 0) >= 2)) || PROXY_SKIP.test(host) || /\.(?:svg|gif)(?:[?#]|$)/i.test(url)) return url;
-  return `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=${width}&we&output=webp&q=70`;
+  return `${imgBad < 2 ? IMG : WSRV}?url=${encodeURIComponent(url)}&w=${width}&we&output=webp&q=70`;
 }
 // Ekranın eni bir dəfə oxunur: innerWidth hər oxunuşda məcburi yerləşdirmə edir (Chrome sürüşmə zolağını hesablayır), çəkiliş tapşırığında 4× telefonda 72–195 ms idi (2026-11-09 izi). resize-da yenilənir.
 let viewW = globalThis.innerWidth || 0;
@@ -614,7 +621,10 @@ const imgFail = el => {
 // Şəkil xətası tutma mərhələsində.
 // Ölçü CSS-də sabitdir.
 document.addEventListener("load", (e) => { const t = e.target; if (t?.tagName === "IMG" && t.dataset?.fail === "alt") { if ((t.naturalWidth || 0) < 2) imgFail(t); else t.style.visibility = ""; } }, true);
-document.addEventListener("error", (e) => { const t = e.target, f = t?.dataset?.fail; f === "alt" ? imgFail(t) : f === "rm" ? t.remove() : f === "hide" && t.style && (t.style.visibility = "hidden"); }, true);
+// img.8ulduz.az-ın şəkli alınmasa (hər şəkil: alt, rm, hide, Videolent kartı) eyni sorğu wsrv.nl-dən; wsrv.nl gələndə Worker bir xəta sayır.
+// Hadisə şəklə çatmır: ehtiyat siyahısı (orijinal) və modulların öz xəta işləyicisi yalnız wsrv.nl də alınmayanda işləyir.
+const viaWsrv = (t, s = String(t?.src || "")) => s.startsWith(IMG) && (t.addEventListener("load", () => { imgBad += t.src.startsWith(WSRV); }, { once: true }), t.src = WSRV + s.slice(IMG.length));
+document.addEventListener("error", (e) => { const t = e.target, f = t?.dataset?.fail; if (viaWsrv(t)) return e.stopPropagation(); f === "alt" ? imgFail(t) : f === "rm" ? t.remove() : f === "hide" && t.style && (t.style.visibility = "hidden"); }, true);
 
 /* ---- vəziyyət */
 const LANG_KEY = "8ulduz-lang"; // standart: "az"; "" = Hamısı
@@ -728,7 +738,7 @@ function renderTixAlert(x) {
   const html = x ? `<div class="wrap"><a href="#/tixac"><span aria-hidden="true">🚗</span> <b>Tıxac:</b> ${esc(x.street)} — ${esc(x.km)} km · ${clock} <u>Tıxac-İndi ›</u></a><button type="button" data-act="tix-ani-off" data-ani="${esc(x.a.id)}" aria-label="Zolağı bağla">✕</button></div>` : "";
   if (html === (S.aniHtml || "")) return;
   let box = $("#tix-ani");
-  if (!box) { const t = $("#ticker"); if (!t || !html) return; box = document.createElement("div"); box.id = "tix-ani"; box.setAttribute("role", "status"); t.after(box); }
+  if (!box) { const t = $("#ticker"); if (!t || !html) return; box = newEl("div"); box.id = "tix-ani"; box.setAttribute("role", "status"); t.after(box); }
   S.aniHtml = box.innerHTML = html;
   box.hidden = !html;
 }
@@ -1114,7 +1124,7 @@ function primeHeroImage(articles) {
   const head = document.head;
   if (!head?.querySelector || !head.appendChild) return;
   let link = head.querySelector("link[data-lcp]");
-  if (!link) { link = document.createElement("link"); link.rel = "preload"; link.as = "image"; link.dataset.lcp = "1"; }
+  if (!link) { link = newEl("link"); link.rel = "preload"; link.as = "image"; link.dataset.lcp = "1"; }
   link.href = href; link.fetchPriority = "high";
   if (!link.isConnected) head.appendChild(link); // href əvvəl, sonra sənədə: boş href xəbərdarlığı olmasın
 }
@@ -1573,7 +1583,7 @@ function bindNavPop() {
   };
   // Dəyişməyən sütuna toxunulmur.
   const paint = (html, keep) => {
-    const next = document.createElement("div");
+    const next = newEl("div");
     next.innerHTML = html;
     S.tr?.(next);
     const cols = [...next.children];
@@ -2028,7 +2038,7 @@ if (EAGER) addEventListener("scroll", () => { eagerGo = true; eagerAll(); }, { o
 const settle = () => { ANCHOR?.(); eagerAll(); };
 // Açarın HTML-i sənəd parçası kimi; yaddaşdan düşübsə (arada 40-dan çox çəkiliş — praktikada olmur) səhifə yenidən qurulur.
 function lateContent(t) {
-  const h = LATE_HTML.get(t.dataset.late), tpl = document.createElement("template");
+  const h = LATE_HTML.get(t.dataset.late), tpl = newEl("template");
   if (h == null) { S.viewPage = null; setTimeout(renderView); return; }
   tpl.innerHTML = h; return tpl.content;
 }
@@ -2537,14 +2547,14 @@ const teamModule = r => (S.teamMod ||= import("./komanda.js")).then(m => { m.pre
 function preTeam() {
   if (S.teamPre) return;
   S.teamPre = true;
-  for (const [f, rel] of [["komanda.js", "modulepreload"], ["komanda.css", "preload"]]) { const l = document.createElement("link"); l.rel = rel; if (rel === "preload") l.as = "style"; l.href = `${ASSET}${f}`; document.head?.append?.(l); }
+  for (const [f, rel] of [["komanda.js", "modulepreload"], ["komanda.css", "preload"]]) { const l = newEl("link"); l.rel = rel; if (rel === "preload") l.as = "style"; l.href = `${ASSET}${f}`; document.head?.append?.(l); }
   teamModule().catch(() => {});
 }
 function teamView(r) {
   if (S.teamPage) return S.teamPage.view(r);
   if (!S.teamLoading && Date.now() - (S.teamFailedAt || 0) > 30e3) {
     S.teamLoading = true;
-    const css = new Promise(done => { const link = document.createElement("link"); link.rel = "stylesheet"; link.href = `${ASSET}komanda.css`; link.onload = link.onerror = done; document.head.append(link); });
+    const css = new Promise(done => { const link = newEl("link"); link.rel = "stylesheet"; link.href = `${ASSET}komanda.css`; link.onload = link.onerror = done; document.head.append(link); });
     Promise.all([teamModule(r), css]).then(([{ mountTeam }]) => {
       S.teamPage = mountTeam({ S, esc, card, byDate, sized, shortDT, ordinal: ordTur, ago, decode, clubMatches, topics: SPORT_TEAMS.flatMap(g => g.items).filter(t => t.name !== "Milli komanda"), withArchive, loadArchive, months: MONTHS, requestJSON, freshUrl, requestRender: teamRender });
       requestRender(false);
@@ -2625,7 +2635,7 @@ function patchChildren(box, fresh, changed) {
   if (keyed) { old.forEach(n => kept.has(n) || n.remove()); restoreAnchor(box, anchor); if (old.length !== fresh.length) changed.push(box); } else old.slice(fresh.length).forEach(node => node.matches(".st-btn,.st-dots") || node.remove());
 }
 function patchView(v, page) {
-  const next = document.createElement("template");
+  const next = newEl("template");
   next.innerHTML = page; // uzaq bölmələr səhifə sətrində deyil (lazySection → lazyHtml), yalnız açarlı boş qutular
   if (S.lateDone === lateKey()) next.content.querySelectorAll?.("template[data-late]").forEach(t => { const c = lateContent(t); if (c) lateSwap(t, c); });
   S.tr?.(next.content);
@@ -2638,7 +2648,7 @@ function patchView(v, page) {
     kids.forEach(rememberSrc);
     pre.replaceWith(...kids);
     changed.push(...kids);
-    for (const i of v.querySelectorAll("img[data-fail=alt][src]")) if (i.complete && (i.naturalWidth || 0) < 2) imgFail(i);
+    for (const i of v.querySelectorAll("img[data-fail=alt][src]")) if (i.complete && (i.naturalWidth || 0) < 2) viaWsrv(i) || imgFail(i);
   }
   patchChildren(v, [...next.content.children], changed);
   wire(changed);
@@ -2652,7 +2662,7 @@ function moreLatest(was) {
   if (!grid || !h || h.d !== S.data || route().name !== "home") return false;
   const ids = [...grid.children].map(c => c.querySelector("[data-save]")?.dataset.save);
   if (ids.length !== was || ids.some((id, i) => !id || h.ranked[i]?.id !== id)) return false;
-  const t = document.createElement("template"), next = document.createElement("template");
+  const t = newEl("template"), next = newEl("template");
   t.innerHTML = h.ranked.slice(was, S.latestCount).map(card).join(""); next.innerHTML = latestBlock(h.list);
   S.tr?.(t.content); S.tr?.(next.content);
   const added = [...t.content.children], fresh = next.content.firstElementChild;
@@ -2836,7 +2846,7 @@ for (const t of ["click", "auxclick"]) addEventListener(t, e => { const a = e.ta
 function closeSharePop() { document.querySelector(".sharepop")?.remove(); document.querySelector(".pop-on.sh-on")?.classList.remove("pop-on", "sh-on", "pop-up"); }
 function showPop(btn, html) {
   closeSharePop();
-  const box = document.createElement("div"), r = btn.getBoundingClientRect();
+  const box = newEl("div"), r = btn.getBoundingClientRect();
   box.className = "sharepop";
   box.innerHTML = html;
   document.body.append(box);
@@ -3114,7 +3124,7 @@ function enableAnalytics() {
   gaOn = 1; gaFlush();
   const code = String(window.SITE_CONFIG?.goatcounter || "").trim();
   if (!code) return;
-  const s = document.createElement("script");
+  const s = newEl("script");
   s.async = true;
   s.src = "https://gc.zgo.at/count.v4.js"; // versiya və həş: skript dəyişsə işləmir, sayt təsirlənmir
   s.integrity = "sha384-nRw6qfbWyJha9LhsOtSb2YJDyZdKvvCFh0fJYlkquSFjUxp9FVNugbfy8q1jdxI+";
@@ -3180,7 +3190,7 @@ function unwrapMarquee(el) {
 }
 function ensureWrap(el) {
   if (el.parentElement?.classList.contains("step-wrap")) return el.parentElement;
-  const wrap = document.createElement("div");
+  const wrap = newEl("div");
   wrap.className = "step-wrap";
   el.parentNode.insertBefore(wrap, el);
   wrap.appendChild(el);
@@ -3287,7 +3297,7 @@ function lazySection(html) {
 function lazyFill(box) {
   const h = lazyHtml.get(box.dataset.lazy);
   if (box.firstChild || h == null) return false;
-  const t = document.createElement("template");
+  const t = newEl("template");
   t.innerHTML = h; S.tr?.(t.content); box.replaceChildren(t.content);
   return true;
 }
@@ -3327,12 +3337,12 @@ function stripPlan(strip) {
     return () => {
     strip.dataset.pages = String(pages);
     if (pages === 1) { strip.classList.add("at-end"); return; }
-    const prev = document.createElement("button"), next = document.createElement("button"), dots = document.createElement("div");
+    const prev = newEl("button"), next = newEl("button"), dots = newEl("div");
     prev.type = next.type = "button";
     prev.className = "st-btn st-prev"; prev.textContent = "‹"; prev.setAttribute("aria-label", "Əvvəlki");
     next.className = "st-btn st-next"; next.textContent = "›"; next.setAttribute("aria-label", "Növbəti");
     dots.className = "st-dots";
-    for (let i = 0; i < pages; i++) { const d = document.createElement("button"); d.type = "button"; d.setAttribute("aria-label", `Səhifə ${i + 1}`); d.dataset.page = String(i); dots.appendChild(d); }
+    for (let i = 0; i < pages; i++) { const d = newEl("button"); d.type = "button"; d.setAttribute("aria-label", `Səhifə ${i + 1}`); d.dataset.page = String(i); dots.appendChild(d); }
     const go = i => row.scrollTo({ left: Math.max(0, Math.min(i, pages - 1)) * step, behavior: "smooth" });
     const sync = () => {
       const cur = Math.min(pages - 1, Math.round(row.scrollLeft / step));
@@ -3534,7 +3544,7 @@ document.addEventListener("pointerdown", (e) => {
     const o = new URL(a.href).origin;
     if (o === location.origin || preconnected.has(o)) return;
     preconnected.add(o);
-    const l = document.createElement("link"); l.rel = "preconnect"; l.href = o; l.crossOrigin = ""; document.head.appendChild(l);
+    const l = newEl("link"); l.rel = "preconnect"; l.href = o; l.crossOrigin = ""; document.head.appendChild(l);
   } catch {}
 }, { capture: true, passive: true });
 document.addEventListener("pointerdown", (e) => {
@@ -3783,7 +3793,7 @@ function fitTextZoom(k) {
 { const k = +storage.getItem(TZ_KEY); if (k > 1.07) fitTextZoom(k); }
 function probeTextZoom() {
   if (!globalThis.ResizeObserver || !document.body) return;
-  const el = document.createElement("div");
+  const el = newEl("div");
   el.style.cssText = "position:absolute;top:0;left:0;visibility:hidden;pointer-events:none;font:100px/1 serif";
   el.textContent = "M";
   new ResizeObserver(([e], ro) => {

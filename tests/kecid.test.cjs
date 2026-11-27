@@ -224,7 +224,7 @@ test("keçid: on opening the minute feed is fetched alongside the full feed and 
   const ids = got.map(x => decodeURIComponent(x.u).match(/apa\.az\/(\w+)\.jpg/)?.[1]);
   // Görünəcək ilk 8 kart: agir(39) idman1(38) t9…t4. Proksisiz «agir» yerini tutur, amma istənmir; ilk ekrandakı, prezident, başqa dil, şəkilsiz kart yox.
   assert.deepEqual(ids, ["idman1", "t9", "t8", "t7", "t6", "t5", "t4"], "ən yeni 8 kartın yeni şəkilləri");
-  assert.ok(got.every(x => x.ref === "no-referrer" && x.u.startsWith("https://wsrv.nl/?url=") && x.u.includes("&w=360&")), "kartın öz ünvanı (360 px), mənbəyə istinad göndərilmir");
+  assert.ok(got.every(x => x.ref === "no-referrer" && x.u.startsWith("https://img.8ulduz.az/?url=") && x.u.includes("&w=360&")), "kartın öz ünvanı (360 px), mənbəyə istinad göndərilmir");
   got.length = 0; run(ctx, 'location.hash = "#/bolme/idman"; warmLatest(feed)');
   assert.deepEqual(got.map(x => decodeURIComponent(x.u).match(/apa\.az\/(\w+)\.jpg/)?.[1]), ["idman1"], "bölmədə yalnız onun xəbərləri");
   got.length = 0; run(ctx, 'location.hash = "#/xeber/abc"; warmLatest(feed)');

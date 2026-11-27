@@ -20,7 +20,8 @@
 //    keçiddə yalnız «oynat» əmri gedir; proqramla sürüşdürəndə görünüş yoxlaması 1 s gözləyir (əvvəlki kart geri seçilmir);
 //  - hər video kartı tam doldurur: üfüqi video ortadan kəsilir (X: object-fit:cover; YouTube: 16:9 çərçivə kartın hündürlüyündə,
 //    eni 316%, ortada), şəkil də. Öz Shorts-larımızın şəkli şaquli oar2.jpg-dir (hqdefault.jpg şaquli videoda yanlarda qara zolaqlıdır),
-//    üfüqi videoların şəkli hq720.jpg (zolaqsız), yoxdursa mqdefault.jpg. Şəkillər wsrv.nl ilə 360 px-ə kiçilir.
+//    üfüqi videoların şəkli hq720.jpg (zolaqsız), yoxdursa mqdefault.jpg. Şəkillər şəkil keşindən (img.8ulduz.az) 360 px-ə kiçilir;
+//    alınmasa app.js (viaWsrv) eyni sorğunu wsrv.nl-dən, o da alınmasa buradakı data-alt orijinalı verir.
 //
 // Tənbəl modul: app.js bölmə ekrana yaxınlaşanda yükləyir (setupVlent), ilk açılışa fayl, sorğu, iş gətirmir. Eyni anda bir video
 // oynayır, ən çoxu iki oynadıcı (oynayan və növbəti) var; qalanları silinir. Qənaət rejimində (Save-Data) və «hərəkəti azalt»
@@ -59,11 +60,11 @@ const ID = /^[\w-]{6,20}$/, MP4 = /^https:\/\/video\.twimg\.com\/[\w/.-]+\.mp4(\
 const OWN_BASE = "https://video.8ulduz.az/";
 export const ownMp4 = v => ID.test(v?.videoId || "") && v.mp4 === `${OWN_BASE}${v.videoId}.mp4`;
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
-const wsrv = u => `https://wsrv.nl/?url=${encodeURIComponent(u)}&w=360&we&output=webp&q=70`;
+const px = u => `https://img.8ulduz.az/?url=${encodeURIComponent(u)}&w=360&we&output=webp&q=70`;
 const time = v => Date.parse(v.t) || 0;
 // Kartın şəkli və alınmasa ehtiyatı (YouTube və öz videomuzun veb nüsxəsi: video nömrəsindən).
-export const poster = v => v.kind === "x" ? [/^https:\/\//.test(v.i || "") ? wsrv(v.i) : "", ""]
-  : [wsrv(`https://i.ytimg.com/vi/${v.id}/${v.tall ? "oar2" : "hq720"}.jpg`), `https://i.ytimg.com/vi/${v.id}/${v.tall ? "hqdefault" : "mqdefault"}.jpg`];
+export const poster = v => v.kind === "x" ? [/^https:\/\//.test(v.i || "") ? px(v.i) : "", ""]
+  : [px(`https://i.ytimg.com/vi/${v.id}/${v.tall ? "oar2" : "hq720"}.jpg`), `https://i.ytimg.com/vi/${v.id}/${v.tall ? "hqdefault" : "mqdefault"}.jpg`];
 
 const CSS = `.vl-row{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;scrollbar-width:none;padding-bottom:4px}
 .vl-row::-webkit-scrollbar{display:none}

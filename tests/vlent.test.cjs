@@ -51,7 +51,7 @@ test('lent: X-dən yalnız hadisə və xəbər videoları; X videolu öz xəbər
 test('lent (sahib 2026-11-24, ikinci baxış): hər video kartı tam doldurur, şəkil də; növbəti video qabaqcadan hazırlanır', async () => {
   const { poster } = await mod();
   assert.deepEqual(poster({ kind: 'yt', id: 'abcdefghijk', tall: true }),
-    ['https://wsrv.nl/?url=' + encodeURIComponent('https://i.ytimg.com/vi/abcdefghijk/oar2.jpg') + '&w=360&we&output=webp&q=70', 'https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg'],
+    ['https://img.8ulduz.az/?url=' + encodeURIComponent('https://i.ytimg.com/vi/abcdefghijk/oar2.jpg') + '&w=360&we&output=webp&q=70', 'https://i.ytimg.com/vi/abcdefghijk/hqdefault.jpg'],
     'Shorts: şaquli şəkil (hqdefault yanlarda qara zolaqlıdır)');
   assert.match(poster({ kind: 'yt', id: 'abcdefghijk', tall: false })[0], /hq720\.jpg/, 'üfüqi: zolaqsız şəkil');
   assert.equal(poster({ kind: 'yt', id: 'abcdefghijk', tall: false })[1], 'https://i.ytimg.com/vi/abcdefghijk/mqdefault.jpg');

@@ -99,7 +99,7 @@ test('speed: club logos always come through the image proxy, small (pfl.az origi
   const ctx = app();
   const sized = vm.runInContext('sized', ctx);
   vm.runInContext('S.proxyFails = 99', ctx);
-  assert.ok(sized('https://pfl.az/storage/clubs/a.PNG', 96, 1).startsWith('https://wsrv.nl/?url='), 'loqo proksidən hətta proksi xətalarından sonra da');
+  assert.ok(sized('https://pfl.az/storage/clubs/a.PNG', 96, 1).startsWith('https://img.8ulduz.az/?url='), 'loqo proksidən hətta proksi xətalarından sonra da');
   assert.equal(sized('https://apa.az/a.jpg', 480), 'https://apa.az/a.jpg', 'adi şəkil üçün köhnə qayda qalır');
   assert.ok(!APP.includes('<img src="${esc(t.logo)}"'), 'liqa və cədvəl loqoları proksisiz deyil');
   assert.ok(KOMANDA.includes('sized(url, size * 2, 1)'), 'komanda səhifəsinin loqoları da');
