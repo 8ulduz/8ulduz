@@ -146,6 +146,19 @@ test("36 h rule: an old copy that kod.json confirmed within 36 h answers at once
   }
 });
 
+// Müdafiə: kod.json köhnə qalsa (kod kicilt-siz main-ə düşsə), oxucu dəyişmiş faylı ən çox 3 gün gec alır — sonra arxada yenidən gəlir.
+test("a stale kod.json cannot hold old code for long: a copy older than 3 days is re-downloaded in the background even when kod.json confirms it", async () => {
+  const w = worker({ seed: { [SITE + "assets/app.min.js"]: savedAt("saved code", 80), [KOD_URL]: json(manifest(), 1) },
+    net: async url => url === KOD_URL ? json(manifest()) : new Response("new code") });
+  const t0 = Date.now();
+  assert.equal(await (await w.ask("assets/app.min.js")).text(), "saved code", "kod.json təsdiqləyir: açılış gözləmir");
+  assert.ok(Date.now() - t0 < 1000);
+  await until(() => w.messages.length > 0);
+  assert.deepEqual(w.fetched(), [KOD_URL, SITE + "assets/app.min.js"]);
+  assert.equal(await w.store.get(SITE + "assets/app.min.js").clone().text(), "new code");
+  assert.deepEqual(w.messages, ["shell-updated"]);
+});
+
 test("offline and first visits are unchanged on the kod.json path", async () => {
   const off = worker({ seed: { [SITE + "assets/app.min.js"]: savedAt("saved code"), [KOD_URL]: json(manifest(), 1) } });
   assert.equal(await (await off.ask("assets/app.min.js")).text(), "saved code", "oflayn: saxlanmış kod");

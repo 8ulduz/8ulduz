@@ -174,9 +174,9 @@ const CODE_FILE = /\.(?:js|css)$/;
 // SHELL_MAX_AGE_MS-dən köhnədirsə əvvəl təzəsi gözlənilir, SHELL_WAIT_MS-də gəlməsə saxlanmış verilir. Hər gün gələn oxucunun
 // nüsxəsi hər açılışda arxada yoxlanır (kod.json), ona görə ona toxunmur: təkrar açılış əvvəlki kimi şəbəkəni gözləmir.
 const SHELL_MAX_AGE_MS = 36 * 3600e3, SHELL_WAIT_MS = 2500;
-function tooOld(res) {
+function tooOld(res, max = SHELL_MAX_AGE_MS) {
   const at = Date.parse(res.headers.get("date") || "");
-  return at > 0 && Date.now() - at > SHELL_MAX_AGE_MS;
+  return at > 0 && Date.now() - at > max;
 }
 // Kod izləri (v184, docs/sw-versiyalar.md): Pages hər yayımda bütün ETag-ları dəyişir; izi kod.json-dakı ilə eyni olan fayl endirilmir.
 const KOD_URL = new URL("assets/kod.json", SCOPE_URL).href, KOD_FILE = /\.(?:js|css|webmanifest)$/;
@@ -220,7 +220,8 @@ async function cachedShell(req, event) {
   const old = !!saved && tooOld(saved) && !(listed && await same(await kodSaved(cache)));
   let tell = !old; // səhifəyə saxlanmış nüsxə verilirsə təzə kod barədə xəbər gedir; təzəsi verilibsə ehtiyac yoxdur
   const get = () => fetch(new Request(key, { cache: "no-cache" }));
-  const net = saved && listed && !old ? kod().then(same).then((ok) => ok ? null : get(), get) : get();
+  // 3 gündən köhnə nüsxə kod.json təsdiqləsə də arxada yenidən gəlir: köhnə qalmış kod.json yeni kodu ən çox bu qədər saxlaya bilər.
+  const net = saved && listed && !old ? kod().then(same).then((ok) => ok && !tooOld(saved, 72 * 3600e3) ? null : get(), get) : get();
   const network = net.then(async (fresh) => {
     if (!fresh) return null; // kod.json: baytlar eynidir
     if (fresh.redirected) return req.mode === "navigate" ? Response.redirect(fresh.url, 302) : fresh;
