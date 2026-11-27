@@ -1,0 +1,15 @@
+# Şəkil keşi (worker.js) — Cloudflare Workers + R2. Yükləmə: bu qovluqda «npx wrangler deploy» və ya Cloudflare panelində kodu
+# yapışdırmaq (docs/img-worker.md). Ünvan: Settings → Domains & Routes → Custom domain img.8ulduz.az.
+name = "img"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+workers_dev = false
+preview_urls = false
+# Ünvan: 8ulduz.az zonası eyni Cloudflare hesabında olmalıdır (x Worker-i ilə eyni hesab, docs/x-worker.md). Panelden də əlavə etmək olar.
+routes = [{ pattern = "img.8ulduz.az", custom_domain = true }]
+
+# Şəkillərin bir nüsxəsi (bütün düyünlər üçün). Bucket deploy-dan əvvəl yaradılır, obyektlər 30 gündən sonra silinir
+# (lifecycle qaydası, docs/img-worker.md). Bağlama adı kodda env.SEKIL-dir.
+[[r2_buckets]]
+binding = "SEKIL"
+bucket_name = "8ulduz-sekil"

@@ -85,7 +85,8 @@ test("struktur 6: every Node script that sends or publishes stories applies the 
   // video-dil.cjs: video dil profilini (.github/video-dil/*.json) oxuyur, heç nə yazmır və paylaşmır; profili işlədən skriptlər yuxarıdakı siyahıdadır.
   // video-qayda.cjs: media qaydası (sahib, 2026-11-27) — yalnız mətni və kadrın cavabını yoxlayır, şəbəkə işi yoxdur, heç nə yazmır; onu
   // video-ssenari.cjs checkText çağırır (o, yuxarıdakı siyahıdadır və saytın qaydasını da işlədir).
-  const known = new Set([...writers, "indexnow.cjs", "milli.cjs", "serve.cjs", "speed.cjs", "tixac.cjs", "meta-yoxla.cjs", "tiktok-demo.cjs", "video-arxiv.cjs", "ses-lugat.cjs", "veb-video.cjs", "video-dil.cjs", "video-menbe.cjs", "video-qayda.cjs"]);
+  // sekil-isit.cjs: img Worker-dən yalnız şəkil soruşur (R2-ni isidir), heç nə yazmır və paylaşmır; ünvanlar prerender.cjs-in homeView-undandır.
+  const known = new Set([...writers, "indexnow.cjs", "milli.cjs", "serve.cjs", "speed.cjs", "tixac.cjs", "meta-yoxla.cjs", "tiktok-demo.cjs", "video-arxiv.cjs", "ses-lugat.cjs", "veb-video.cjs", "video-dil.cjs", "video-menbe.cjs", "video-qayda.cjs", "sekil-isit.cjs"]);
   const all = fs.readdirSync(path.join(root, ".github/scripts")).filter(f => f.endsWith(".cjs"));
   assert.deepEqual(all.filter(f => !known.has(f)), [], "yeni Node skripti: xəbər yazırsa policyViolation işlətsin və bu siyahıya əlavə olunsun");
 });
