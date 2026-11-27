@@ -145,6 +145,14 @@ function roman(s) {
   const back = x => [["L", 50], ["XL", 40], ["X", 10], ["IX", 9], ["V", 5], ["IV", 4], ["I", 1]].reduce((acc, [r, k]) => { while (x >= k) { acc += r; x -= k; } return acc; }, "");
   return n > 0 && back(n) === s ? n : 0;
 }
+// Şərh həddi (sahib, 2026-11-27: «belə çox qısa və şərhi çox az və başa düşülməyən olmasın videolar» — iki cümləlik X videosu
+// Instagram və Facebook-dan silindi): diktor mətni ən az SERH_MIN.cumle cümlə və SERH_MIN.simvol simvol. X videosu seçimdə
+// (video-dunya.cjs xHazirla) və «Videonu yoxla» addımında (sosial-video.yml, hava videosundan başqa hər video) yoxlanır.
+const SERH_MIN = { cumle: 3, simvol: 180 };
+function serhAzdir(text, h = SERH_MIN) {
+  const t = String(text ?? "").replace(/\s+/g, " ").trim(), n = t ? t.split(/(?<=[.!?…])\s+(?=[\p{Lu}\d«"])/u).filter(Boolean).length : 0;
+  return n < h.cumle || t.length < h.simvol ? `şərh azdır: ${n} cümlə, ${t.length} simvol (ən az ${h.cumle} cümlə, ${h.simvol} simvol)` : "";
+}
 // hed: başqa ölçülü mətn üçün hədlər (X videosunun qısa mətni, video-dunya.cjs xGenislet): { min, max, sentMin, sentMax }.
 function checkText(text, source, a, policy = () => false, hed = {}) {
   const { min = TEXT_MIN, max = TEXT_MAX, sentMin = SENT_MIN, sentMax = SENT_MAX } = hed;
@@ -557,4 +565,4 @@ const BANK = ["Pixabay", "Pexels"];
 const kredit = klip => [...new Set((klip || []).map(k => clean(k.kredit || k.p)).filter(Boolean))]
   .sort((a, b) => BANK.includes(a) - BANK.includes(b)).join(", ");
 
-module.exports = { ssenari, promptOf, dilLatin, goruntu, kredit, OLKELER, SEHERLER, LAQEB, PAYTAXT, hasName, lat, getJson, slug, words, redaktor, REDAKTOR, sekil, yerUygun, roman, protokol, relevance, latin, hashtags, places, yerPlan, yadYer, EHTIYAT, checkText, queries, bestFile, pixabayFile, MENBELER, sourceText, ehtiyat, gemini, PROMPT, TEXT_MIN, TEXT_MAX };
+module.exports = { ssenari, promptOf, dilLatin, goruntu, kredit, OLKELER, SEHERLER, LAQEB, PAYTAXT, hasName, lat, getJson, slug, words, redaktor, REDAKTOR, sekil, yerUygun, roman, protokol, relevance, latin, hashtags, places, yerPlan, yadYer, EHTIYAT, checkText, SERH_MIN, serhAzdir, queries, bestFile, pixabayFile, MENBELER, sourceText, ehtiyat, gemini, PROMPT, TEXT_MIN, TEXT_MAX };

@@ -333,16 +333,20 @@ Söndürülmüş saxlananlar və səbəbi: Euronews No Comment (sayt Node sorğu
 - Eyni mövzu dalbadal getmir (`state.xm`): ən çox baxılanlar idman olsa da hər ikinci video başqa mövzudandır.
 - Götürülmür: oyun qrupu (treylerlər), böyük media şirkətləri (`x.qadagan`), film və klip kadrı (`lent.yayim`), müharibə və zorakılıq görüntüsü (`x.kenar`), xarici mənbə qaydasından keçməyən izah. Heyvan, təbiət və ya kosmos izahı (`x.cixar`) yalnız insan hadisəsinin içində götürülür (2026-11-26).
 - Video: yuxarıda «ÇOX BAXILAN» nişanı, başlıq izahın birinci cümləsidir, video klipin uzunluğu qədər (ən çox 30 s) davam edir (`klip_boyu`), «Görüntü: @hesab (X)».
-- Səs (sahib, 2026-11-26: «Bəli, uzat»; əvvəl yalnız bir cümləlik izah oxunurdu və 30 saniyənin çoxu səssiz keçirdi) 1–3 cümlədir:
+- Səs (sahib, 2026-11-26: «Bəli, uzat»; əvvəl yalnız bir cümləlik izah oxunurdu və 30 saniyənin çoxu səssiz keçirdi):
   1. izah;
-  2. paylaşımın öz mətnindən 1–2 cümlə (`video-dunya.cjs` `xMetn`, seçimdə). Mətn `api.fxtwitter.com`-dan alınır (açarsız, `x_yazici.py` ilə eyni). Gemini yalnız oradakı əlavə faktları yazır; dünya videosunun yoxlaması tətbiq olunur: rəqəm mənbədə olmalıdır, saytın qaydası və `x.kenar` keçilməlidir;
-  3. paylaşımda əlavə fakt yoxdursa, Gemini cavab vermirsə və ya mətn yoxlamadan keçmirsə — **videonun kadrlarında açıq görünən 1–2 fakt** (`xKadrMetn`, 2026-11-26). Kadrları ffmpeg çıxarır (video arxivinin yolu: klipin 10%-dən sonuna 4 kadr, 512 px), ona görə bu ayrıca addımdır: «X: kadrlardan mətn», ffmpeg quraşdırılandan sonra, montajdan əvvəl (`sosial-video.cjs x-kadr`). Gemini kadrları görür. Sərt qayda belədir:
-     - yalnız kadrda açıq görünən yazılır; ad, ölkə, şəhər, səbəb təxmin edilmir;
-     - heç bir rəqəm olmur (rəqəm olan cümlə atılır);
-     - üst yazı və su nişanından fakt götürülmür;
-     - mətn `checkText`, xarici mənbə qaydası (`xariciPozur`, qırmızı xətt 2) və `x.kenar` ilə yoxlanır.
+  2. paylaşımın öz mətnindən 2–3 cümlə (`video-dunya.cjs` `xMetn`, seçimdə). Mətn `api.fxtwitter.com`-dan alınır (açarsız, `x_yazici.py` ilə eyni). Gemini yalnız oradakı əlavə faktları yazır; dünya videosunun yoxlaması tətbiq olunur: rəqəm mənbədə olmalıdır, saytın qaydası və `x.kenar` keçilməlidir.
+- **Şərh həddi** (sahib, 2026-11-27: «belə çox qısa və şərhi çox az və başa düşülməyən olmasın videolar»). Həmin gün Instagram və Facebook-dan @Breaking911-in videosu silindi: «Bears-Lions matçı zamanı efirə ABŞ-ın təcili xəbərdarlıq sistemi daxil olub» + kadr təsviri «Stadionda idmançılar … dayanaraq oyununu davam etdirirlər» — iki cümlə idi.
+  - Səs mətni ən az 3 cümlə və 180 simvol olmalıdır (`video-ssenari.cjs` `SERH_MIN`, `serhAzdir`).
+  - Mətn paylaşımın öz faktlarından yazılır. Gemini-yə deyilir ki, tamaşaçı Azərbaycandadır və mövzunu bilmir. Paylaşımda iki cümləyə yetən fakt yoxdursa, yaxud hadisə yalnız ekran yazısı və ya teleyayımın bir anıdırsa, yaxud Azərbaycanda tanınmayan komanda, veriliş və ya adam adı izahsız qalırsa, `{"elave": ""}` qaytarır.
+  - Belə video götürülmür (`state.skip`, bir də sınanmır), bir dövrədə 5-ə qədər namizəd sınanır (`X_CEHD`). Fayl yalnız seçilən video üçün yüklənir. Açar yoxdursa və ya Gemini cavab vermirsə heç nə götürülmür, namizədlər növbəti dövrəyə qalır.
+  - 2026-11-26-da paylaşımda fakt yoxdursa kadrlarda görünən 1–2 fakt yazılırdı (`xKadrMetn`). Bu, boş şərh verdi və çıxarıldı.
+  - İkinci qapı — «Videonu yoxla» addımı: hava videosundan başqa hər video (xəbər, dünya, X) bu həddən keçməlidir, yoxsa paylaşılmır. PR nümunəsi (`tests/fixtures/video-xeber.json`, iki cümlə) yalnız montajı yoxlayır, ona görə həddə düşmür.
+- Kadr yoxlaması (`xKadrYoxla`, addım «X: kadrları yoxla», ffmpeg quraşdırılandan sonra, montajdan əvvəl — `sosial-video.cjs x-kadr`). Kadrları ffmpeg çıxarır (video arxivinin yolu: klipin 10%-dən sonuna 4 kadr, 512 px). Gemini kadrları diktorun mətni ilə tutuşdurur və iki halda iş dayanır, video paylaşılmır:
+  - deyilən hadisə kadrlarda görünmür (yalnız ekran yazısı, teleyayımın xəbərdarlıq zolağı, hadisəsiz adi oyun, küçə və ya studiya görüntüsü);
+  - kadrda ölüm anı, qan və ya meyit görünür.
 
-     Alınmasa və ya kadrda əlavə fakt yoxdursa yalnız izah (başlıq) oxunur. Kadrda ölüm anı, qan və ya meyit görünürsə iş dayanır, video paylaşılmır.
+  Gemini əmin deyilsə video gedir. Yoxlamaq mümkün olmasa da (açar, ffmpeg, Gemini) video gedir, çünki mətni seçimdə yoxlanıb.
   - **Baxış sayı deyilmir** (sahib, 2026-11-26: «Bu video 4 milyondan çox dəfə izlənib — nəyə lazımdır? başqa mənalı nəsə deyə bilməz?»). Əvvəl 3-cü cümlə «Bu video 2 milyondan çox dəfə izlənib.» idi (profil `x.baxis_mln`, `x.baxis_min` — çıxarılıb). Say `xeber.json`-da (`baxis`) yalnız sıra üçün qalır. Səsdə «X» deyilmir, çünki hərf kimi oxunur.
 - Tezlik: gündə ən çox 6, arası 120 dəqiqə; vaxtı çatanda birinci hazırlanır. Dəyişənlər: `X_VIDEO=0`, `X_GUNDE`, `X_ARA_MIN`, `X_MIN_BAXIS`.
 - 2026-11-26 ölçüsü: 1000 videodan 123-ü bütün süzgəclərdən keçdi; birincilər: sarılıb yatan əkizlər (2,1 mln baxış), oğrulara tələ quran mağaza sahibi (1,7 mln), itdən qaçan qadın (1,2 mln).

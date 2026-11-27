@@ -208,11 +208,11 @@ jobs:
           }
           ffmpeg -hide_banner -filters | grep -qw ass
           fc-list : family style | grep -i roboto | sort | head -12
-      # «Çox baxılan» X videosu (sahib, 2026-11-26: «Bu video 4 milyondan çox dəfə izlənib — nəyə lazımdır?»): baxış sayı deyilmir.
-      # Paylaşımın mətnində əlavə fakt yoxdursa Gemini videonun kadrlarında açıq görünən 1–2 faktı yazır (video-dunya.cjs xKadrMetn;
-      # kadrları ffmpeg çıxarır — ona görə bu addım ffmpeg-dən sonradır). Alınmasa mətn izah qalır; kadrda ölüm, qan, meyit görünürsə
-      # iş dayanır (video paylaşılmır).
-      - name: 'X: kadrlardan mətn'
+      # «Çox baxılan» X videosu (sahib, 2026-11-27: «belə çox qısa və şərhi çox az və başa düşülməyən olmasın videolar»): mətn seçimdə
+      # paylaşımın öz faktlarından yazılır (ən az 3 cümlə). Gemini kadrları mətnlə tutuşdurur (video-dunya.cjs xKadrYoxla; kadrları
+      # ffmpeg çıxarır — ona görə bu addım ffmpeg-dən sonradır): deyilən hadisə kadrlarda görünmürsə və ya kadrda ölüm, qan, meyit
+      # görünürsə iş dayanır (video paylaşılmır). Yoxlamaq mümkün olmasa video gedir.
+      - name: 'X: kadrları yoxla'
         if: steps.sec.outputs.hazir == '1' && steps.sec.outputs.tur == 'x'
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -270,6 +270,7 @@ jobs:
         if: steps.sec.outputs.hazir == '1'
         env:
           TUR: ${{ steps.sec.outputs.tur }}
+          EVENT: ${{ github.event_name }}
         run: |
           node -e '
             const fs = require("fs"), m = JSON.parse(fs.readFileSync("video-out/video.json", "utf8"));
@@ -285,6 +286,9 @@ jobs:
             if (moov < 0 || (mdat >= 0 && moov > mdat)) bad.push("moov əvvəldə deyil (faststart)");
             if (!head.includes("8ulduz.az")) bad.push("comment=8ulduz.az nişanı yoxdur (TikTok yükləyicisi)");
             if (m.own !== true || !m.id || !m.text) bad.push("video.json-da xəbərin sahələri yoxdur");
+            // Şərh həddi (sahib, 2026-11-27: «şərhi çox az … olmasın»; video-ssenari.cjs serhAzdir): hava videosundan başqa hər video. PR nümunəsi
+            // (tests/fixtures/video-xeber.json, iki cümlə) montajı yoxlayır, paylaşılmır.
+            if (process.env.EVENT !== "pull_request" && process.env.TUR !== "hava") { const az = require("./.github/scripts/video-ssenari.cjs").serhAzdir(m.text); if (az) bad.push(az); }
             if (process.env.TUR === "maraqli" && (m.kind !== "maraqli" || m.url !== "https://8ulduz.az/" || m.source !== "Vikipediya" || !String(m.sourceUrl || "").startsWith("https://en.wikipedia.org/wiki/"))) bad.push("maraqlı videonun video.json-u: kind, url və ya Vikipediya mənbəyi yoxdur");
             if (process.env.TUR === "hava" && (m.kind !== "hava" || !String(m.url || "").startsWith("https://8ulduz.az/") || !m.text.includes("Open-Meteo"))) bad.push("hava videosunun video.json-u: kind, url və ya Open-Meteo krediti yoxdur");
             console.log(JSON.stringify(m));
