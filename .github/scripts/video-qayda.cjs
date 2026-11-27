@@ -47,7 +47,9 @@ function yoxla(metn, D = dil()) {
 // Gemini-yə göstəriş (redaksiyanın dili ilə, digər göstəriş sətirləri kimi): xəbər, dünya, X və kanal videosunun mətn göstərişlərində.
 const GOSTERIS = `- Media qaydası. Azyaşlı zərərçəkənin və ya şübhəlinin adını, soyadını, məktəbini, ünvanını yazma: «15 yaşlı yeniyetmə» kimi yaz.
   Məhkəmə hökmü olmadan heç kimi «cinayətkar», «qatil», «oğru», «dələduz», «terrorçu» adlandırma: «şübhəli», «təqsirləndirilən»,
-  «saxlanılan» yaz. Söyüş, kobud söz və jarqon yazma, sitatda da. İntihar xəbərində üsulu, vasitəni və yeri yazma, yalnız baş verdiyini de.`;
+  «saxlanılan» yaz. Söyüş, kobud söz və jarqon yazma, sitatda da. İntihar xəbərində üsulu, vasitəni və yeri yazma, yalnız baş verdiyini de.
+- Qan qadağası. «Qanlı», «qan içində», «meyit», «cəsəd» yazma. Ölüm anını (necə boğulduğu, vurulduğu, hansı alətlə) və cəsədlə
+  edilənləri təsvir etmə: «həyatını itirib», «qətlə yetirilib» yaz.`;
 
 // Kadr yoxlamasının ortaq sahələri (X, kanal və mənbə videosunun yoxlaması): qan, çılpaqlıq, azyaşlının üzü. Əmin olmayanda false.
 const KADR_SETIRLER = `- "qan": true — yalnız kadrda ölüm anı, qan, meyit və ya ağır yaralı açıq görünürsə.

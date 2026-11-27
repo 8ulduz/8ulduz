@@ -23,6 +23,16 @@
     "intihar": "(?<![\\p{L}])(?:intihar(?!çı)(?![\\p{L}]* (?:dron|PUA|pilotsuz|uçan|hücum|əməliyyat|bomb|kəmər|partlayış|terror|qrup|batalyon|dəstə|missiya|motor|qayıq))|özünü (?:as|öldür|yandır)|özünü (?:[\\p{L}\\p{N}-]+ ){0,3}at(?:ıb|dı|araq|ması|mış|maqla)(?![\\p{L}])|özünə qəsd|həyatına son qoy)",
     "usul": "(?<![\\p{L}])(?:kəndir|ip(?:lə|dən)(?![\\p{L}])|as(?:ıb|ılıb|ılmış|araq|ılaraq)(?![\\p{L}])|zəhər|dərman|həb\\p{L}* iç|atılıb|atılaraq|özünü (?:[\\p{L}\\p{N}-]+ ){0,3}at(?:ıb|dı|araq|mış)(?![\\p{L}])|tullan|bıçaq|damar|yandır|benzin|silah|güllə|tapança|qatar|körpü|mərtəbə|dam(?:dan|ından)(?![\\p{L}])|binadan|binanın|pəncərədən|balkon|dənizə|çaya)"
   },
+  "kadr": {
+    "facie": "(?<![\\p{L}])(?:öl(?:üb|dü|üm|dür|məs|ən|ü(?![\\p{L}]))|həlak|vəfat|qətl|cinayət|qəza|yaralan|xəsarət|yanğın|partlayış|zəlzələ|daşqın|sel(?:i|in|də|dən)?(?![\\p{L}])|fəlakət|faciə|intihar|itkin|meyit|cəsəd|boğul|dəfn|həyatını itir|can ver|güllələn|bıçaqla|terror|məhkəmə|hökm|həbs)",
+    "movzu": {
+      "is": "(?<![\\p{L}])(?:zavod|fabrik|sənaye|istehsal|emal|müəssisə|sex(?:i|in|də|lər)?(?![\\p{L}])|usta|sənətkar|əl işi|dülgər|xarrat|çilingər|dəmirçi|qaynaq|tornaçı|metallurgiya|polad|mebel|neft|mədən|təmir|tikinti|inşaat|fəhlə)",
+      "metbex": "(?<![\\p{L}])(?:yemək|mətbəx|aşpaz|restoran|kafe|qida|çörək|şirniyyat|bişir|ərzaq|süfrə|menyu|iaşə|plov|kabab|dolma|qənnadı)",
+      "tibb": "(?<![\\p{L}])(?:xəstəxana|həkim|tibb|əməliyyat|cərrah|peyvənd|iynə|xəstə|səhiyyə|klinika|dərman|təcili yardım|reanimasiya|yaralı|yaralan|xəsarət)",
+      "zal": "(?<![\\p{L}])(?:idman|fitnes|məşq|yoqa|bodibildinq|trenajor)",
+      "eylence": "(?<![\\p{L}])(?:bayram|toy(?:u|da|a|un)?(?![\\p{L}])|nişan|festival|konsert|şənlik|turizm|turist|tətil|istirahət|çimərlik|kurort|yeni il|novruz|atəşfəşanlıq|ziyafət|karnaval|əyləncə|yaxta)"
+    }
+  },
   "lent": {
     "dil": "az",
     "min_menbe": 4,

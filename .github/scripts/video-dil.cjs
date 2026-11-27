@@ -6,7 +6,7 @@
 //   dil("ru")    adla; yükləyicilər (youtube.cjs, tiktok.cjs) videonun dilini video.json-un «lang» sahəsindən götürür.
 //   dilVarmi(k)  belə profil var? (yoxdursa yükləyici az profili ilə işləyir — başqa iş axınlarının videoları, icmal və s.)
 //   fmt(şablon, { ad: dəyər })  «{ad}» yerinə dəyər; tanınmayan «{…}» olduğu kimi qalır.
-// Profil sabitdir: oxunandan sonra dəyişmir (Object.freeze). Nizami ifadələr (herf, yad_herf, nisbi_gun, protokol, bagliyicilar, zeif, guclu, cixar)
+// Profil sabitdir: oxunandan sonra dəyişmir (Object.freeze). Nizami ifadələr (herf, yad_herf, nisbi_gun, protokol, bagliyicilar, zeif, guclu, cixar, kadr)
 // bir dəfə qurulur: D.re. istiqamet(mətn) — güclü istiqamət (video seçimi), cixarilir(mətn) — heyvan, təbiət, kosmos (insan hadisəsi olmadan).
 // Python tərəfi (video_ses.py, video_dinle.py) eyni faylları oxuyur. Qovluq: VIDEO_DIL_QOVLUQ (testlər üçün), yoxsa .github/video-dil.
 "use strict";
@@ -37,6 +37,10 @@ function oxu(kod, dir) {
     // Heyvan, təbiət, kosmos (x.cixar; sahib, 2026-11-26: «nə heyvan nə təbiət nə kosmos»): heyvan yalnız insan hadisəsinin içində ola bilər —
     // mətndə güclü istiqamət yoxdursa X və dünya videosu götürülmür, xəbər videosu zəif sayılır.
     cixar: d.x?.cixar ? new RegExp(d.x.cixar, "iu") : null,
+    // Bank klipinin mövzusu (kadr; sahib, 2026-11-27: «nərgizin ölümü videosunda çilingər işləri göstərilir. belə olmaz axı»):
+    // facie — ölüm, qətl, qəza, fəlakət xəbəri; movzu — fəaliyyətin (iş və sənət, mətbəx, tibb, idman zalı, əyləncə) xəbərdə adı. video-ssenari.cjs yadMovzu.
+    facie: d.kadr?.facie ? new RegExp(d.kadr.facie, "iu") : null,
+    movzu: Object.fromEntries(Object.entries(d.kadr?.movzu || {}).filter(([, s]) => s).map(([k, s]) => [k, new RegExp(s, "iu")])),
   };
   return freeze({ ...d, re });
 }

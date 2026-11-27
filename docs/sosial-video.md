@@ -402,6 +402,32 @@ Söndürülmüş saxlananlar və səbəbi: Euronews No Comment (sayt Node sorğu
 
 Ona görə `x.kenar` (X, dünya və kanal videosu) artıq müharibə sözləri (raket, bombard, hava zərbəsi, döyüş, cəbhə) deyil. İndi mətndə bunlar süzülür: qan (qanlı, qan içində, qana bulaşmış), meyit, cəsəd, ölüm anı, öldürülmə anı, edam, baş kəsmə. Kadr yoxlaması (Gemini `qan: true` — ölüm anı, qan, meyit, ağır yaralı) da qalır. Dünya videosunun seçimində «müharibənin gedişi» uyğun-deyil siyahısından çıxıb.
 
+2026-11-27 axşam: `x.kenar` xəbər videosuna da tətbiq olunur (`video-ssenari.cjs` `checkText` → `kenarSozu`, diktor mətni və başlıq birlikdə). Əvvəl yalnız X, dünya və kanal videosunda idi, ona görə Nərgiz Nəcəfovanın ölümü videosunun mətnində «meyiti hissələrə bölüblər» keçmişdi (aşağıda «Kadrın mövzusu»). Gemini-nin dörd mətn göstərişinə (`GOSTERIS`) sətir əlavə olunub: «qanlı», «qan içində», «meyit», «cəsəd» yazılmır; ölüm anı (necə boğulduğu, vurulduğu, hansı alətlə) və cəsədlə edilənlər təsvir edilmir.
+
+## Kadrın mövzusu (sahib, 2026-11-27)
+
+Sahibin sözü: «nərgizin ölümü videosunda çilingər işləri göstərilir. belə olmaz axı.»
+
+**Nə oldu** (iş [46036515482](https://github.com/8ulduz/8ulduz/actions/runs/46036515482), YouTube `FvteQ4nJnuw`, Facebook, TikTok qaralaması). Xəbər: «Nərgizi öldürəndən sonra balta ilə doğrayıblar - Ata və ananın qorxunc cinayəti» (Nocomment.az, bölmə «Cəmiyyət»). Mənbədə video yox idi, görüntü video bankından gəldi.
+1. Diktor mətnində «dəmir linglə zərbələr endirilib» cümləsi vardı. Gemini (gemini-3.5-flash-lite) ondan «metal crowbar tool» axtarış ifadəsi yazdı, yəni cinayətin alətini göstərməyə çalışdı. Göstəriş ölüm xəbərində «insansız səhnə (… texnika)» deyirdi, aləti qadağan etmirdi.
+2. Pixabay iki klip verdi: 39 (drill, tool, metal, drilling, hole, work, craft, craftsman — qazma) və 12543 (welding, industry, worker, factory, metal, tool — qaynaq).
+3. Söz uyğunluğu (`relevance`) keçdi. İfadənin əsas sözü sonuncu söz sayılırdı, «tool»; o və «metal» klipdə vardı. «crowbar» klipdə yox idi.
+4. Montaj redaktoru 6 namizəddən ikisini seçdi. Göstərişində yer, məna, əhval və üz qaydası vardı, «xəbərdə olmayan iş» qaydası yox idi. Klipin xəbərin mövzusuna uyğunluğunu heç bir addım yoxlamırdı.
+5. 51 saniyəlik video 11 kadrda bu iki klipdən quruldu, yəni bütün video qazma və qaynaq idi. Mətn yoxlaması da keçdi, çünki qan qadağası xəbər videosunda yox idi.
+
+**Qayda** (`video-ssenari.cjs` `yadMovzu`, `facie`; sözlər profildə: `.github/video-dil/az.json` `kadr`):
+- **Hər xəbər.** Klipin etiketində və ya axtarış ifadəsində fəaliyyət varsa (iş və sənət: qazma, qaynaq, dülgər, emalatxana, fabrik; mətbəx və yemək; tibb; idman zalı; əyləncə və istirahət), o fəaliyyət xəbərin başlığında və ya diktor mətnində adı ilə olmalıdır (`kadr.movzu`: zavod, usta, çilingər, qaynaq, tikinti, neft…; yemək, restoran…; xəstəxana, həkim, xəsarət…). Yoxdursa klip götürülmür, ifadə banka göndərilmir. Profildə fəaliyyətin sözü yoxdursa həmin klip götürülmür.
+- **Faciə xəbəri** (hadisə bölməsi və ya başlıqda, mətndə ölüm, qətl, cinayət, qəza, yanğın, partlayış, fəlakət, məhkəmə, həbs…; `kadr.facie`). Əlavə ehtiyat:
+  - silah və alət (bıçaq, balta, lom, çəkic, mişar, tapança, ip, qazma), qan, meyit, ölüm, qorxu (horror, skull), yaxın planda insan (portrait, face, woman, man, child, people) və şən, istirahət əhvalı (beach, party, happy, sunset) olan klip heç vaxt götürülmür, belə ifadə banka göndərilmir;
+  - ehtiyat səhnələr bölmədən asılı olmayaraq hadisə bölməsinindir (insansız): polis maşınının işıqları, gecə küçəsi;
+  - montaj redaktoru kadrlara baxmayıbsa (Gemini cavab vermədi, açar yoxdur) klip qoyulmur.
+- **Söz uyğunluğu.** Cins sözləri (tool, equipment, object, device, item, machine…) ümumi sözdür, əsas söz sayılmır: «metal crowbar tool»-da əsas söz «crowbar»-dır.
+- **Redaktor.** Hər klip üçün kadrda nə olduğunu və onun xəbərin mövzusu olub-olmadığını yazır (`movzu`: `gosterir`, `xeberin_movzusu`). `false` olan klip redaktor seçsə də kodla atılır. Göstərişə iki qayda əlavə olunub: xəbərdə olmayan iş, sənət, fəaliyyət seçilmir; ölüm, qətl, qəza, fəlakət xəbərində silah, alət, qan, meyit, tabut, ölüm anı seçilmir.
+- **Ssenari göstərişi.** Ölüm, cinayət, qəza xəbərində silah, alət, qan, meyit, tabut və hadisənin özü üçün ifadə yazılmır, mətndə adı çəkilsə də. Xəbərdə olmayan iş və sənət səhnəsi də yazılmır. «texnika» nümunəsi çıxıb.
+- **Uyğun kadr yoxdursa** yad klip qoyulmur: 2-dən az klip qalırsa xəbər ötürülür (`KLIP_MIN`), növbəti xəbər götürülür.
+
+Yeni qayda ilə həmin xəbərin hər iki klipi və «metal crowbar tool» ifadəsi rədd olunur, mətn də qan qadağasından keçmir (`tests/video-kadr-movzu.test.cjs`).
+
 ## Media qaydası (sahib, 2026-11-27)
 
 Sahib mətbuatın ümumi qadağalarını istədi. Ona «Media haqqında» Qanunun 14.1, 15.1 və 21-ci maddələri, Meta-nın qrafik məzmun qaydaları və beş təklif göstərildi. Cavab: «Hamısını əlavə et».
@@ -417,7 +443,7 @@ Sahib mətbuatın ümumi qadağalarını istədi. Ona «Media haqqında» Qanunu
 
 - **Mətn.** Hər diktor mətni — xəbər (`video-ssenari.cjs` `ssenari`), dünya (`video-dunya.cjs` `sec`), X (`xMetn`), kanal (`video-kanal.cjs` `metnYaz`) — `VS.checkText`-dən keçir, o da `video-qayda.cjs`-i çağırır. Videonun başlığı da mətnlə birlikdə yoxlanır: xəbər videosunun başlığı mənbədəndir, qaydanı pozan başlıqla video olmur. Keçməyən namizəd ötürülür, növbəti götürülür. Səbəb azərbaycancadır: «media qaydası: məhkəmə hökmü olmadan «qatil» deyilir…». Sözlər profildədir (`.github/video-dil/az.json` `qayda`; sınaq dilində boşdur — orada qayda işləmir).
 - **Göstəriş.** Gemini-nin dörd mətn göstərişində eyni sətir var (`video-qayda.cjs` `GOSTERIS`): azyaşlı zərərçəkənin və ya şübhəlinin adını, soyadını, məktəbini, ünvanını yazma («15 yaşlı yeniyetmə» kimi); məhkəmə hökmü olmadan heç kimi «cinayətkar», «qatil», «oğru», «dələduz», «terrorçu» adlandırma — «şübhəli», «təqsirləndirilən», «saxlanılan»; söyüş, kobud söz və jarqon yox, sitatda da; intihar xəbərində üsul, vasitə və yer yox. Dünya və kanal göstərişləri çılpaqlıq və ya cinsi səhnə olan videonu da seçmir.
-- **Kadr.** Ortaq sahələr `qan`, `cilpaq`, `usaq` (`KADR_SETIRLER`, qərar `kadrHokmu`); Gemini-yə: «əmin deyilsənsə false yaz». Kütlədə, uzaqdan, bulanıq görünən, xilas edilən və ya sağ-salamat tapılan uşaq sayılmır. Sahələr X (`xKadrYoxla`) və kanal (`kadrYoxla`) yoxlamasına əlavə olunub. Kadr yoxlaması olmayan iki yol üçün yeni ümumi yoxlama: dünya videosu və mənbənin öz videosu olan xəbər (`video-menbe.cjs` `kadrYoxla`). Rədd olunan dünya videosu bir də sınanmır və seçim növbəti növə keçir; mənbə videosu rədd olunan xəbər ötürülür, növbəti xəbər götürülür (əl ilə seçilən xəbərdə, `VIDEO_XEBER`, yalnız mənbə videosu atılır). Yoxlamaq mümkün olmasa (açar, ffmpeg, Gemini) bu iki yolda video gedir. Bank klipi (Pixabay, Pexels) xəbərin öz kadrı deyil, yoxlanmır.
+- **Kadr.** Ortaq sahələr `qan`, `cilpaq`, `usaq` (`KADR_SETIRLER`, qərar `kadrHokmu`); Gemini-yə: «əmin deyilsənsə false yaz». Kütlədə, uzaqdan, bulanıq görünən, xilas edilən və ya sağ-salamat tapılan uşaq sayılmır. Sahələr X (`xKadrYoxla`) və kanal (`kadrYoxla`) yoxlamasına əlavə olunub. Kadr yoxlaması olmayan iki yol üçün yeni ümumi yoxlama: dünya videosu və mənbənin öz videosu olan xəbər (`video-menbe.cjs` `kadrYoxla`). Rədd olunan dünya videosu bir də sınanmır və seçim növbəti növə keçir; mənbə videosu rədd olunan xəbər ötürülür, növbəti xəbər götürülür (əl ilə seçilən xəbərdə, `VIDEO_XEBER`, yalnız mənbə videosu atılır). Yoxlamaq mümkün olmasa (açar, ffmpeg, Gemini) bu iki yolda video gedir. Bank klipi (Pixabay, Pexels) xəbərin öz kadrı deyil, bu yoxlamadan keçmir; onun mövzusu etiketlərlə və montaj redaktoru ilə yoxlanır («Kadrın mövzusu»).
 - **Seçimin içində** (2026-11-27, iş 45960946624-dən sonra). Bütün kadr yoxlamaları «Xəbər seç» addımındadır, namizədin faylı yüklənəndən sonra; ffmpeg seçimdən əvvəl quraşdırılır (hər işə ~15 s). Əvvəlki ayrıca kadr addımları videonu seçimdən sonra rədd edirdi: iş qırmızı olurdu və 30 dəqiqəlik pəncərə boş qalırdı. İndi rədd olunan namizəd `state.skip`-ə düşür və növbəti sınanır (X 5-ə, kanal 3-ə, xəbər 4-ə qədər).
 
 ## Kanal videoları: Telegram və Instagram (sahib, 2026-11-27)

@@ -14,6 +14,7 @@
     "cixar": "xxanimal"
   },
   "qayda": { "azyasli": "", "hadise": "", "ad": "", "etiket": "", "hokm": "", "soyus": "", "intihar": "", "usul": "" },
+  "kadr": { "facie": "xxdeath", "movzu": { "is": "xxfactory", "metbex": "xxfood", "tibb": "xxdoctor", "zal": "xxgym", "eylence": "xxparty" } },
   "lent": {
     "dil": "xx",
     "min_menbe": 1,

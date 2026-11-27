@@ -106,8 +106,10 @@ Video bankında çox olan sadə səhnə yaz: 2–3 söz, adi isimlər ("police c
 çox xüsusi ifadə ("bullet holes car window") tapılmır, onda yanlış kadr gəlir. Hər ifadə xəbərin məkanını, mövzusunu, əşyalarını göstərən səhnədir, məsələn "Baku city skyline", "Hanoi street traffic", "cargo ship port", "oil pump jack", "snow mountain road".
 Yer adı varsa onu yaz ("Istanbul Bosphorus", "Baku boulevard"). Bayraq yalnız ölkə adı ilə ("Azerbaijan flag"), "national flags" yox.
 İnsanların xəbərdəki hərəkətini (görüş, əl sıxma, imza, çıxış) göstərən səhnə yazma: tamaşaçı onları xəbərin qəhrəmanı sanar.
+Xəbərdə olmayan iş, sənət və fəaliyyəti (qazma, qaynaq, dülgərlik, fabrik, mətbəx, idman zalı) göstərən səhnə yazma.
 Konkret tanınan insanların adını yazma. Xəbər cinayət, qəza, ölüm, xəstəlik, fəlakət, məhkəmə və ya münaqişə haqqındadırsa, yalnız
-insansız səhnələr seç (bina, yol, polis maşınının işıqları, şəhər, təbiət, texnika).
+insansız səhnələr seç (bina, yol, polis maşınının işıqları, məhkəmə binası, şəhər, kənd). Belə xəbərdə silahı, aləti (bıçaq, balta,
+lom, çəkic, mişar, tapança), qanı, meyiti, tabutu və hadisənin özünü göstərən ifadə YAZMA, mətndə adı çəkilsə də: kadr cinayəti təkrar göstərər.
 "uygun": false YALNIZ xəbər protokol hadisəsidirsə: rəsmi görüş, qəbul, danışıqlar, telefon danışığı, təbrik, başsağlığı, təyinat, məktub
 (ümumi kadr həmin adamları göstərirmiş kimi görünər). Qalan hər xəbər — true: cinayət, qəza, ölüm, yanğın, hadisə, idman, bəyanat, müsahibə,
 iqtisadiyyat, qiymət, hava, təbiət, nəqliyyat, tikinti, texnologiya, müharibənin gedişi. Xəbər konkret bir adam haqqında olsa belə, səhnə
@@ -155,6 +157,14 @@ function serhAzdir(text, h = SERH_MIN) {
   const t = String(text ?? "").replace(/\s+/g, " ").trim(), n = t ? t.split(/(?<=[.!?…])\s+(?=[\p{Lu}\d«"])/u).filter(Boolean).length : 0;
   return n < h.cumle || t.length < h.simvol ? `şərh azdır: ${n} cümlə, ${t.length} simvol (ən az ${h.cumle} cümlə, ${h.simvol} simvol)` : "";
 }
+// Qan qadağasının sözü (x.kenar: qanlı, qan içində, meyit, cəsəd, ölüm anı, edam, baş kəsmə) və ya "". JS-in /i bayrağı «İ»-ni «i»
+// saymır: mətn həm özü, həm dilin kiçik hərfi ilə yoxlanır («MEYİT»).
+const kenarCache = new WeakMap();
+function kenarSozu(metn, D = dil()) {
+  if (!kenarCache.has(D)) kenarCache.set(D, D.x?.kenar ? new RegExp(D.x.kenar, "iu") : null);
+  const re = kenarCache.get(D), s = String(metn ?? "");
+  return re ? ((s.match(re) || s.toLocaleLowerCase(D.locale || "az").match(re) || [])[0] || "") : "";
+}
 // hed: başqa ölçülü mətn üçün hədlər (X videosunun qısa mətni, video-dunya.cjs xGenislet): { min, max, sentMin, sentMax }.
 function checkText(text, source, a, policy = () => false, hed = {}) {
   const { min = TEXT_MIN, max = TEXT_MAX, sentMin = SENT_MIN, sentMax = SENT_MAX } = hed;
@@ -172,6 +182,10 @@ function checkText(text, source, a, policy = () => false, hed = {}) {
   const have = new Set([...(source.match(NUM) || []).map(normNum), ...(source.match(/\b[IVXL]{1,7}\b/g) || []).map(roman).filter(Boolean).map(String)]);
   const extra = (text.match(NUM) || []).map(normNum).filter(n => !have.has(n));
   if (extra.length) return `mənbədə olmayan rəqəm: ${extra.slice(0, 3).join(", ")}`;
+  // Qan qadağası (sahib, 2026-11-27; profil x.kenar): əvvəl yalnız X, dünya və kanal videosunda idi. Xəbər videosunda yox idi — Nərgiz
+  // Nəcəfovanın ölümü videosunun mətnində «meyiti hissələrə bölüblər» keçdi (iş 46036515482). İndi hər diktor mətni, videonun başlığı ilə.
+  const qan = kenarSozu([clean(a?.title), text].filter(Boolean).join(". "), D);
+  if (qan) return `qan qadağası: «${qan}»`;
   // Media qaydası (sahib, 2026-11-27: «Hamısını əlavə et»; video-qayda.cjs): diktor mətni və videonun başlığı birlikdə. Xəbər videosunun
   // başlığı mənbədəndir — qaydanı pozan başlıqla video olmur.
   const mq = VQ.yoxla([clean(a?.title), text].filter(Boolean).join(". "), D);
@@ -219,7 +233,8 @@ const EHTIYAT = {
   // Maraqlı video (video-maraqli.cjs): ümumi səhnə yoxdur — gepard haqqında videoda şəhər görünməsin; klip azdırsa mövzu ötürülür.
   maraqli: [],
 };
-const ehtiyat = a => EHTIYAT[a.category] || ["city skyline night", "city street traffic", "city lights night", "clouds timelapse"];
+// Faciə xəbərində bölmədən asılı olmayaraq hadisə səhnələri (insansız): Nərgiz xəbəri «Cəmiyyət»də idi, ehtiyatı «city street people walking» idi.
+const ehtiyat = a => (a.facie ? EHTIYAT.hadise : EHTIYAT[a.category]) || ["city skyline night", "city street traffic", "city lights night", "clouds timelapse"];
 
 // Protokol xəbəri (görüş, qəbul, telefon danışığı, təbrik, başsağlığı): ümumi kadr həmin adamları göstərirmiş kimi görünər —
 // belə xəbərdən video hazırlanmır (2026-11-22 nümunə videosu: Prezidentin qəbulu, fonda yad əl sıxma və göy). Gemini də yoxlayır («uygun»).
@@ -281,9 +296,12 @@ const words = s => String(s || "").toLowerCase().split(/[^a-z]+/).filter(w => w.
 // Qayda: ifadənin əsas sözü — sonuncu konkret (ümumi olmayan) söz, ingiliscədə ad birləşməsinin özəyi («border WALL», «capitol»,
 // «baku city skyline»-da «baku») — klipin təsvirində olmalıdır və konkret sözlərin ən az 60%-i (1→1, 2–3→2, 4→3) üst-üstə düşməlidir; 2026-11-23: «bullet holes car window» 2 sözlə tikinti işçisinə keçmişdi.
 // Dördüncü nümunə: «Mexico City» etiketli dələ «us mexico border wall»-a, Empire State «united states capitol»-a keçmişdi.
+// Cins sözləri (alət, avadanlıq, əşya, qurğu…) də ümumidir (2026-11-27, iş 46036515482): «metal crowbar tool»-da əsas söz «tool» sayılırdı
+// və «drill, tool, metal» etiketli qazma klipi lom əvəzinə keçdi; indi əsas söz «crowbar»-dır.
 const UMUMI = new Set(["city", "building", "street", "road", "night", "view", "aerial", "people", "traffic", "light", "sky", "skyline",
   "background", "office", "outdoor", "water", "landscape", "modern", "old", "new", "urban", "center", "exterior", "interior", "drone",
-  "united", "state", "usa", "america", "american", "world", "international", "national", "country", "global"]);
+  "united", "state", "usa", "america", "american", "world", "international", "national", "country", "global",
+  "tool", "equipment", "object", "device", "item", "thing", "machine", "material", "closeup", "detail", "scene", "footage"]);
 function relevance(q, desc) {
   const want = [...new Set(words(q))], have = new Set(words(desc));
   if (!want.length) return 1;
@@ -369,6 +387,69 @@ function yadYer(desc, icaze) {
   const t = lat(desc);
   return YERLER.find(g => !icaze.has(g) && hasName(t, g)) || "";
 }
+// --- Mövzu (sahib, 2026-11-27: «nərgizin ölümü videosunda çilingər işləri göstərilir. belə olmaz axı.») ------------------------
+// İş 46036515482 (YouTube FvteQ4nJnuw): ölüm xəbərinin diktor mətnində «dəmir linglə zərbələr endirilib» cümləsi vardı. Gemini ondan
+// «metal crowbar tool» ifadəsi yazdı, Pixabay qazma (39: drill, tool, metal, drilling, craftsman) və qaynaq (12543: welding, industry,
+// worker, factory, metal, tool) kliplərini verdi. Söz uyğunluğu «metal» + «tool» ilə keçdi («crowbar» klipdə yox idi), redaktor ikisini
+// seçdi və 51 saniyəlik video 11 kadrda bu iki klipdən quruldu. Klipin xəbərin mövzusuna uyğunluğunu heç bir addım yoxlamırdı.
+// Qayda (hər xəbər, kodla): klipin etiketində və ya axtarış ifadəsində fəaliyyət (iş və sənət, mətbəx, tibb, idman zalı, əyləncə)
+// varsa, o fəaliyyətin adı xəbərin başlığında və ya diktor mətnində olmalıdır (profil: kadr.movzu). Yoxdursa klip götürülmür:
+// uyğun klip çatmırsa yad klip qoyulmur, video olmur (KLIP_MIN). Faciə xəbərində (ölüm, qətl, qəza, fəlakət, məhkəmə; profil:
+// kadr.facie) əlavə ehtiyat: silah və alət, qan, meyit, ölüm, qorxu, yaxın planda insan və şən əhval kadrı heç vaxt — belə ifadə
+// banka göndərilmir da; ehtiyat səhnələr hadisə bölməsinindir (insansız); montaj redaktoru kadrlara baxmayıbsa bank klipi qoyulmur.
+const teqler = list => new Set(list.flatMap(words));
+const MOVZU_TEQ = {
+  is: teqler(["craft", "crafts", "craftsman", "craftsmanship", "handicraft", "handmade", "workshop", "carpenter", "carpentry", "woodwork",
+    "woodworking", "joinery", "locksmith", "welding", "welder", "weld", "drilling", "drill", "driller", "lathe", "grinder", "grinding", "sawing",
+    "sawmill", "forge", "forging", "blacksmith", "metalwork", "metalworking", "soldering", "wimble", "factory", "industry", "industrial",
+    "manufacturing", "manufacture", "foundry", "machinery"]),
+  metbex: teqler(["cooking", "cook", "kitchen", "chef", "recipe", "baking", "bakery", "meal", "cuisine", "dish", "food", "restaurant", "dinner",
+    "lunch", "breakfast", "barbecue", "grill", "frying", "salad", "dessert"]),
+  tibb: teqler(["surgery", "surgeon", "operating", "doctor", "nurse", "syringe", "injection", "vaccine", "vaccination", "medicine", "medical",
+    "clinic", "patient", "pill", "pills", "hospital"]),
+  zal: teqler(["fitness", "gym", "workout", "yoga", "exercise", "bodybuilding", "dumbbell", "treadmill", "aerobics", "pilates"]),
+  eylence: teqler(["holiday", "vacation", "beach", "tropical", "resort", "party", "celebration", "celebrate", "wedding", "bride", "groom",
+    "romantic", "romance", "fireworks", "christmas", "carnival", "cocktail", "picnic", "honeymoon", "sailboat", "yacht", "surfing",
+    "sunbathing", "festival", "disco", "nightclub"]),
+};
+const MOVZU_AD = { is: "iş və sənət", metbex: "mətbəx və yemək", tibb: "tibb", zal: "idman zalı", eylence: "əyləncə və istirahət" };
+const FACIE_TEQ = {
+  alet: teqler(["knife", "knives", "axe", "hatchet", "cleaver", "crowbar", "hammer", "saw", "chainsaw", "machete", "blade", "sword", "dagger",
+    "weapon", "gun", "pistol", "revolver", "rifle", "shotgun", "firearm", "bullet", "ammunition", "cartridge", "rope", "noose", "tool", "drill",
+    "wrench", "screwdriver", "pliers", "scissors"]),
+  olum: teqler(["blood", "bloody", "bleeding", "corpse", "cadaver", "dead", "death", "deadly", "morgue", "coffin", "casket", "gore", "wound",
+    "wounded", "injured", "injury", "murder", "murderer", "killer", "kill", "killing", "victim", "horror", "scary", "creepy", "halloween",
+    "zombie", "skull", "skeleton", "body"]),
+  insan: teqler(["portrait", "face", "girl", "boy", "woman", "man", "child", "children", "kid", "baby", "teenager", "teen", "couple", "family",
+    "selfie", "person", "people"]),
+  ehval: new Set([...MOVZU_TEQ.eylence, ...teqler(["happy", "happiness", "smile", "smiling", "laugh", "laughing", "fun", "funny", "joy",
+    "joyful", "cheerful", "relax", "relaxing", "relaxation", "peaceful", "love", "sunset"])]),
+};
+const FACIE_AD = { alet: "silah və ya alət", olum: "qan, meyit, ölüm və ya qorxu", insan: "yaxın planda insan", ehval: "şən və ya istirahət əhvalı" };
+// Faciə xəbəridir: hadisə bölməsi və ya başlıqda, diktor mətnində ölüm, qətl, qəza, fəlakət, məhkəmə sözü (profil: kadr.facie).
+function facie({ title = "", text = "", category = "" } = {}, D = dil()) {
+  if (category === "hadise") return true;
+  const s = clean([title, text].filter(Boolean).join(". "));
+  return !!(s && D.re.facie && (D.re.facie.test(s) || D.re.facie.test(s.toLocaleLowerCase(D.locale || "az"))));
+}
+// Klipin (etiketlər) və ya axtarış ifadəsinin mövzusu xəbərə yaddırmı: səbəb (azərbaycanca) və ya "" — uyğundur.
+// metn: xəbərin başlığı və diktor mətni (videonun dilində); boşdursa fəaliyyət yoxlanmır (hava videosu: mətn yoxdur, səhnələri koddandır).
+// Profildə fəaliyyətin sözü yoxdursa həmin fəaliyyətin klipi götürülmür: xəbərə bağlamaq olmur.
+function yadMovzu(tags, { metn = "", facie: F = false } = {}, D = dil()) {
+  const have = new Set(words(tags)), tap = set => [...set].filter(w => have.has(w));
+  if (F) for (const [k, set] of Object.entries(FACIE_TEQ)) {
+    const w = tap(set);
+    if (w.length) return `faciə xəbərində ${FACIE_AD[k]} (${w.slice(0, 3).join(", ")})`;
+  }
+  const s = clean(metn), lc = s.toLocaleLowerCase(D.locale || "az");
+  if (!s) return "";
+  for (const [k, set] of Object.entries(MOVZU_TEQ)) {
+    const w = tap(set), re = D.re.movzu?.[k];
+    if (w.length && !(re && (re.test(s) || re.test(lc)))) return `xəbərdə olmayan mövzu: ${MOVZU_AD[k]} (${w.slice(0, 3).join(", ")})`;
+  }
+  return "";
+}
+
 // Uyğunluğa görə (ən uyğun əvvəl), bərabər olanda şaquli əvvəl; uyğun olmayan atılır.
 const rank = list => list.filter(x => x.score > 0).sort((a, b) => b.score - a.score || (b.h > b.w) - (a.h > a.w));
 
@@ -411,8 +492,14 @@ const NAMIZED_MAX = 3, SERIYA = 60;
 async function goruntu(axtar, dir, { env = process.env, fetch: f = globalThis.fetch, log = console.log, say = KLIP_SAY, category = "", istifade = new Set(), yer = [], xeber = null, arxiv = [], hava = null } = {}) {
   const menbeler = MENBELER.filter(m => env[m.env]);
   if (!menbeler.length && !(arxiv || []).some(e => e?.menbe === "Sahib")) { log("video: görüntü açarı yoxdur (PEXELS_API_KEY, PIXABAY_API_KEY) — görüntüsüz (köhnə fon)"); return []; }
+  // Mövzu (yadMovzu): xəbərin başlığı və diktor mətni; faciə xəbərində əlavə ehtiyat.
+  const M = { metn: xeber ? [xeber.title, xeber.text].filter(Boolean).join(". ") : "", facie: facie({ title: xeber?.title, text: xeber?.text, category }) };
+  if (M.facie) log("video: faciə xəbəri — silah, alət, qan, meyit, insan və şən kadr götürülmür");
+  // Mövzuya yad ifadə banka göndərilmir (faciə xəbərində «metal crowbar tool» — cinayətin aləti).
+  const movzulu = q => { const y = yadMovzu(q, M); if (y) log(`video: ifadə ötürüldü — «${q}»: ${y}`); return !y; };
   // Əvvəl xəbərin yerləri (əsl yer görüntüsü başlıq kadrına), sonra Gemini-nin montaj ifadələri.
-  const Y = yerPlan(yer), own = [...new Set([...Y.axtar, ...queries(axtar)])], spare = ehtiyat({ category }).filter(q => !own.includes(q));
+  const Y = yerPlan(yer), own = [...new Set([...Y.axtar, ...queries(axtar)])].filter(movzulu);
+  const spare = ehtiyat({ category, facie: M.facie }).filter(q => !own.includes(q) && yadMovzu(q, M) === "");
   if (Y.axtar.length) log(`video: yer — ${Y.axtar.join("; ")}`);
   const cand = [], seen = new Set(istifade), yadlar = [];
   // 0) Arxiv: xəbərin yerinin yoxlanmış klipləri (əvvəl sahibin öz görüntüsü, sonra dəqiq obyekt, sonra şəhər). Klipin indiki faylı
@@ -427,6 +514,8 @@ async function goruntu(axtar, dir, { env = process.env, fetch: f = globalThis.fe
       const c = await VA.hazirla(n.e, { env, fetch: f });
       if (!c) { log(`video: arxiv klipi alınmadı — ${n.e.id} (bankda silinib və ya açar yoxdur)`); continue; }
       seen.add(`${c.p}:${c.id}`);
+      const ym = yadMovzu(c.tags || "", M);
+      if (ym) { log(`video: arxiv klipi ötürüldü — ${n.e.id}: ${ym}`); continue; }
       arx.push({ m: { name: c.p }, c, q: n.e.obyekt || n.e.yer[0], sira: -1, arxiv: n });
     }
     if (arx.length) log(`video: arxiv — ${arx.map(x => `${x.c.p} ${x.c.id} (${x.arxiv.level}: ${x.q})`).join("; ")}`);
@@ -443,6 +532,8 @@ async function goruntu(axtar, dir, { env = process.env, fetch: f = globalThis.fe
         seen.add(id);
         const yad = yadYer(c.tags || "", Y.icaze);
         if (yad) { yadlar.push({ p: m.name, user: c.user, id: Number(c.id) }); log(`video: klip ötürüldü — «${q}» ${m.name} ${c.id}: başqa yer (${yad})`); continue; }
+        const ym = yadMovzu(c.tags || "", M);
+        if (ym) { log(`video: klip ötürüldü — «${q}» ${m.name} ${c.id}: ${ym}`); continue; }
         cand.push({ m, c, q, sira: k++ });
       }
     }
@@ -458,6 +549,8 @@ async function goruntu(axtar, dir, { env = process.env, fetch: f = globalThis.fe
   const all = [...arx, ...cand];
   const ilk = arx.filter(x => x.arxiv.ilk).slice(0, 2);
   let pick = xeber && env.GEMINI_API_KEY && all.length ? await redaktor(all, xeber, say, { env, fetch: f, log }) : null;
+  // Faciə xəbəri: redaktor kadrlara baxmayıbsa (Gemini cavab vermədi, açar yoxdur) klip qoyulmur — yoxlanmamış kadr ölüm xəbərinə düşməsin.
+  if (!pick && M.facie && all.length) { log("video: faciə xəbəri — montaj redaktoru kadrlara baxmadı, klip qoyulmur"); pick = []; }
   if (!pick) pick = [...all].sort((a, b) => a.sira - b.sira || all.indexOf(a) - all.indexOf(b)).slice(0, say);
   pick = [...ilk, ...pick.filter(x => !ilk.includes(x))];
   // 3) Yükləmə, seçim sırası ilə.
@@ -489,7 +582,10 @@ async function goruntu(axtar, dir, { env = process.env, fetch: f = globalThis.fe
 const REDAKTOR = `Sən 8ulduz.az xəbər videosunun montaj redaktorusan. Aşağıda xəbər və video bankında tapılmış kliplər var: nömrə, axtarış
 ifadəsi və bankın klipə yazdığı etiketlər; sonra hər klipin bir kadrı şəkil kimi («Klip N»). Videonun kadrları üçün ən çox {n} klip seç,
 MONTAJ SIRASI İLƏ: əvvəl xəbərin yerini və ya əsas səhnəsini göstərən, sonra diktor mətninin cümlələrinin sırası ilə.
-Əvvəlcə hər klipin yerini müəyyən et (yerler), sonra seç (klip).
+Əvvəlcə hər klipin yerini (yerler) və kadrda nə göstərildiyini (movzu) müəyyən et, sonra seç (klip).
+- movzu: HƏR klip üçün bir sətir. "gosterir" — kadrda nə var (2–5 söz, azərbaycanca: «qazma dəzgahı», «gecə polis maşını»);
+  "xeberin_movzusu" — kadr xəbərin mövzusunu və ya xəbərin yerinin ümumi səhnəsini göstərir (true/false). Xəbərdə olmayan iş, sənət
+  və fəaliyyət (qazma, qaynaq, dülgərlik, fabrik, mətbəx, idman zalı) — false, axtarış ifadəsinə uyğun olsa da.
 - yerler: etiketində və ya şəklində konkret yer görünən HƏR klip üçün bir sətir. Yer: şəhər, ölkə, region, tanınan bina, stadion;
   şəkildə ölkəni göstərən əlamət də sayılır — lövhə və yazının dili (heroqlif, ərəb, kiril…), brend və yanacaq şirkəti, bayraq,
   nömrə nişanı, memarlıq, maşınların yolun hansı tərəfi ilə getməsi (Azərbaycanda sağ tərəf). "yer" — ingiliscə ad (dəqiq yer
@@ -505,9 +601,11 @@ Seçim qaydaları:
 - Klipin əhvalı xəbərə uyğun olmalıdır: partlayış, qəza, müharibə, cinayət, ölüm, fəlakət xəbərində istirahət, turizm, bayram,
   romantika klipini (yelkənli qayıq, çimərlik, gün batımı, "holiday", "peaceful", "tropical") SEÇMƏ.
 - Cinayət, qəza, ölüm xəbərində tanınan insan üzü olan klipi seçmə.
-- "xeberin_yeri": false olan klipi SEÇMƏ.
+- Ölüm, qətl, qəza, fəlakət xəbərində silah və alət (bıçaq, balta, lom, çəkic, mişar, tapança, qazma), qan, meyit, cəsəd, tabut,
+  ölüm anı göstərən klipi SEÇMƏ: cinayətin alətini göstərmə, mətndə adı çəkilsə də.
+- "xeberin_yeri": false və ya "xeberin_movzusu": false olan klipi SEÇMƏ.
 - Uyğun klip azdırsa az seç: yanlış kadr qoymaqdansa klipin təkrarı yaxşıdır. Heç biri uyğun deyilsə boş siyahı.
-Yalnız JSON qaytar: {"yerler": [{"klip": nömrə, "yer": "ad", "xeberin_yeri": true}], "klip": [nömrələr]}
+Yalnız JSON qaytar: {"yerler": [{"klip": nömrə, "yer": "ad", "xeberin_yeri": true}], "movzu": [{"klip": nömrə, "gosterir": "...", "xeberin_movzusu": true}], "klip": [nömrələr]}
 
 Xəbər: {title}
 Yer: {yer}
@@ -559,9 +657,16 @@ async function redaktor(cand, x, n, { env = process.env, fetch: f = globalThis.f
     const k = Number(e?.klip);
     if (Number.isInteger(k) && k >= 1 && k <= cand.length && !cand[k - 1].arxiv && !yerUygun(e, cand[k - 1].c.tags, x)) yad.set(k, lat(e.yer));
   }
+  // Mövzu qaydası kodla (2026-11-27): redaktor klipi «xəbərin mövzusu deyil» adlandırıbsa, seçsə də atılır.
+  const yadM = new Map();
+  for (const e of Array.isArray(j.movzu) ? j.movzu : []) {
+    const k = Number(e?.klip);
+    if (Number.isInteger(k) && k >= 1 && k <= cand.length && e?.xeberin_movzusu === false) yadM.set(k, clean(e.gosterir || "").slice(0, 60) || "?");
+  }
   const secdi = [...new Set(j.klip.map(Number).filter(k => Number.isInteger(k) && k >= 1 && k <= cand.length))];
   for (const k of secdi) if (yad.has(k)) log(`video: klip ötürüldü — «${cand[k - 1].q}» ${cand[k - 1].m.name} ${cand[k - 1].c.id}: redaktor başqa yer gördü (${yad.get(k)})`);
-  const idx = secdi.filter(k => !yad.has(k)).slice(0, n);
+  for (const k of secdi) if (!yad.has(k) && yadM.has(k)) log(`video: klip ötürüldü — «${cand[k - 1].q}» ${cand[k - 1].m.name} ${cand[k - 1].c.id}: redaktor mövzuya yad gördü (${yadM.get(k)})`);
+  const idx = secdi.filter(k => !yad.has(k) && !yadM.has(k)).slice(0, n);
   log(`video: montaj redaktoru ${cand.length} namizəddən (${imgs.filter(Boolean).length} kadr) ${idx.length} klip seçdi`);
   return idx.map(k => cand[k - 1]);
 }
@@ -571,4 +676,4 @@ const BANK = ["Pixabay", "Pexels"];
 const kredit = klip => [...new Set((klip || []).map(k => clean(k.kredit || k.p)).filter(Boolean))]
   .sort((a, b) => BANK.includes(a) - BANK.includes(b)).join(", ");
 
-module.exports = { ssenari, promptOf, dilLatin, goruntu, kredit, OLKELER, SEHERLER, LAQEB, PAYTAXT, hasName, lat, getJson, slug, words, redaktor, REDAKTOR, sekil, yerUygun, roman, protokol, relevance, latin, hashtags, places, yerPlan, yadYer, EHTIYAT, checkText, SERH_MIN, serhAzdir, queries, bestFile, pixabayFile, MENBELER, sourceText, ehtiyat, gemini, PROMPT, TEXT_MIN, TEXT_MAX };
+module.exports = { ssenari, promptOf, dilLatin, goruntu, kredit, facie, yadMovzu, MOVZU_TEQ, FACIE_TEQ, kenarSozu, UMUMI, OLKELER, SEHERLER, LAQEB, PAYTAXT, hasName, lat, getJson, slug, words, redaktor, REDAKTOR, sekil, yerUygun, roman, protokol, relevance, latin, hashtags, places, yerPlan, yadYer, EHTIYAT, checkText, SERH_MIN, serhAzdir, queries, bestFile, pixabayFile, MENBELER, sourceText, ehtiyat, gemini, PROMPT, TEXT_MIN, TEXT_MAX };
