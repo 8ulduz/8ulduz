@@ -459,6 +459,11 @@ def verbalize(text):
     # Mənbə saytlarının qalığı: «[…]» və xülasə sonundakı «Source» oxunmur.
     t = re.sub(r"\s*\[(?:…|\.\.\.)\]", " ", t)
     t = re.sub(r"(?:^|\s)Source\s*$", "", t)
+    # Rum rəqəmi sıra sayı sözündən əvvəl, tək hərfli də (sahib, 2026-11-27: «V tur — 5-ci tur yerinə v tur deyir»): «V turunda» →
+    # «beşinci turunda», «I yer» → «birinci yer», «II Dünya müharibəsi». Tək hərf (V, X, I) başqa yerdə rəqəm sayılmır: hərf ola bilər.
+    t = re.sub(rf"\b([IVXL]{{1,6}})\s+(?=(?:tur|əsr|hissə|mərhələ|dərəcə|mövsüm|kateqoriya|sinif|qrup|fəsil|bölmə|kurs|cild|yer|raund|dövrə|"
+               rf"sessiya|çağırış|qurultay|liqa|Liqa|divizion|dünya|Dünya|beynəlxalq|Beynəlxalq|respublika|Respublika)[{LO}]*\b)",
+               lambda m: ordinal_words(roman_value(m.group(1))) + " " if roman_value(m.group(1)) else m.group(0), t)
     # Nöqtəli ixtisarlar cümləni bölməsin (2026-11-24): «və s.» → «və sairə», «Bakı ş.» → «Bakı şəhəri», «prof. Əliyev»,
     # «5 mln. manat» (nöqtə düşür). İxtisar cümlənin sonundadırsa nöqtə qalır.
     t = re.sub(rf"\bvə ([sb])\.(?=(\s+[{UP}]|\s*$)|)", _abbr_and_so_on, t)

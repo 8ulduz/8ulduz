@@ -81,6 +81,11 @@ class HumanReadingTest(unittest.TestCase):
     def test_capitalised_words_and_roman_numerals(self):
         self.assertEqual(said("VİDEO: Bakıda QƏZA OLDU - FOTOLAR"), "video | bakıda qəza oldu | fotolar")
         self.assertEqual(said("XII turda, II Dünya müharibəsi, XV əsr"), "on ikinci turda | ikinci dünya müharibəsi | on beşinci əsr")
+        # Sahib, 2026-11-27: «V tur — 5-ci tur yerinə v tur deyir videoda». Tək hərfli rum rəqəmi sıra sözündən əvvəl sıra sayıdır;
+        # başqa yerdə (Vitamin V, Pyotr I) hərf olaraq qalır.
+        self.assertEqual(az_text.for_voice("Avropa Liqasının V turunda, I yer, X əsr, V Respublika"),
+                         "Avropa Liqasının beşinci turunda, birinci yer, onuncu əsr, beşinci Respublika")
+        self.assertNotIn("beşinci", az_text.for_voice("Vitamin V və Pyotr I"))
 
     def test_number_suffix_is_attached(self):
         # Sahib, 2026-11-24: ayın günü mənsubiyyətlə — «noyabrın on doqquzunda» («on doqquzda» idi)
