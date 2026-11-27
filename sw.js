@@ -181,6 +181,7 @@ function tooOld(res) {
 // Kod izləri (v184, docs/sw-versiyalar.md): Pages hər yayımda bütün ETag-ları dəyişir. Kod faylı əvvəl kod.json ilə tutuşdurulur,
 // izi eynidirsə endirilmir. kod.json alınmasa, faylı yoxsa və ya iz fərqlidirsə əvvəlki yol. Siyahını kicilt.cjs yazır (kod.cjs).
 const KOD_URL = new URL("assets/kod.json", SCOPE_URL).href, KOD_FILE = /\.(?:js|css|webmanifest)$/;
+const KOD_OK = typeof crypto === "object" && !!crypto.subtle && typeof TextEncoder === "function"; // iz hesablanmırsa kod.json gözlənilmir
 let kodAt = 0, kodP = null;
 function kod() { // bir açılışın sorğuları bir kod.json-u bölüşür (60 s)
   if (kodP && Date.now() - kodAt < 60e3) return kodP;
@@ -209,17 +210,18 @@ async function cachedShell(req, event) {
   const key = req.url.split(/[?#]/)[0], path = new URL(key).pathname, rel = key.slice(SCOPE_URL.href.length);
   let saved = await cache.match(key, { ignoreSearch: false });
   if (saved?.redirected) saved = undefined; // yönləndirilmiş cavabı brauzer naviqasiyada rədd edir (ERR_FAILED)
-  if (req.mode === "navigate") { const k = kod(); event?.waitUntil?.(k); } // səhifənin kod sorğularından əvvəl
+  const listed = KOD_OK && KOD_FILE.test(path);
+  if (KOD_OK && (req.mode === "navigate" || saved && listed)) { const k = kod(); event?.waitUntil?.(k); } // naviqasiya kod sorğularından əvvəl soruşur
   // Müqayisə üçün mətn saxlanmış cavab səhifəyə verilməzdən ƏVVƏL götürülür: gövdə oxunandan sonra clone() xəta atır
   // və keş heç vaxt yenilənmirdi (v33-də belə idi: köhnə app.js telefonda qalırdı).
-  const savedText = saved && KOD_FILE.test(path) ? saved.clone().text().catch(() => null) : null;
+  const savedText = saved && (listed || CODE_FILE.test(path)) ? saved.clone().text().catch(() => null) : null;
   let izP;
   const same = async (m) => typeof m?.[rel] === "string" && m[rel] === await (izP ||= savedText.then((t) => t == null ? null : izOf(t)));
   // 36 saatdan köhnə nüsxə: son 36 saatda alınmış kod.json eyni izi deyirsə təzədir (eyni fayl yenidən endirilmir, tarixi köhnəlir).
-  const old = !!saved && tooOld(saved) && !(savedText && await same(await kodSaved(cache)));
+  const old = !!saved && tooOld(saved) && !(listed && await same(await kodSaved(cache)));
   let tell = !old; // səhifəyə saxlanmış nüsxə verilirsə təzə kod barədə xəbər gedir; təzəsi verilibsə ehtiyac yoxdur
   const get = () => fetch(new Request(key, { cache: "no-cache" }));
-  const net = savedText && !old ? kod().then(same).then((ok) => ok ? null : get(), get) : get();
+  const net = saved && listed && !old ? kod().then(same).then((ok) => ok ? null : get(), get) : get();
   const network = net.then(async (fresh) => {
     if (!fresh) return null; // kod.json: baytlar eynidir
     if (fresh.redirected) return req.mode === "navigate" ? Response.redirect(fresh.url, 302) : fresh;
