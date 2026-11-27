@@ -2237,6 +2237,17 @@ test('speed: Qafqazinfo and Sportinfo pictures come through wsrv.nl (2026-11-27:
   }
   for (const u of ['https://metbuat.az/a.webp', 'https://cdn.sporx.com/img/a.jpg', 'https://goygol-ih.gov.az/a.jpg']) assert.equal(sized(u, 360), u, 'wsrv.nl ala bilmir, orijinal: ' + u);
 });
+test('speed: the first two «Son xəbərlər» cards sit on the phone first screen, so their pictures are not lazy (the ready-made HTML asks for them before app.css; 2026-11-27, slow 4G: painted with the first paint, 2,6 → 1,4 s) and low priority; the rest stay lazy', () => {
+  const { latestBlock } = app().api;
+  const rows = Array.from({ length: 5 }, (_, i) => ({ id: 'l' + i, title: 'Xəbər ' + i, source: 'APA', sourceUrl: `https://apa.az/${i}`, imageUrl: `https://apa.az/${i}.jpg`, publishedAt: new Date(Date.now() - i * 60e3).toISOString(), category: 'gundem' }));
+  const tags = html => html.match(/<img [^>]*>/g) || [];
+  const imgs = tags(latestBlock(rows));
+  assert.equal(imgs.length, 5);
+  imgs.slice(0, 2).forEach(t => assert.ok(t.includes('fetchpriority="low"') && !t.includes('loading='), 'ilk ekranın kartı: ' + t));
+  imgs.slice(2).forEach(t => assert.ok(t.includes('loading="lazy"') && !t.includes('fetchpriority'), 'aşağıdakı kart tənbəldir: ' + t));
+  const heavy = tags(latestBlock([{ ...rows[0], sourceUrl: 'https://metbuat.az/a', imageUrl: 'https://metbuat.az/a.jpg' }, ...rows.slice(1)]))[0];
+  assert.ok(heavy.includes('loading="lazy"') && !heavy.includes('fetchpriority'), 'proksisiz ağır orijinal ilk ekranda da tənbəldir');
+});
 
 // CSP: daxili skript yalnız hash ilə, daxili hadisə işləyicisi yoxdur.
 test('content security policy allows only the page own inline script', () => {
