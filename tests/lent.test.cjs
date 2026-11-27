@@ -78,9 +78,21 @@ test('Videolent: videos come from the minute live channel (writer → site ~5 mi
   assert.ok(src.includes('credentials: "omit"'), 'kuki göndərilmir');
   const sh = fs.readFileSync(path.join(__dirname, '..', '.github/scripts/pipeline.sh'), 'utf8');
   assert.ok(sh.includes('markets social; do') && sh.includes('  for name in reels canli; do'), 'push_live reels.json-u da göndərir');
-  const pull = sh.slice(sh.indexOf('pull_reel_src() {'), sh.indexOf('\n}\n', sh.indexOf('pull_reel_src() {')));
-  assert.ok(pull.includes('contents/$src?ref=main') && pull.includes('*_x.json)') && pull.includes('json.load') && !pull.includes('git '), 'yalnız oz_x.json, yoxlanır, git toqquşması yoxdur');
-  assert.ok(sh.includes('[ -f "$STATE/reel-src.new" ] && mv -f "$STATE/reel-src.new" "$CUR/$(cat "$STATE/reel-src.name")"'), 'əsas döngü yerli faylı qoyur, şəbəkə yox');
+  const fn = name => sh.slice(sh.indexOf(`${name}() {`), sh.indexOf('\n}\n', sh.indexOf(`${name}() {`)));
+  const pull = fn('pull_reel_src'), apply = fn('apply_queue');
+  // Sahib 2026-11-27: növbə main-də yox, x-novbe budağındadır; main yalnız budaq hələ yoxdursa (404) və bu işdə görünməyibsə oxunur.
+  assert.ok(sh.includes('NOVBE_BRANCH="${NOVBE_BRANCH:-x-novbe}"') && fn('novbe_file').includes('*_x.json)'), 'yalnız oz_x.json');
+  assert.ok(pull.includes('contents/$src?ref=$ref') && pull.includes('ref="refs/heads/$NOVBE_BRANCH"') && pull.includes('json.load') && !pull.includes('git '), 'budaqdan, yoxlanır, git toqquşması yoxdur');
+  assert.ok(/if \[ -e "\$STATE\/novbe-budaq" \] \|\| ! grep -q "\(HTTP 404\)" "\$err"; then rm -f "\$tmp" "\$err"; return 1; fi\n\s+ref="refs\/heads\/main"/.test(pull),
+    'main-ə yalnız budaq yoxdursa keçir; şəbəkə xətasında və budaq görünəndən sonra yox');
+  assert.ok(apply.includes('mv -f "$CUR/$src.yeni" "$CUR/$src"'), 'növbə kod qovluğuna atomik qoyulur: yavaş dövrə yarımçıq fayl oxumur');
+  const loop = sh.slice(sh.indexOf('\nwhile :; do\n  began=$SECONDS'));
+  assert.ok(loop.includes('if [ -e "$STATE/novbe.yeni" ]; then rm -f "$STATE/novbe.yeni"; apply_queue; fi'), 'əsas döngü yerli faylı qoyur, şəbəkə yox');
+  assert.ok(loop.includes('if [ -e "$STATE/novbe-budaq" ]; then copy_code "$REPO_DIR" "$CUR" "$(novbe_file)"; else copy_code "$REPO_DIR" "$CUR"; fi'),
+    'main yazısından sonra main-in donmuş oz_x.json-u budağın nüsxəsinin üstünə yazılmır');
+  const start = sh.slice(sh.indexOf('# --------------------------------------------------------------------- başlanğıc'));
+  assert.ok(start.indexOf('pull_reel_src || { sleep 5; pull_reel_src; }') > start.indexOf('copy_code "$REPO_DIR" "$CUR"')
+    && start.indexOf('apply_queue') < start.indexOf('\nslow_loop &'), 'işin əvvəlində budağın nüsxəsi yavaş dövrədən əvvəl gəlir');
 });
 
 test('Videolent: a big swipe-up arrow shows on the first open only (owner 2026-11-20)', () => {

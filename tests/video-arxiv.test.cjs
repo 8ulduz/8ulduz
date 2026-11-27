@@ -337,7 +337,7 @@ test("arxiv sahib: the owner's release lines — own footage or written permissi
 });
 
 test("arxiv: the library lives outside main — history-less video-arxiv branch; montage reads it and falls back to the PR seed; nothing pushes main", () => {
-  // Sahibin birbaşa main-ə yazma icazəsi yalnız X yazıcısının növbə faylı üçündür (2026-11-18).
+  // Botlardan main-ə yalnız xəbər axını yazır; X yazıcısı da 2026-11-27-dən növbəni yalnız x-novbe budağına yazır (sahib).
   const wf = read(".github/workflows/video-arxiv.yml");
   assert.ok(!/git add|HEAD:main|refs\/heads\/main"|pull --rebase/.test(wf), "arxiv işi main-ə yazmır");
   const pushes = [...wf.matchAll(/git push[^\n]*/g)].map(m => m[0]);
