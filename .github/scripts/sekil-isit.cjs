@@ -40,13 +40,17 @@ function targets(root, first, host) {
   return [...out];
 }
 
+// Vaxt həddi adi taymerlədir: AbortSignal.timeout-un taymeri prosesi açıq saxlamır (unref) — asılan sorğu qalanda Node hədd
+// dolmadan çıxırdı (CI, Linux: «Promise resolution is still pending but the event loop has already resolved»).
 async function ask(u, ms, fetchImpl) {
+  const c = new AbortController(), t = setTimeout(() => c.abort(new DOMException("vaxt həddi", "TimeoutError")), ms);
   try {
-    const r = await fetchImpl(u, { headers: { "User-Agent": UA, "Accept": "image/webp,image/*" }, signal: AbortSignal.timeout(ms) });
+    const r = await fetchImpl(u, { headers: { "User-Agent": UA, "Accept": "image/webp,image/*" }, signal: c.signal });
     const ok = r.status === 200 && /^image\//.test(r.headers.get("content-type") || "");
     try { await r.body?.cancel(); } catch {}    // şəklin özü lazım deyil: Worker onu cavabdan əvvəl alıb, R2-yə waitUntil-də yazır
     return { u, ok, status: r.status, from: r.headers.get("x-sekil") || "" };
   } catch (e) { return { u, ok: false, status: e?.name === "TimeoutError" || e?.name === "AbortError" ? "vaxt" : "şəbəkə" }; }
+  finally { clearTimeout(t); }
 }
 
 // PARALLEL-dən çox sorğu eyni anda getmir; TOTAL_MS bitəndə yeni sorğu başlamır, gedən sorğu da qalan vaxtla kəsilir.
