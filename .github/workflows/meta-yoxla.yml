@@ -42,4 +42,5 @@ jobs:
           IG_USER_ID: ${{ vars.IG_USER_ID }}
           FB_GRAPH_VERSION: ${{ vars.FB_GRAPH_VERSION }}
           META_ROLE_MAX: ${{ vars.META_ROLE_MAX }}
+          META_KESF: ${{ vars.META_KESF || 'baku.ws_official,oxuaz,report.az,qafqazinfo_az,baku.tv,maraqli.tv,baku.es,patrul.az' }}
         run: node .github/scripts/meta-yoxla.cjs

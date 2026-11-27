@@ -147,6 +147,21 @@ async function check({ env = process.env, f = fetch, now = Date.now() } = {}) {
   } else if (fbP.old >= 2 && !fbP.measured) {
     out.info.push("Facebook baxış statistikası alınmadı: görünməni ölçmək olmadı");
   }
+
+  // 6. Sınaq (2026-11-27, sahib: «Baku VS də sosial şəbəkələrdən götürüb öz komentini verib. Biz bunu da etməliyik»): Business
+  // Discovery başqa biznes/yaradıcı hesabın Reels-lərini verirmi, media_url (fayl) gəlirmi. Yalnız oxuyur, iş düşmür.
+  out.kesf = [];
+  const kesf = String(env.META_KESF ?? "").split(",").map(s => s.trim()).filter(Boolean);
+  if (ig && kesf.length) {
+    for (const u of kesf) {
+      const q = v => `business_discovery.username(${u}){username,followers_count,media_count,media.limit(12){media_product_type,media_type,media_url,permalink,timestamp,like_count,comments_count${v ? ",view_count" : ""}}}`;
+      let r = await get(encodeURIComponent(ig), { fields: q(true) });
+      if (r?.error) r = await get(encodeURIComponent(ig), { fields: q(false) });
+      const b = r?.business_discovery, list = b?.media?.data || [], reel = list.filter(x => x.media_product_type === "REELS");
+      out.kesf.push({ u, error: err(r), followers: b?.followers_count ?? null, n: list.length, reels: reel.length, fayl: reel.filter(x => x.media_url).length,
+        views: reel.map(x => x.view_count).filter(v => v != null), son: reel[0]?.timestamp || "", link: reel.find(x => x.media_url)?.permalink || reel[0]?.permalink || "" });
+    }
+  }
   return out;
 }
 
@@ -184,6 +199,10 @@ function report(out) {
   };
   table("Facebook Reels", out.fb);
   table("Instagram Reels", out.ig);
+  if (out.kesf?.length) {
+    L.push("", "### Business Discovery (sınaq)", "", "| Hesab | İzləyici | Son media | Reels | Faylı olan | Baxış (Reels) | Son | Nümunə / xəta |", "|---|---|---|---|---|---|---|---|");
+    for (const k of out.kesf) L.push(`| ${k.u} | ${fmtN(k.followers)} | ${k.n} | ${k.reels} | ${k.fayl} | ${k.views.join(", ") || "—"} | ${day(k.son)} | ${k.error ? k.error.replace(/\|/g, "/") : k.link || "—"} |`);
+  }
   return masker(out.keys)(L.join("\n")) + "\n";
 }
 
