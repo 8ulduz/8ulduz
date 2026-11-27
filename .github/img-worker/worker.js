@@ -91,7 +91,7 @@ export async function image({ query }, env, ctx) {
   }
   try { body = await r.arrayBuffer(); } catch (e) { return text(timedOut(e) ? 504 : 502, "wsrv.nl cavabı yarımçıq"); }
   if (!body.byteLength || body.byteLength > MAX_BYTES) return text(502, "şəklin ölçüsü: " + body.byteLength);
-  const res = ok(body, type, "wsrv");
+  const res = ok(body.slice(0), type, "wsrv"); // cavaba nüsxə: R2-yə gedən bufer cavabın gövdəsi ilə paylaşılmır
   later(Promise.all([
     bucket && bucket.put(name, body, { httpMetadata: { contentType: type, cacheControl: KEEP } }).catch(() => {}),
     cache && cache.put(key, res.clone()).catch(() => {}),
