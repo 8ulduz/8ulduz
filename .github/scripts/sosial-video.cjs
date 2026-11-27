@@ -612,17 +612,17 @@ async function main() {
     return;
   }
   if (cmd === "x-kadr") {
-    // «Çox baxılan» X videosu (sahib, 2026-11-26: «Bu video 4 milyondan çox dəfə izlənib — nəyə lazımdır?»): paylaşımın mətnində əlavə
-    // fakt yoxdursa, videonun kadrlarında açıq görünən 1–2 fakt (video-dunya.cjs xKadrMetn). ffmpeg quraşdırılandan sonra işləyir
-    // (sosial-video.yml «X: kadrlardan mətn»). Alınmasa mətn izah (başlıq) olaraq qalır; kadrda ölüm, qan, meyit görünürsə iş dayanır.
-    const file = path.join(a1, "xeber.json"), x = JSON.parse(fs.readFileSync(file, "utf8"));
+    // «Çox baxılan» X videosu (sahib, 2026-11-27: «belə çox qısa və şərhi çox az və başa düşülməyən olmasın videolar»): şərh azdırsa,
+    // deyilən hadisə kadrlarda görünmürsə və ya kadrda ölüm, qan, meyit varsa iş dayanır — video paylaşılmır (video-dunya.cjs
+    // xKadrYoxla). ffmpeg quraşdırılandan sonra işləyir (sosial-video.yml «X: kadrları yoxla»). Video seçimdə siyahıya yazılıb
+    // (state.xv): eyni video bir də seçilmir. Yoxlamaq mümkün olmasa video gedir (mətni seçimdə yoxlanıb).
+    const x = JSON.parse(fs.readFileSync(path.join(a1, "xeber.json"), "utf8"));
     if (x.tur !== "x") return;
-    const app = require("./topics.cjs").loadApp(path.resolve("."));
     let r = null;
-    try { r = await VD.xKadrMetn(x, { dir: a1, policy: a => app.xariciPozur(a) }); }
-    catch (e) { console.log(`::warning::X videosu: kadrlardan mətn alınmadı — ${String(e?.message || e).slice(0, 300)}; mətn olduğu kimi qalır`); return; }
+    try { r = await VD.xKadrYoxla(x, { dir: a1 }); }
+    catch (e) { console.log(`::warning::X videosu: kadrlar yoxlanmadı — ${String(e?.message || e).slice(0, 300)}`); return; }
     if (r?.dayan) { console.log(`::error::X videosu paylaşılmır — ${r.dayan}`); process.exitCode = 1; return; }
-    if (r?.text) fs.writeFileSync(file, JSON.stringify({ ...x, text: r.text, metn: r.metn }, null, 1));
+    console.log(r?.kecdi ? `X videosu: kadrlar yoxlanmadı (${r.kecdi}) — mətn seçimdə yoxlanıb` : "X videosu: kadrlar mətnə uyğundur");
     return;
   }
   console.error("İşlədilmə: sosial-video.cjs sec <news.json> <qovluq> | numune <xəbər.json> <qovluq> | numune-hava <open-meteo.json> <qovluq> | numune-maraqli <video.json> <qovluq> | x-kadr <qovluq> | paylas <qovluq>");

@@ -11,6 +11,7 @@ const M = require("../.github/scripts/video-menbe.cjs");
 const VD = require("../.github/scripts/video-dunya.cjs");
 const SV = require("../.github/scripts/sosial-video.cjs");
 const V = require("../.github/scripts/video-xeber.cjs");
+const VS = require("../.github/scripts/video-ssenari.cjs");
 const root = path.resolve(__dirname, "..");
 const read = f => fs.readFileSync(path.join(root, f), "utf8");
 
@@ -300,6 +301,22 @@ test("arxiv: the owner's release also takes credited third-party footage («mən
 const xi = (id, o = {}) => ({ id: String(id), a: "TheFigen_", n: "Figen", m: "maraqli", u: `https://video.twimg.com/amplify_video/${id}/vid/avc1/720x1280/a.mp4?tag=21`, i: "https://pbs.twimg.com/x.jpg",
   w: 720, h: 1280, t: new Date(NOW - 2 * 3600e3).toISOString(), q: "h", v: 500000, c: "Yenidoğulmuş əkizlərin bir-birinə sarılaraq yatdığı anlar. Görüntülər milyonlarla insanı təsirləndirib.", ...o });
 
+// X paylaşımının öz mətni (api.fxtwitter.com) və Gemini-nin əlavəsi — sınaq şəbəkəsi. elave: mətn, sorğu → mətn və ya null (Gemini cavab vermir).
+const X_POST = "Newborn twins in Brazil keep hugging each other after birth, just like they did in the womb. Their mother filmed them in Sao Paulo https://t.co/abc #twins @someone";
+const X_ELAVE = "Əkizlər Braziliyada doğulandan sonra da bir-birini qucaqlamağa davam edirlər, ana bətnində olduğu kimi. Onları San-Pauluda anaları çəkib.";
+const xNet = (elave = X_ELAVE, post = X_POST, seen = { asked: [], prompt: "" }) => async (url, o = {}) => {
+  seen.asked.push(url);
+  if (url.startsWith("https://api.fxtwitter.com/")) return post == null ? { ok: false, status: 404 } : { ok: true, status: 200, json: async () => ({ tweet: { text: post } }) };
+  if (/models\?pageSize/.test(url)) return { ok: true, json: async () => ({ models: [] }) };
+  if (/generativelanguage/.test(url)) {
+    seen.prompt = JSON.parse(o.body).contents[0].parts[0].text;
+    const e = typeof elave === "function" ? elave(seen.prompt) : elave;
+    return e == null ? { ok: false, status: 400, json: async () => ({}) } : { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify({ elave: e }) }] } }] }) };
+  }
+  return { ok: false, status: 404 };
+};
+const X_ENV = { GEMINI_API_KEY: "g", VIDEO_GEMINI_WAIT_MS: "0" };
+
 test("X: the most-watched recent videos, weighted by the Instagram directions, league footage included (owner 2026-11-26); big media companies, trailers, war footage and anything the site rule refuses are left out; no topic twice in a row", () => {
   const items = [xi(100001), xi(100002, { m: "xeber", a: "bpthaber", v: 600000, c: "İstanbulda yanğınsöndürənlər balkonda qalan uşağı xilas ediblər, görüntülər yayılıb." }),
     xi(100003, { m: "idman", a: "trtspor", v: 5000000, c: "Arda Güler komandasına qələbə gətirən hərəkəti ilə yadda qaldı, azarkeşlər ayaqda alqışladı." }),
@@ -338,19 +355,19 @@ test("X: the picked video becomes a «Çox baxılan» entry — the clip leads (
   fs.writeFileSync(file, JSON.stringify({ items: [xi(100001), xi(100002, { v: 300000 })] }));
   await assert.rejects(VD.xHazirla({ now: NOW, state: {}, env: {}, dir, log: () => {}, file }), /qaydası/);
   const got = [];
-  const x = await VD.xHazirla({ now: NOW, state: { skip: {} }, env: {}, policy: () => false, dir, log: () => {}, file, deps: { indir: async (u, f, _f, ref) => { got.push([u, ref]); fs.writeFileSync(f, mp4()); return ""; } } });
+  const x = await VD.xHazirla({ now: NOW, state: { skip: {} }, env: X_ENV, fetch: xNet(), policy: () => false, dir, log: () => {}, file, deps: { indir: async (u, f, _f, ref) => { got.push([u, ref]); fs.writeFileSync(f, mp4()); return ""; } } });
   assert.deepEqual({ tur: x.tur, kind: x.kind, title: x.title, bolme: x.bolme, source: x.source, sourceUrl: x.sourceUrl, baxis: x.baxis, klip_boyu: x.klip_boyu, kredit: x.menbeVideo.kredit, category: x.category },
     { tur: "x", kind: "x", title: "Yenidoğulmuş əkizlərin bir-birinə sarılaraq yatdığı anlar", bolme: "Çox baxılan", source: "Figen (X)", sourceUrl: "https://x.com/TheFigen_/status/100001", baxis: 500000, klip_boyu: 30, kredit: "@TheFigen_ (X)", category: "dunya" });
-  assert.equal(x.text, xi(100001).c, "açarsız: yalnız izah — baxış sayı deyilmir (sahib, 2026-11-26)");
-  assert.deepEqual([x.izah, x.metn], [xi(100001).c, "basliq"], "kadrlardan mətn addımı üçün (xKadrMetn)");
+  assert.equal(x.text, `${xi(100001).c} ${X_ELAVE}`, "izah + paylaşımın faktları; baxış sayı deyilmir (sahib, 2026-11-26)");
+  assert.deepEqual([x.izah, x.metn], [xi(100001).c, "paylasim"], "kadr yoxlaması üçün (xKadrYoxla)");
   assert.deepEqual(got, [[xi(100001).u, "https://x.com/"]]);
   // Fayl alınmasa növbəti ən çox baxılan sınanır.
   const st = { skip: {} };
-  const y = await VD.xHazirla({ now: NOW, state: st, env: {}, policy: () => false, dir, log: () => {}, file, deps: { indir: async (u, f) => (/100001/.test(u) ? "HTTP 403" : (fs.writeFileSync(f, mp4()), "")) } });
+  const y = await VD.xHazirla({ now: NOW, state: st, env: X_ENV, fetch: xNet(), policy: () => false, dir, log: () => {}, file, deps: { indir: async (u, f) => (/100001/.test(u) ? "HTTP 403" : (fs.writeFileSync(f, mp4()), "")) } });
   assert.equal(y.sourceUrl, "https://x.com/TheFigen_/status/100002");
   assert.ok(st.skip[VD.xId("100001")]);
   // Montaj: klip_boyu — mətn qısa olsa da video klip boyu davam edir, sonluq sonda qalır.
-  const p = V.prepare({ id: x.id, title: x.title, text: x.text, category: "dunya", bolme: x.bolme, source: x.source, publishedAt: x.publishedAt, tur: "x", kind: "x" }, { cats: [], footage: true });
+  const p = V.prepare({ id: x.id, title: x.title, text: x.izah, category: "dunya", bolme: x.bolme, source: x.source, publishedAt: x.publishedAt, tur: "x", kind: "x" }, { cats: [], footage: true });
   assert.equal(p.label, "ÇOX BAXILAN");
   const qisa = V.timeline(p, null), uzun = V.timeline({ ...p, min_s: 30 }, null);
   assert.ok(qisa.duration < 20 && Math.abs(uzun.duration - 30) < 0.5, `${qisa.duration} → ${uzun.duration}`);
@@ -378,48 +395,80 @@ test("X: the picked video becomes a «Çox baxılan» entry — the clip leads (
 });
 
 // Sahib, 2026-11-26: «Bəli, uzat» — X-in izahı bir cümlədir, 30 saniyəlik videoda səs ~4 saniyə oxuyurdu. Həmin gün: «Bu video 4 milyondan
-// çox dəfə izlənib — nəyə lazımdır?» — baxış sayı səsdən və altyazıdan çıxıb (kadrlarda görünən faktlar: tests/video-movzu.test.cjs).
-test("X: the voice reads the caption and 1–2 facts from the post's own text (Gemini, checked like the world text); no view count; nothing invented", async () => {
+// çox dəfə izlənib — nəyə lazımdır?» — baxış sayı səsdən və altyazıdan çıxıb. 2026-11-27: «belə çox qısa və şərhi çox az və başa düşülməyən
+// olmasın videolar» — izah və kadr təsvirindən ibarət iki cümləlik video silindi: şərh ən az 3 cümlə və 180 simvoldur, paylaşımın öz
+// faktlarından; alınmayan video götürülmür.
+test("X: the voice reads the caption and 2–3 facts from the post's own text (Gemini, checked like the world text); too little or unclear → the video is not taken", async () => {
   assert.equal(VD.xBaxis, undefined, "baxış sayı cümləsi yoxdur");
   assert.ok(!("baxis_mln" in require("../.github/video-dil/az.json").x), "profildə də yoxdur");
   const IZAH = "Yenidoğulmuş əkizlərin bir-birinə sarılaraq yatdığı anlar.";
   const c = { id: VD.xId("100001"), x: xi(100001, { c: IZAH, v: 2110507 }), c: IZAH };
-  const POST = "Newborn twins in Brazil keep hugging each other after birth, just like they did in the womb. Their mother filmed them in Sao Paulo https://t.co/abc #twins @someone";
-  const ELAVE = "Əkizlər Braziliyada doğulandan sonra da bir-birini qucaqlamağa davam edirlər. Onları San-Pauluda anaları çəkib.";
-  let prompt = "", asked = [], logs = [];
-  const fx = (elave, post = POST) => async (url, o = {}) => {
-    asked.push(url);
-    if (url === VD.FX_STATUS("TheFigen_", "100001")) return post == null ? { ok: false, status: 404 } : { ok: true, status: 200, json: async () => ({ tweet: { text: post } }) };
-    if (/models\?pageSize/.test(url)) return { ok: true, json: async () => ({ models: [] }) };
-    if (/generativelanguage/.test(url)) { prompt = JSON.parse(o.body).contents[0].parts[0].text; return { ok: true, status: 200, json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify({ elave }) }] } }] }) }; }
-    return { ok: false, status: 404 };
-  };
-  const opt = (elave, post) => ({ env: { GEMINI_API_KEY: "g" }, fetch: fx(elave, post), policy: a => /Azərbaycan/.test(`${a.title} ${a.summary}`), log: s => logs.push(s) });
-  assert.equal(await VD.xMetn(c, opt(ELAVE)), `${IZAH} ${ELAVE}`);
+  const seen = { asked: [], prompt: "" };
+  const opt = (elave, post) => ({ env: X_ENV, fetch: xNet(elave, post, seen), policy: a => /Azərbaycan/.test(`${a.title} ${a.summary}`), log: () => {} });
+  assert.deepEqual(await VD.xMetn(c, opt(X_ELAVE)), { text: `${IZAH} ${X_ELAVE}` });
+  const prompt = seen.prompt;
   assert.match(prompt, /İzah: Yenidoğulmuş əkizlərin/); assert.match(prompt, /Azərbaycan ədəbi dilində/); assert.match(prompt, /ƏLAVƏ faktlar/);
+  assert.match(prompt, /2–3 cümlə/); assert.match(prompt, /Tamaşaçı Azərbaycandadır və mövzunu bilmir/); assert.match(prompt, /yalnız ekran yazısı/);
   assert.match(prompt, /Paylaşım \(@TheFigen_\): Newborn twins in Brazil .* in Sao Paulo twins someone$/, "keçid atılır, heşteq və @ işarəsiz");
-  // Yoxlamadan keçməyən əlavə atılır: izah qalır (səbəb jurnalda; sonra kadrlara baxılır — xKadrMetn).
-  const yalniz = IZAH;
-  const red = async (elave, re) => { logs = []; assert.equal(await VD.xMetn(c, opt(elave)), yalniz, elave); assert.ok(logs.some(s => re.test(s)), `${elave}: ${logs.join(" | ")}`); };
-  await red("Əkizlər 3 kiloqram çəki ilə Braziliyada doğulublar və bir-birini qucaqlayırlar.", /mənbədə olmayan rəqəm: 3/);
-  await red("Əkizlərin videosu Azərbaycanda da çox yayılıb və hamı tərəfindən bəyənilib.", /saytın qaydasından keçmir/);
-  await red("Əkizlər cəbhə bölgəsindəki xəstəxanada doğulublar və hələ orada qalırlar.", /müharibə/);
-  await red("Əkizlər Braziliyada doğulub. Anaları onları çəkib. Video çox yayılıb.", /cümlə sayı 4/);
-  await red("", /əlavə fakt yoxdur/);
-  // Qısa və ya alınmayan paylaşım, açar yoxdur: Gemini soruşulmur.
-  for (const o of [opt(ELAVE, "So cute 😍"), opt(ELAVE, null), { ...opt(ELAVE), env: {} }]) {
-    asked = [];
-    assert.equal(await VD.xMetn(c, o), yalniz);
-    assert.ok(!asked.some(u => /generativelanguage/.test(u)));
+  // Yoxlamadan keçməyən əlavə: video götürülmür (yox — səbəbi ilə).
+  const UZUN = "Onları San-Pauluda anaları çəkib və görüntünü sosial şəbəkədə paylaşıb.";
+  const red = async (elave, re) => { const r = await VD.xMetn(c, opt(elave)); assert.ok(r.yox && re.test(r.yox), `${elave}: ${JSON.stringify(r)}`); };
+  await red(`Əkizlər 3 kiloqram çəki ilə Braziliyada doğulublar və bir-birini qucaqlayırlar. ${UZUN}`, /mənbədə olmayan rəqəm: 3/);
+  await red(`Əkizlərin videosu Azərbaycanda da çox yayılıb və hamı tərəfindən bəyənilib. ${UZUN}`, /saytın qaydasından keçmir/);
+  await red(`Əkizlər cəbhə bölgəsindəki xəstəxanada doğulublar və hələ orada qalırlar. ${UZUN}`, /müharibə/);
+  await red("Əkizlər Braziliyada doğulub. Anaları onları çəkib.", /uzunluq/);
+  await red("Əkizlər Braziliyada doğulandan sonra da bir-birini qucaqlamağa davam edirlər, ana bətnində olduğu kimi, onları anaları San-Pauluda çəkib.", /cümlə sayı 2/);
+  await red("", /aydın fakt yoxdur/);
+  // Qısa paylaşım — götürülmür; paylaşım alınmadı, açar yoxdur, Gemini cavab vermir — indi yoxlanmır (növbəti dövrədə yenidən).
+  for (const [o, k, re] of [[opt(X_ELAVE, "So cute 😍"), "yox", /qısadır/], [opt(X_ELAVE, null), "gec", /alınmadı/], [{ ...opt(X_ELAVE), env: {} }, "gec", /GEMINI_API_KEY/]]) {
+    seen.asked = [];
+    const r = await VD.xMetn(c, o);
+    assert.ok(re.test(r[k] || ""), JSON.stringify(r));
+    assert.ok(!seen.asked.some(u => /generativelanguage/.test(u)), "Gemini soruşulmur");
   }
+  assert.deepEqual(await VD.xMetn(c, opt(null)), { gec: "Gemini cavab vermir" });
   // Bütöv yol: xHazirla mətni buradan götürür.
   const dir = tmp(), file = path.join(dir, "reels.json");
   fs.writeFileSync(file, JSON.stringify({ items: [c.x] }));
-  const x = await VD.xHazirla({ now: NOW, state: { skip: {} }, env: { GEMINI_API_KEY: "g" }, fetch: fx(ELAVE), policy: () => false, dir, log: () => {}, file,
+  const x = await VD.xHazirla({ now: NOW, state: { skip: {} }, env: X_ENV, fetch: xNet(), policy: () => false, dir, log: () => {}, file,
     deps: { indir: async (u, f) => (fs.writeFileSync(f, mp4()), "") } });
-  assert.equal(x.text, `${IZAH} ${ELAVE}`);
-  assert.deepEqual([x.izah, x.metn], [IZAH, "paylasim"], "paylaşımın faktı var — kadrlara baxılmır");
+  assert.equal(x.text, `${IZAH} ${X_ELAVE}`);
+  assert.deepEqual([x.izah, x.metn], [IZAH, "paylasim"]);
   assert.equal(x.title, "Yenidoğulmuş əkizlərin bir-birinə sarılaraq yatdığı anlar", "başlıq izahdır");
+});
+
+// Silinən video (2026-11-27, @Breaking911): paylaşımda «Bears-Lions» oyununa təcili xəbərdarlıq yayımının girməsindən başqa fakt yox idi,
+// səs iki cümlə idi (izah + kadr təsviri). İndi belə video ötürülür, növbəti namizəd götürülür; fayl yalnız seçiləndə yüklənir.
+test("X: a post with too little to say is skipped for good and the next candidate is taken; the clip is downloaded only for the chosen one; no Gemini — nothing is burnt", async () => {
+  const dir = tmp(), file = path.join(dir, "reels.json");
+  const bears = xi(200001, { a: "Breaking911", n: "Breaking911", m: "xeber", v: 3838656, c: "Bears-Lions matçı zamanı efirə ABŞ-ın təcili xəbərdarlıq sistemi daxil olub." });
+  const ikinci = xi(200002, { v: 900000 });
+  fs.writeFileSync(file, JSON.stringify({ items: [bears, ikinci] }));
+  const st = { skip: {} }, got = [], logs = [];
+  const elave = p => (/Bears-Lions/.test(p) ? "" : X_ELAVE);
+  const x = await VD.xHazirla({ now: NOW, state: st, env: X_ENV, fetch: xNet(elave), policy: () => false, dir, log: s => logs.push(s), file,
+    deps: { indir: async (u, f) => { got.push(u); fs.writeFileSync(f, mp4()); return ""; } } });
+  assert.equal(x.sourceUrl, "https://x.com/TheFigen_/status/200002");
+  assert.ok(st.skip[VD.xId("200001")], "bir də sınanmır");
+  assert.deepEqual(got, [ikinci.u], "ötürülən videonun faylı yüklənmir");
+  assert.ok(logs.some(s => /ötürülür \(paylaşımda şərhə yetən aydın fakt yoxdur\) — @Breaking911/.test(s)), logs.join(" | "));
+  // Hamısı ötürülür — video yoxdur.
+  const st2 = { skip: {} };
+  assert.equal(await VD.xHazirla({ now: NOW, state: st2, env: X_ENV, fetch: xNet(""), policy: () => false, dir, log: () => {}, file, deps: { indir: async () => "" } }), null);
+  assert.equal(Object.keys(st2.skip).length, 2);
+  // Açar yoxdur və ya Gemini cavab vermir: heç nə götürülmür, heç nə «yanmır» (növbəti dövrədə yenidən).
+  for (const o of [{ env: {}, fetch: xNet() }, { env: X_ENV, fetch: xNet(null) }]) {
+    const s3 = { skip: {} }, g3 = [];
+    assert.equal(await VD.xHazirla({ now: NOW, state: s3, ...o, policy: () => false, dir, log: () => {}, file, deps: { indir: async u => (g3.push(u), "") } }), null);
+    assert.deepEqual([Object.keys(s3.skip), g3], [[], []]);
+  }
+  assert.equal(VD.X_CEHD, 5, "bir dövrədə ən çox 5 namizəd");
+  // Şərh həddi: silinən videonun mətni keçmir; dünya videosunun mətni keçir.
+  assert.match(VS.serhAzdir("Bears-Lions matçı zamanı efirə ABŞ-ın təcili xəbərdarlıq sistemi daxil olub. Stadionda idmançılar yaşıl sahə üzərində dayanaraq oyununu davam etdirirlər."),
+    /şərh azdır: 2 cümlə, 153 simvol \(ən az 3 cümlə, 180 simvol\)/);
+  assert.equal(VS.serhAzdir("İstanbulun Fatih rayonunda tramvay ilə İETT avtobusu toqquşub. Qəza nəticəsində on beş nəfər xəsarət alıb. Hadisə yerindən gələn məlumata görə yaralananlar müxtəlif xəstəxanalara aparılıb."), "");
+  assert.match(VS.serhAzdir(""), /0 cümlə, 0 simvol/);
+  assert.deepEqual(VS.SERH_MIN, { cumle: 3, simvol: 180 });
 });
 
 test("qırmızı xətt 2: sources outside the feed list (world video, X) pass the foreign-source rule — nothing about Azerbaijan or its leadership, no blocked host", () => {

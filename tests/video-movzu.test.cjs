@@ -1,7 +1,8 @@
 // Video mövzuları (sahibin qərarı, 2026-11-26, «hamısına bəli»; docs/sosial-video.md «Video mövzuları»):
 //   A) «Maraqlı» rubrikası (heyvan, təbiət, kosmos faktları) söndürülüb; X və dünya videolarından heyvan, təbiət, kosmos çıxıb (heyvan
 //      yalnız insan hadisəsinin içində); xəbər, X və dünya videosunun seçimi böyük Azərbaycan Instagram hesablarının 15 istiqaməti ilə.
-//   B) «Çox baxılan» X videosunun səsində baxış sayı yoxdur; paylaşımda fakt yoxdursa kadrlarda açıq görünən 1–2 fakt.
+//   B) «Çox baxılan» X videosunun səsində baxış sayı yoxdur; şərh paylaşımın öz faktlarındandır (ən az 3 cümlə, 2026-11-27), kadrlar
+//      mətnlə tutuşdurulur.
 // Şəbəkə, Gemini və ffmpeg burada işləmir: hamısı saxtadır.
 "use strict";
 const test = require("node:test");
@@ -191,10 +192,12 @@ test("dünya videosu: the owner's numbered directions (no animals, nature, space
   assert.equal(s2.istiqamet, 0, "siyahıda olmayan nömrə yazılmır");
 });
 
-// --- B: X videosunun mətni: baxış sayı yox, kadrlarda görünən faktlar ---------------------------------------------------------------
-const IZAH = "Yük maşını dar dağ yolunda dönməyə çalışır.";
-const X = { id: VD.xId("300001"), tur: "x", kind: "x", title: "Yük maşını dar dağ yolunda dönməyə çalışır", text: IZAH, izah: IZAH, metn: "basliq",
-  source: "Figen (X)", sourceUrl: "https://x.com/TheFigen_/status/300001", baxis: 4200000 };
+// --- B: X videosu: baxış sayı yox; şərh paylaşımın faktlarındandır; kadrlar mətnlə tutuşdurulur ----------------------------------------
+// Sahib, 2026-11-27: «belə çox qısa və şərhi çox az və başa düşülməyən olmasın videolar». Kadr təsviri mətnə yazılmır; Gemini yalnız
+// deyilən hadisənin kadrlarda görünüb-görünmədiyini və qan, meyit olub-olmadığını deyir.
+const METN = "Yük maşını dar dağ yolunda dönməyə çalışır. Hadisə Peru dağlarında, uçurumun kənarındakı dar yolda baş verib. Sürücü maşını bir neçə cəhddən sonra döndərə bilib və yola davam edib.";
+const X = { id: VD.xId("300001"), tur: "x", kind: "x", title: "Yük maşını dar dağ yolunda dönməyə çalışır", text: METN, izah: "Yük maşını dar dağ yolunda dönməyə çalışır.",
+  metn: "paylasim", source: "Figen (X)", sourceUrl: "https://x.com/TheFigen_/status/300001", baxis: 4200000 };
 const JPG = [Buffer.from("k1"), Buffer.from("k2"), Buffer.from("k3"), Buffer.from("k4"), Buffer.from("k5")];
 function gemini(answer) {
   const seen = { parts: null, asked: 0 };
@@ -205,67 +208,87 @@ function gemini(answer) {
   };
   return { f, seen };
 }
-const policy = a => /Azərbaycan/.test(`${a.title} ${a.summary}`);
-test("X kadrlar: Gemini sees the video's own frames and adds 1–2 visibly true sentences — no numbers, nothing invented; checked like the text; never the view count", async () => {
-  const { f, seen } = gemini({ qan: false, gorunen: "Maşın uçurumun kənarında geri-irəli manevr edir. Sürücü sonda yolu keçə bilir." });
-  const logs = [], opt = { dir: tmp(), env: { GEMINI_API_KEY: "g", VIDEO_GEMINI_WAIT_MS: "0" }, fetch: f, policy, log: s => logs.push(s), deps: { kadrlar: () => JPG } };
-  const r = await VD.xKadrMetn(X, opt);
-  assert.deepEqual(r, { text: `${IZAH} Maşın uçurumun kənarında geri-irəli manevr edir. Sürücü sonda yolu keçə bilir.`, metn: "kadr" });
-  assert.ok(!/izlənib|baxış/.test(r.text), "baxış sayı deyilmir");
-  // Sorğu: göstəriş + 4 kadr (şəkil), sərt qaydalar.
+test("X kadrlar: Gemini compares the video's own frames with the voice text — the event not visible, or blood/death → not shared; nothing is added to the text", async () => {
+  const { f, seen } = gemini({ gorunur: true, qan: false, sebeb: "" });
+  const opt = { dir: tmp(), env: { GEMINI_API_KEY: "g", VIDEO_GEMINI_WAIT_MS: "0" }, fetch: f, log: () => {}, deps: { kadrlar: () => JPG } };
+  assert.deepEqual(await VD.xKadrYoxla(X, opt), { ok: true });
+  // Sorğu: göstəriş + 4 kadr (şəkil); diktorun bütün mətni.
   assert.equal(seen.parts.filter(p => p.inline_data).length, 4);
   assert.ok(seen.parts.every(p => !p.inline_data || p.inline_data.mime_type === "image/jpeg"));
   const prompt = seen.parts[0].text;
-  for (const w of ["AÇIQ GÖRÜNƏN", "uydurma", "Heç bir rəqəm yazma", "su nişanından", `İzah: ${IZAH}`, "Azərbaycan ədəbi dilində", "\"qan\": true"]) assert.ok(prompt.includes(w), w);
-  // Rədd: rəqəm, saytın qaydası, müharibə sözü, cümlə sayı, boş cavab, JSON deyil — yalnız izah (başlıq) qalır, səbəb jurnalda.
-  const red = async (ans, re) => {
-    const g = gemini(ans), l = [];
-    const x = await VD.xKadrMetn(X, { ...opt, fetch: g.f, log: s => l.push(s) });
-    assert.deepEqual(x, { text: IZAH, metn: "basliq" }, JSON.stringify(ans));
-    assert.ok(l.some(s => re.test(s)), `${JSON.stringify(ans)}: ${l.join(" | ")}`);
-  };
-  await red({ gorunen: "Maşın 3 dəfə geri-irəli manevr edir və yolu keçir." }, /rəqəm/);
-  await red({ gorunen: "Maşının arxasında Azərbaycan nömrəsi görünür və o yolu keçir." }, /yoxlamadan keçmədi/);
-  await red({ gorunen: "Yolun kənarında döyüş texnikası dayanıb, maşın onun yanından keçir." }, /müharibə/);
-  await red({ gorunen: "Maşın dönür. Sürücü düşür. Yol boşdur. Kamera uzaqlaşır." }, /cümlə sayı/);
-  await red({ gorunen: "" }, /açıq görünən fakt yoxdur/);
-  await red("bu JSON deyil", /JSON deyil/);
-  // Kadrda ölüm anı, qan, meyit: video paylaşılmır.
-  assert.deepEqual(await VD.xKadrMetn(X, { ...opt, fetch: gemini({ qan: true, gorunen: "" }).f }), { dayan: "kadrda ölüm anı, qan və ya meyit görünür" });
-  // Paylaşımın öz faktı var — kadrlara baxılmır; açar yoxdur, kadr çıxmır, Gemini cavab vermir — yalnız izah.
-  const g = gemini({ gorunen: "x" });
-  const elave = { ...X, text: `${IZAH} Hadisə Peru dağlarında baş verib.`, metn: "paylasim" };
-  assert.deepEqual(await VD.xKadrMetn(elave, { ...opt, fetch: g.f }), { text: elave.text, metn: "paylasim" });
+  for (const w of ["\"gorunur\": false", "yalnız ekran yazısı", "teleyayımın xəbərdarlıq zolağı", "Əmin deyilsənsə true yaz", "\"qan\": true", `Mətn: ${METN}`, "Azərbaycan ədəbi dilində"]) assert.ok(prompt.includes(w), w);
+  // Silinən video kimi: hadisə görünmür — paylaşılmır, səbəbi ilə.
+  assert.deepEqual(await VD.xKadrYoxla(X, { ...opt, fetch: gemini({ gorunur: false, qan: false, sebeb: "Kadrlarda yalnız adi oyun görünür." }).f }),
+    { dayan: "deyilən hadisə kadrlarda görünmür (Kadrlarda yalnız adi oyun görünür.)" });
+  assert.deepEqual(await VD.xKadrYoxla(X, { ...opt, fetch: gemini({ gorunur: true, qan: true }).f }), { dayan: "kadrda ölüm anı, qan və ya meyit görünür" });
+  // Şərh azdır və ya paylaşımın faktı yoxdur — kadra baxılmadan dayanır (seçim onsuz da götürmür; bu ikinci qapıdır).
+  const g = gemini({ gorunur: true });
+  assert.match((await VD.xKadrYoxla({ ...X, text: `${X.izah} Sürücü sonda yolu keçə bilir.` }, { ...opt, fetch: g.f })).dayan, /şərh azdır: 2 cümlə/);
+  assert.match((await VD.xKadrYoxla({ ...X, metn: "basliq" }, { ...opt, fetch: g.f })).dayan, /paylaşımın faktları yoxdur/);
   assert.equal(g.seen.asked, 0);
-  assert.deepEqual(await VD.xKadrMetn(X, { ...opt, env: {} }), { text: IZAH, metn: "basliq" });
-  assert.deepEqual(await VD.xKadrMetn(X, { ...opt, deps: { kadrlar: () => { throw new Error("ffmpeg yoxdur"); } } }), { text: IZAH, metn: "basliq" });
-  assert.deepEqual(await VD.xKadrMetn(X, { ...opt, deps: { kadrlar: () => [] } }), { text: IZAH, metn: "basliq" });
+  // Yoxlamaq mümkün deyil — video gedir (mətni seçimdə yoxlanıb).
+  assert.deepEqual(await VD.xKadrYoxla(X, { ...opt, env: {} }), { kecdi: "GEMINI_API_KEY yoxdur" });
+  assert.match((await VD.xKadrYoxla(X, { ...opt, deps: { kadrlar: () => { throw new Error("ffmpeg yoxdur"); } } })).kecdi, /kadrlar alınmadı: ffmpeg yoxdur/);
+  assert.deepEqual(await VD.xKadrYoxla(X, { ...opt, deps: { kadrlar: () => [] } }), { kecdi: "kadr yoxdur" });
+  assert.deepEqual(await VD.xKadrYoxla(X, { ...opt, fetch: gemini("bu JSON deyil").f }), { kecdi: "cavab JSON deyil" });
   const none = async url => (/models\?pageSize/.test(url) ? { ok: true, json: async () => ({ models: [] }) } : { ok: false, status: 400, json: async () => ({}) });
-  assert.deepEqual(await VD.xKadrMetn(X, { ...opt, fetch: none }), { text: IZAH, metn: "basliq" });
-  await assert.rejects(VD.xKadrMetn(X, { ...opt, policy: undefined }), /qaydası/, "qaydasız çağırış xətadır");
+  assert.deepEqual(await VD.xKadrYoxla(X, { ...opt, fetch: none }), { kecdi: "Gemini cavab vermir" });
+  assert.equal(VD.xKadrMetn, undefined, "kadr təsviri mətnə yazılmır");
   // Kadrlar video arxivinin yolu ilə çıxarılır (ffprobe + ffmpeg).
   const VA = require("../.github/scripts/video-arxiv.cjs");
   assert.equal(typeof VA.probe, "function"); assert.equal(typeof VA.kadrlar, "function");
 });
 
-test("X kadrlar: the «x-kadr» step rewrites xeber.json after ffmpeg is installed; a non-X video is left alone; the step sits between ffmpeg and the render", () => {
+test("X kadrlar: the «x-kadr» step stops an X video with too little text (red, not shared) and leaves xeber.json alone; a non-X video passes; the step sits between ffmpeg and the render", () => {
   const run = dir => cp.spawnSync(process.execPath, [".github/scripts/sosial-video.cjs", "x-kadr", dir], { cwd: root, encoding: "utf8",
     env: Object.fromEntries(Object.entries(process.env).filter(([k]) => !["GEMINI_API_KEY", "GITHUB_OUTPUT"].includes(k))) });
-  const dir = tmp();
-  fs.writeFileSync(path.join(dir, "xeber.json"), JSON.stringify({ ...X, text: `${IZAH} Bu video 4 milyondan çox dəfə izlənib.` }));
+  const dir = tmp(), qisa = JSON.stringify({ ...X, text: `${X.izah} Stadionda idmançılar yaşıl sahə üzərində dayanaraq oyununu davam etdirirlər.` });
+  fs.writeFileSync(path.join(dir, "xeber.json"), qisa);
   const r = run(dir);
-  assert.equal(r.status, 0, r.stderr);
-  const x = JSON.parse(fs.readFileSync(path.join(dir, "xeber.json"), "utf8"));
-  assert.deepEqual([x.text, x.metn], [IZAH, "basliq"], "açarsız: yalnız izah");
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stdout, /::error::X videosu paylaşılmır — şərh azdır: 2 cümlə/);
+  assert.equal(fs.readFileSync(path.join(dir, "xeber.json"), "utf8"), qisa, "mətn dəyişmir");
+  // Şərhi yetərli, açar yoxdur: yoxlanmır, video gedir.
+  const d1 = tmp();
+  fs.writeFileSync(path.join(d1, "xeber.json"), JSON.stringify(X));
+  const r1 = run(d1);
+  assert.equal(r1.status, 0, r1.stdout + r1.stderr);
+  assert.match(r1.stdout, /kadrlar yoxlanmadı \(GEMINI_API_KEY yoxdur\)/);
   const d2 = tmp(), xeber = JSON.stringify({ tur: "dunya", text: "Mətn." });
   fs.writeFileSync(path.join(d2, "xeber.json"), xeber);
   assert.equal(run(d2).status, 0);
   assert.equal(fs.readFileSync(path.join(d2, "xeber.json"), "utf8"), xeber);
   const wf = read(".github/workflows/sosial-video.yml");
-  const i = { ffmpeg: wf.indexOf("      - name: ffmpeg və şrift"), kadr: wf.indexOf("      - name: 'X: kadrlardan mətn'"), render: wf.indexOf("      - name: Video hazırla") };
+  const i = { ffmpeg: wf.indexOf("      - name: ffmpeg və şrift"), kadr: wf.indexOf("      - name: 'X: kadrları yoxla'"), render: wf.indexOf("      - name: Video hazırla") };
   assert.ok(i.ffmpeg > 0 && i.ffmpeg < i.kadr && i.kadr < i.render, JSON.stringify(i));
   const step = wf.slice(i.kadr, wf.indexOf("\n      - ", i.kadr + 10));
   assert.ok(step.includes("if: steps.sec.outputs.hazir == '1' && steps.sec.outputs.tur == 'x'") && step.includes("GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}")
     && step.includes("run: node .github/scripts/sosial-video.cjs x-kadr video-out"), step);
-  assert.ok(!step.includes("continue-on-error"), "ölüm/qan kadrı işi dayandırır: sonrakı addımlar (video, paylaşma) işləmir");
+  assert.ok(!step.includes("continue-on-error"), "dayanan video: sonrakı addımlar (video, paylaşma) işləmir");
+});
+
+// Şərh həddi hər videoda (hava videosundan başqa): «Videonu yoxla» addımı paylaşımdan əvvəl, PR nümunəsindən başqa.
+test("şərh həddi: the «Videonu yoxla» step refuses any non-weather video with less than 3 sentences / 180 characters of voice text, outside PR samples", () => {
+  const wf = read(".github/workflows/sosial-video.yml");
+  const a = wf.indexOf("      - name: Videonu yoxla"), step = wf.slice(a, wf.indexOf("\n      - ", a + 10));
+  assert.ok(step.includes("EVENT: ${{ github.event_name }}"), "addım hadisəni bilir");
+  assert.ok(step.includes(`if (process.env.EVENT !== "pull_request" && process.env.TUR !== "hava") { const az = require("./.github/scripts/video-ssenari.cjs").serhAzdir(m.text); if (az) bad.push(az); }`), step);
+  // Addımın skripti eyni yolla işləyir: qısa mətn — xəta, uzun mətn — keçir.
+  const js = step.slice(step.indexOf("node -e '") + 9, step.indexOf("\n          '", step.indexOf("node -e '")));
+  const yoxla = (text, env, extra = {}) => {
+    const d = tmp();
+    fs.mkdirSync(path.join(d, "video-out"));
+    fs.writeFileSync(path.join(d, "video-out", "video.json"), JSON.stringify({ width: 1080, height: 1920, vcodec: "h264", pix: "yuv420p", fps: "30/1", acodec: "aac", rate: 48000, channels: 2,
+      duration: 30, bytes: 2e6, own: true, id: "x1", text, ...extra }));
+    fs.writeFileSync(path.join(d, "video-out", "video.mp4"), Buffer.concat([Buffer.from("....ftypisom....moov....8ulduz.az....", "latin1"), Buffer.alloc(1000)]));
+    // Skript repo kökündən işləyir: modulu kökdən götürsün, video-out isə sınaq qovluğundadır.
+    const kok = js.split("require(\"./.github/scripts/").join(`require("${root.replace(/\\/g, "/")}/.github/scripts/`);
+    return cp.spawnSync(process.execPath, ["-e", kok], { cwd: d, encoding: "utf8", env: { ...process.env, ...env } });
+  };
+  const qisa = "Bears-Lions matçı zamanı efirə ABŞ-ın təcili xəbərdarlıq sistemi daxil olub. Stadionda idmançılar yaşıl sahə üzərində dayanaraq oyununu davam etdirirlər.";
+  const r = yoxla(qisa, { EVENT: "workflow_dispatch", TUR: "x" });
+  assert.equal(r.status, 1); assert.match(r.stdout, /Video tələbə uyğun deyil: şərh azdır: 2 cümlə, 153 simvol/);
+  assert.equal(yoxla(qisa, { EVENT: "pull_request", TUR: "" }).status, 0, "PR nümunəsi (montaj yoxlaması) dayanmır");
+  assert.equal(yoxla(`Bakıda hava buludlu olacaq. Open-Meteo.`, { EVENT: "workflow_dispatch", TUR: "hava" }, { kind: "hava", url: "https://8ulduz.az/" }).status, 0, "hava videosunun öz quruluşu var");
+  assert.equal(yoxla(`${qisa} Hadisədən sonra oyun bir müddət dayandırılıb, azarkeşlər isə tribunada gözləyiblər.`, { EVENT: "workflow_dispatch", TUR: "x" }).status, 0);
 });
