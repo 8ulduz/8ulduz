@@ -89,6 +89,13 @@ test("media qaydası 4: suicide may be reported, but never the method, means or 
   red("Tələbə intihar edib: dərman içib.", /intiharın üsulu/);
   red("Kişi körpüdən tullanaraq intihar edib.", /intiharın üsulu/);
   red("Qadın özünü yandırıb.", /intiharın üsulu/);
+  // Müharibə və terror xəbəri (sahib, 2026-11-27: «müharibə videolarını tamamən qadağan etmək olmaz»): «intihar dronu», «intihar
+  // hücumu», «intiharçı» özünə qəsd deyil — qayda bunlara baxmır.
+  ok("Rusiya intihar dronları ilə Kiyevə hücum edib, binalar yandırılıb.");
+  ok("Ukrayna ordusu intihar PUA-ları ilə zərbə endirib, körpü dağıdılıb.");
+  ok("İntihar hücumunda 5 nəfər ölüb, bomba bazarda partlayıb, güllə səsi eşidilib.");
+  ok("İntiharçı bomba yüklü maşını postun yanında partladıb, silahlı şəxslər qaçıb.");
+  red("Kişi intihar dronu xəbərindən sonra intihar edib, körpüdən tullanıb.", /intiharın üsulu/, "özünə qəsd də varsa qayda işləyir");
 });
 
 // --- Hər mətn yolundan keçir: checkText, başlıq, profil -------------------------------------------------------------------------------
