@@ -6140,10 +6140,10 @@
         "A little paint. A lot of chaos. Watch @YaOnlyLivvOnce put her own spin on a custom Ram Truck in WWE x RAM: Show of Power. #RamPartner"
       ],
       "sinif": "u",
-      "v": 263519,
-      "l": 3723,
-      "rp": 524,
-      "vt": "2026-11-27T07:05:32+00:00",
+      "v": 266910,
+      "l": 3779,
+      "rp": 530,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Rəngkarlıq və yaradıcılıq prosesi ilə Ram markalı yük maşınına xüsusi dizayn verilib.",
       "ru": "Процесс кастомизации пикапа Ram с использованием яркой росписи и дизайна.",
       "en": "A custom paint and transformation process applied to a Ram truck."
@@ -6296,90 +6296,6 @@
       "en": "In the US, 5 tons of hazardous explosives were destroyed in a controlled detonation."
     },
     {
-      "id": "2125683222742765946",
-      "handle": "Breaking911",
-      "post": "https://x.com/Breaking911/status/2125683222742765946",
-      "video": "https://video.twimg.com/amplify_video/2125667261000409088/vid/avc1/640x360/VllTANou-iNmJkTt.mp4?tag=29",
-      "poster": "https://pbs.twimg.com/amplify_video_thumb/2125667261000409088/img/egUil_lkC8UQ6Qhm.jpg",
-      "w": 3840,
-      "h": 2160,
-      "at": "2026-11-25T20:09:08+00:00",
-      "src": [
-        "😳 Video captures part of Pacifica Pier collapsing moments ago as powerful waves batter the structure. 🎥: @US_Stormwatch"
-      ],
-      "sinif": "h",
-      "v": 73783,
-      "l": 391,
-      "rp": 70,
-      "vt": "2026-11-27T10:05:19+00:00",
-      "c": "Kaliforniyada güclü dalğaların şiddətlə çırpılması nəticəsində Pasifika körprüsünün bir hissəsi uçub.",
-      "ru": "В Калифорнии мощные волны обрушили часть пирса Пасифика во время шторма.",
-      "en": "Powerful waves batter and collapse a section of the Pacifica Pier in California."
-    },
-    {
-      "id": "2125687416740618426",
-      "handle": "TheFigen_",
-      "post": "https://x.com/TheFigen_/status/2125687416740618426",
-      "video": "https://video.twimg.com/amplify_video/2125687390069047297/vid/avc1/480x548/ZJcB8jOLUkT9tfsY.mp4?tag=29",
-      "poster": "https://pbs.twimg.com/amplify_video_thumb/2125687390069047297/img/mW6ma1Nf7vM0Fatm.jpg",
-      "w": 720,
-      "h": 824,
-      "at": "2026-11-25T20:25:48+00:00",
-      "src": [
-        "This has happened to all of us. 😂"
-      ],
-      "sinif": "h",
-      "v": 385964,
-      "l": 17861,
-      "rp": 1754,
-      "vt": "2026-11-27T13:25:25+00:00",
-      "c": "Hər kəsin başından gələ biləcək gülməli və gözlənilməz anlar yaşanıb.",
-      "ru": "Забавный и неожиданный момент, который знаком абсолютно каждому.",
-      "en": "A funny and relatable moment that has happened to all of us."
-    },
-    {
-      "id": "2125688351353409937",
-      "handle": "bpthaber",
-      "post": "https://x.com/bpthaber/status/2125688351353409937",
-      "video": "https://video.twimg.com/amplify_video/2125680272339251200/vid/avc1/480x852/xL20xRIwbuF51tPa.mp4?tag=29",
-      "poster": "https://pbs.twimg.com/amplify_video_thumb/2125680272339251200/img/mJ8RUfEOrW5hOOgQ.jpg",
-      "w": 720,
-      "h": 1280,
-      "at": "2026-11-25T20:29:30+00:00",
-      "src": [
-        "Mısır'da bir yakıt tankerinde bilinmeyen bir nedenle yangın çıktı. Çıkan yangında 30 kişi hayatını kaybetti."
-      ],
-      "sinif": "h",
-      "v": 125317,
-      "l": 698,
-      "rp": 13,
-      "vt": "2026-11-27T12:56:07+00:00",
-      "c": "Mısır'da bir yakıt tankerinde bilinmeyen bir nedenle yangın çıktı.",
-      "ru": "В Египте по неизвестной причине загорелся топливный бензовоз.",
-      "en": "A fuel tanker caught fire in Egypt for an unknown reason."
-    },
-    {
-      "id": "2125684349416755647",
-      "handle": "ConflictTR",
-      "post": "https://x.com/ConflictTR/status/2125684349416755647",
-      "video": "https://video.twimg.com/amplify_video/2125668786770771968/vid/avc1/480x360/r3v-weZ5UIbTDDff.mp4?tag=29",
-      "poster": "https://pbs.twimg.com/amplify_video_thumb/2125668786770771968/img/Fkxshofdot8w244J.jpg",
-      "w": 960,
-      "h": 720,
-      "at": "2026-11-25T20:13:36+00:00",
-      "src": [
-        "Kaliforniya'nın Pacifica kentinde dev bir dalga iskelenin bir bölümünü yıktı."
-      ],
-      "sinif": "h",
-      "v": 94581,
-      "l": 326,
-      "rp": 11,
-      "vt": "2026-11-27T09:10:22+00:00",
-      "c": "Kaliforniyanın Pacifica kentində dev bir dalga iskelenin bir bölümünü yıktı.",
-      "ru": "Гигантская волна в Калифорнии разрушила часть пирса.",
-      "en": "A giant wave in Pacifica, California, destroyed a section of the pier."
-    },
-    {
       "id": "2125680926055412193",
       "handle": "TamirveTadilat",
       "post": "https://x.com/TamirveTadilat/status/2125680926055412193",
@@ -6420,27 +6336,6 @@
       "c": "Asya Şampiyonlar Ligi'ndeki maçta Suriyeli hakem alkollü olduğu iddiasıyla devre arasında değiştirildi.",
       "ru": "Сирийский арбитр матча Лиги чемпионов АФК был заменен в перерыве из-за подозрений в алкогольном опьянении.",
       "en": "The Syrian referee of an AFC Champions League match was replaced at halftime due to suspected intoxication."
-    },
-    {
-      "id": "2125688226711208101",
-      "handle": "ConflictTR",
-      "post": "https://x.com/ConflictTR/status/2125688226711208101",
-      "video": "https://video.twimg.com/amplify_video/2125688004983279616/vid/avc1/640x360/jcoVyYP0b_Mb2Gn3.mp4?tag=29",
-      "poster": "https://pbs.twimg.com/amplify_video_thumb/2125688004983279616/img/sRicfaxAYrwIuthV.jpg",
-      "w": 1920,
-      "h": 1080,
-      "at": "2026-11-25T20:29:01+00:00",
-      "src": [
-        "İranlılar Tahran'daki bir eğitim merkezinde Trump ve Netanyahu hedeflerine ateş açtı."
-      ],
-      "sinif": "h",
-      "v": 46328,
-      "l": 189,
-      "rp": 12,
-      "vt": "2026-11-27T09:10:22+00:00",
-      "c": "İranlılar Təhramdakı təlim mərkəzində hədəflərə atəş açıblar.",
-      "ru": "Иранцы открыли огонь по мишеням в учебном центре в Тегеране.",
-      "en": "Iranians fired at targets at a training center in Tehran."
     },
     {
       "id": "2125693506962477097",
@@ -6632,27 +6527,6 @@
       "en": "The Iraqi army has begun deploying its forces in the city of Kirkuk."
     },
     {
-      "id": "2125680860238377327",
-      "handle": "visegrad24",
-      "post": "https://x.com/visegrad24/status/2125680860238377327",
-      "video": "https://video.twimg.com/amplify_video/2125635509997236224/vid/avc1/640x360/MnCbTdaG4PCd10hW.mp4?tag=14",
-      "poster": "https://pbs.twimg.com/amplify_video_thumb/2125635509997236224/img/jckzZEUcnIdsZYlC.jpg",
-      "w": 1280,
-      "h": 720,
-      "at": "2026-11-25T19:59:44+00:00",
-      "src": [
-        "A Houthi convoy on the move in Yemen"
-      ],
-      "sinif": "h",
-      "v": 96681,
-      "l": 1217,
-      "rp": 151,
-      "vt": "2026-11-27T14:05:40+00:00",
-      "c": "Yəməndə husilərə məxsus hərbi karvanın hərəkət etdiyi anlar lentə alınıb.",
-      "ru": "На видео запечатлено передвижение военного конвоя хуситов в Йемене.",
-      "en": "Footage shows a Houthi military convoy on the move in Yemen."
-    },
-    {
       "id": "2125705833287753955",
       "handle": "ConflictTR",
       "post": "https://x.com/ConflictTR/status/2125705833287753955",
@@ -6758,27 +6632,6 @@
       "en": "A cat playfully teased a chained dog by staying just out of its reach."
     },
     {
-      "id": "2125683388962992276",
-      "handle": "anadoluajansi",
-      "post": "https://x.com/anadoluajansi/status/2125683388962992276",
-      "video": "https://video.twimg.com/amplify_video/2125683081608568833/vid/avc1/480x852/wSrz9TQ4Ym4HFipP.mp4?tag=29",
-      "poster": "https://pbs.twimg.com/amplify_video_thumb/2125683081608568833/img/T0H4sl3vrbchegd9.jpg",
-      "w": 1080,
-      "h": 1920,
-      "at": "2026-11-25T20:09:47+00:00",
-      "src": [
-        "Mısır'da yakıt tankerinde çıkan yangında 30 kişi hayatını kaybetti ▪️Kahire'nin batısındaki Giza kentinde petrol ürünleri taşıyan tankerde henüz belirlenemeyen nedenle yangın çıktı ▪️İlk belirlemelere göre 15 kişinin yaralandığı olay yerine 39 ambulans sevk edildi ▪️Yaralılar çeşitli hastanelere kal"
-      ],
-      "sinif": "h",
-      "v": 68432,
-      "l": 114,
-      "rp": 19,
-      "vt": "2026-11-27T08:54:11+00:00",
-      "c": "Mısırın Giza kentində yanacaq tankerində baş verən güclü yanğında çox sayda insan həlak olub.",
-      "ru": "В египетском городе Гиза в результате масштабного пожара на бензовозе погибли люди.",
-      "en": "A massive fire on a fuel tanker in Giza, Egypt, resulted in dozens of tragic casualties and injuries."
-    },
-    {
       "id": "2125715659976007970",
       "handle": "ConflictTR",
       "post": "https://x.com/ConflictTR/status/2125715659976007970",
@@ -6842,27 +6695,6 @@
       "en": "Water-efficiency specialists offer free home visits in Tucson to help homeowners lower their utility bills."
     },
     {
-      "id": "2125688474342969538",
-      "handle": "FoxNews",
-      "post": "https://x.com/FoxNews/status/2125688474342969538",
-      "video": "https://video.twimg.com/amplify_video/2125674362372083712/vid/avc1/480x852/56nR0yIiNg47ybJz.mp4?tag=29",
-      "poster": "https://pbs.twimg.com/amplify_video_thumb/2125674362372083712/img/Rd9JfGM5bI0loDcE.jpg",
-      "w": 1080,
-      "h": 1920,
-      "at": "2026-11-25T20:30:00+00:00",
-      "src": [
-        "Five individuals were spotted emerging from a sewer in Manhattan, prompting another NYPD investigation into mysterious underground activity across New York City. The latest sighting follows an August 18 incident when three people wearing headlamps and overalls were filmed climbing out of a manhole n"
-      ],
-      "sinif": "h",
-      "v": 530463,
-      "l": 2432,
-      "rp": 988,
-      "vt": "2026-11-27T10:52:42+00:00",
-      "c": "Manhettendə kanalizasiya люyundan çıxan beş nəfər polisin diqqətini çəkib.",
-      "ru": "Пять человек были замечены вылазящими из канализационного люка на Манхэттене.",
-      "en": "Five individuals were spotted emerging from a sewer manhole in Manhattan."
-    },
-    {
       "id": "2125713852964778056",
       "handle": "FoxNews",
       "post": "https://x.com/FoxNews/status/2125713852964778056",
@@ -6905,27 +6737,6 @@
       "en": "A passenger trying to open an aircraft door midflight was restrained by crew and passengers."
     },
     {
-      "id": "2125686761674178779",
-      "handle": "CBSNews",
-      "post": "https://x.com/CBSNews/status/2125686761674178779",
-      "video": "https://video.twimg.com/amplify_video/2125686653670879232/vid/avc1/480x852/T_VrV4-SypFR2DeJ.mp4?tag=29",
-      "poster": "https://pbs.twimg.com/amplify_video_thumb/2125686653670879232/img/YSOznvo9eSNR8sm_.jpg",
-      "w": 1080,
-      "h": 1920,
-      "at": "2026-11-25T20:23:11+00:00",
-      "src": [
-        "Iranian singer Parastoo Ahmadi was lashed 74 times on Monday after being convicted of the crime of “outraging public decency” for performing without the head covering that is mandatory for women in the country. CBS News’ @KNIAfzali reports on the visceral reaction of women inside Iran."
-      ],
-      "sinif": "h",
-      "v": 29634,
-      "l": 414,
-      "rp": 120,
-      "vt": "2026-11-27T15:36:24+00:00",
-      "c": "İranlı müğənni Pərastu Əhmədi hicabsız çıxış etdiyinə görə 74 qamçı vurulub.",
-      "ru": "Иранская певица Парсту Ахмади была приговорена к 74 ударам плетью за выступление без хиджаба.",
-      "en": "Iranian singer Parastoo Ahmadi was sentenced to 74 lashes for performing without a head covering."
-    },
-    {
       "id": "2125700826966397231",
       "handle": "trtspor",
       "post": "https://x.com/trtspor/status/2125700826966397231",
@@ -6959,10 +6770,10 @@
         "Avustralyalı senatör Fatima Payman, parlamento oturumuna 6 aylık bebeğiyle katıldı."
       ],
       "sinif": "h",
-      "v": 176285,
+      "v": 177723,
       "l": 1146,
       "rp": 12,
-      "vt": "2026-11-27T07:05:32+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Avstraliyalı senatör Fatima Payman parlament iclasına 6 aylıq körpəsi ilə qatıldı.",
       "ru": "Австралийский сенатор Фатима Пейман посетила заседание парламента с ребенком.",
       "en": "Australian senator Fatima Payman attends a parliamentary session with her baby."
@@ -7050,27 +6861,6 @@
       "c": "Küçə fotoqrafı İstiklal Caddəsində təmizlik işçisi Gülümün təsirli kadrlarını çəkdi.",
       "ru": "Уличный фотограф запечатлел трогательные кадры с уборщицей по имени Гюлюм на улице Истикляль.",
       "en": "A street photographer shares a special portrait session with a street cleaner named Gulum on Istiklal Avenue."
-    },
-    {
-      "id": "2125681623190405374",
-      "handle": "Fenerbahce",
-      "post": "https://x.com/Fenerbahce/status/2125681623190405374",
-      "video": "https://video.twimg.com/amplify_video/2125679787930779648/vid/avc1/480x600/bHcxjyGpfu29Vnoq.mp4?tag=29",
-      "poster": "https://pbs.twimg.com/media/HX_uubTX0AA57Qv.jpg",
-      "w": 1080,
-      "h": 1350,
-      "at": "2026-11-25T20:02:46+00:00",
-      "src": [
-        "Maç başladı. Haydi Fenerbahçe! #UCL #SDvFB"
-      ],
-      "sinif": "h",
-      "v": 201932,
-      "l": 4684,
-      "rp": 93,
-      "vt": "2026-11-27T15:36:24+00:00",
-      "c": "Fənərbaxça UEFA Çempionlar Liqasında növbəti matçına başladı.",
-      "ru": "Фенербахче» начинает свой матч в рамках Лиги чемпионов УЕФА.",
-      "en": "Fenerbahce kicks off their crucial UEFA Champions League match."
     },
     {
       "id": "2125702137250197578",
@@ -7169,10 +6959,10 @@
         "AK-47’nin iç mekanizması böyle çalışıyor."
       ],
       "sinif": "u",
-      "v": 16964,
-      "l": 56,
+      "v": 17232,
+      "l": 59,
       "rp": 0,
-      "vt": "2026-11-27T07:22:16+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "AK-47 avtomatının daxili mexanizminin işləmə prinsipi nümayiş olunur.",
       "ru": "Наглядная демонстрация работы внутреннего механизма автомата Калашникова.",
       "en": "A close look at how the internal mechanism of the AK-47 works."
@@ -7421,10 +7211,10 @@
         "LEBRON JAMES SHOWING OFF HIS RANGE 🎯 HE HAS SCORED THE LAST 14 FOR PHILLY!"
       ],
       "sinif": "h",
-      "v": 1859932,
-      "l": 6741,
-      "rp": 629,
-      "vt": "2026-11-27T07:22:16+00:00",
+      "v": 1925218,
+      "l": 6828,
+      "rp": 641,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Lebron Ceyms uzaq məsafədən dəqiq zərbə ilə fərqlənərək azarkeşləri heyran qoydu.",
       "ru": "Леброн Джеймс поразил кольцо дальним броском, забив 14 очков подряд для Филадельфии.",
       "en": "LeBron James showed off his incredible shooting range by scoring 14 straight points."
@@ -7526,10 +7316,10 @@
         "\"THIS IS 35 FEET... LEBRON JAMES HAS THIS PLACE ROCKING!\""
       ],
       "sinif": "h",
-      "v": 5854572,
-      "l": 26410,
-      "rp": 2316,
-      "vt": "2026-11-27T07:22:16+00:00",
+      "v": 6000611,
+      "l": 26635,
+      "rp": 2338,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Lebron Ceyms təxminən 35 fut məsafədən atdığı möhtəşəm səbətlə zalı coşdurdu.",
       "ru": "Леброн Джеймс забросил мяч с дистанции 35 футов, вызвав восторг у трибун.",
       "en": "LeBron James hit an incredible 35-foot shot that got the entire arena rocking."
@@ -7589,10 +7379,10 @@
         "Standout stars from Matchweek 11 💫 Three Premier League players feature in the @EASPORTSFC #TOTW 🎮"
       ],
       "sinif": "u",
-      "v": 179523,
-      "l": 1787,
-      "rp": 143,
-      "vt": "2026-11-27T07:22:16+00:00",
+      "v": 181855,
+      "l": 1817,
+      "rp": 144,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "EA Sports FC oyununun həftənin simvolik heyətinə düşən ulduz futbolçular açıqlandı.",
       "ru": "Названы звездные игроки недели, попавшие в команду недели футбольного симулятора.",
       "en": "Standout stars from Matchweek 11 were featured in the new EA Sports FC team."
@@ -7661,27 +7451,6 @@
       "en": "A fun game of strategy, skill, and shooting accuracy testing the players."
     },
     {
-      "id": "2125684094717554955",
-      "handle": "SkyNews",
-      "post": "https://x.com/SkyNews/status/2125684094717554955",
-      "video": "https://video.twimg.com/amplify_video/2125682952281436162/vid/avc1/480x852/KJXFkKus0tzCjyvT.mp4?tag=29",
-      "poster": "https://pbs.twimg.com/media/HX_yWmKXsAASSRB.jpg",
-      "w": 1080,
-      "h": 1920,
-      "at": "2026-11-25T20:12:36+00:00",
-      "src": [
-        "At least 30 people have been killed in a fire after an accident on a ring road in Giza, according to the Egyptian health ministry."
-      ],
-      "sinif": "h",
-      "v": 118721,
-      "l": 650,
-      "rp": 223,
-      "vt": "2026-11-27T08:54:11+00:00",
-      "c": "Misirdə halqa yolunda baş verən ağır qəza nəticəsində yanğın baş verib, azı 30 nəfər həlak olub.",
-      "ru": "В Египте на кольцевой дороге в результате серьезного ДТП вспыхнул пожар, погибли не менее 30 человек.",
-      "en": "At least 30 people were killed in a major traffic accident and subsequent fire on a ring road in Egypt."
-    },
-    {
       "id": "2125738228497961371",
       "handle": "OSINTtechnical",
       "post": "https://x.com/OSINTtechnical/status/2125738228497961371",
@@ -7715,10 +7484,10 @@
         "🇺🇸 A reporter in Iowa got cut off mid-sentence when the Army’s detonation of the unstable lead azide sent a shockwave that shook the camera 💀 The same operation that was paused by a court last week went ahead today after the Army moved forward with the controlled blast of the degraded explosives. Wr"
       ],
       "sinif": "h",
-      "v": 80962,
+      "v": 81466,
       "l": 178,
       "rp": 32,
-      "vt": "2026-11-27T07:22:16+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Ağ-çox qeyri-sabit partlayıcı maddənin ABŞ ordusu tərəfindən məhv edilməsi zamanı güclü sarsıntı olub.",
       "ru": "Во время уничтожения нестабильных взрывчатых веществ армией США мощная ударная волна сотрясла камеру.",
       "en": "A powerful shockwave shook the camera during the U.S. Army's controlled detonation of unstable explosives."
@@ -7827,27 +7596,6 @@
       "c": "Inter'in golcüsü Lautaro Martínez topla ikinci buluşmasında soğukkanlılıkla golü attı.",
       "ru": "Нападающий Интера Лаутаро Мартинес хладнокровно забил гол при втором касании мяча.",
       "en": "Inter striker Lautaro Martínez calmly scored with his second touch of the ball."
-    },
-    {
-      "id": "2125687181490479177",
-      "handle": "pusholder",
-      "post": "https://x.com/pusholder/status/2125687181490479177",
-      "video": "https://video.twimg.com/amplify_video/2125686268495376385/vid/avc1/640x360/TxORjm7bMCiyogdn.mp4?tag=29",
-      "poster": "https://pbs.twimg.com/amplify_video_thumb/2125686268495376385/img/nWYfl70Xffuo9wyy.jpg",
-      "w": 1280,
-      "h": 720,
-      "at": "2026-11-25T20:24:52+00:00",
-      "src": [
-        "Vedat Muriqi'nin golü, faul gerekçesiyle iptal edildi."
-      ],
-      "sinif": "h",
-      "v": 124864,
-      "l": 154,
-      "rp": 0,
-      "vt": "2026-11-27T13:25:25+00:00",
-      "c": "Vedat Muriqi'nin attığı gol faul gerekçesiyle hakem tarafından iptal edildi.",
-      "ru": "Гол Ведата Мурича был отменен судьей из-за зафиксированного фола.",
-      "en": "Vedat Muriqi's goal was disallowed by the referee due to a foul."
     },
     {
       "id": "2125729633891180853",
@@ -8996,10 +8744,10 @@
         "BREAKING: Air traffic controller announces that Miami International Airport is closed following a FedEx cargo plane’s runway overrun. VIA: @theATCapp"
       ],
       "sinif": "h",
-      "v": 190585,
-      "l": 793,
+      "v": 192209,
+      "l": 796,
       "rp": 177,
-      "vt": "2026-11-27T07:22:16+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Mayami hava limanında yük təyyarəsinin uçuş-enmə zolağından çıxması səbəbindən uçuşlar dayandırılıb.",
       "ru": "В аэропорту Майами приостановили полеты из-за выкатившегося за пределы полосы грузового самолета.",
       "en": "Flights at Miami International Airport were suspended after a cargo plane overran the runway."
@@ -10340,10 +10088,10 @@
         "Bir otomotiv tamircisi, siyah renkli lüks otomobilin çamurluk bölgesindeki büyük göçüğü çektirme, zımparalama, macunlama ve astarlama işlemleriyle düzeltti."
       ],
       "sinif": "u",
-      "v": 5609,
-      "l": 9,
+      "v": 5628,
+      "l": 10,
       "rp": 0,
-      "vt": "2026-11-27T07:22:16+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Avtomobil ustası lüks maşının çamurluğundakı böyük göçüyü bərpa edib.",
       "ru": "Автомеханик мастерски устранил большую вмятину на крыле роскошного автомобиля.",
       "en": "An auto mechanic skillfully repaired a major dent on the fender of a luxury car."
@@ -11096,10 +10844,10 @@
         "Sudan ordusu, Bayraktar AKINCI TİHA'dan ateşlenen EREN füzesiyle BAE destekli HDK'ya ait Çin yapımı FH-95 İHA'yı düşürdü. Kasım'dan bu yana HDK'ya ait 7 adet CH-95/FH-95 İHA düşürüldü."
       ],
       "sinif": "h",
-      "v": 36583,
-      "l": 591,
+      "v": 36878,
+      "l": 604,
       "rp": 51,
-      "vt": "2026-11-27T07:05:32+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Sudan ordusu Bayraktar AKINCI TİHA-dan atılan raketlə pilotsuz uçuş aparatını vurub.",
       "ru": "Армия Судана сбила вражеский беспилотник с помощью высокоточной ракеты с БПЛА Akıncı.",
       "en": "The Sudanese army shot down a hostile drone using a missile fired from a Bayraktar Akinci UCAV."
@@ -11180,10 +10928,10 @@
         "🇪🇸 A tanker carrying up to 7,000 TONS of diesel has sunk off Ibiza, and one crew member has died. The Malta-flagged Med Emre went down about 25 nautical miles off the island early this morning, on its way from Algeciras to Barcelona. All 17 crew were pulled from the water, but one died after being r"
       ],
       "sinif": "h",
-      "v": 74062,
-      "l": 304,
-      "rp": 101,
-      "vt": "2026-11-27T07:22:16+00:00",
+      "v": 75331,
+      "l": 307,
+      "rp": 102,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "İbiza yaxınlığında minlərlə ton dizel daşıyan tanker batıb, bir nəfər ölüb.",
       "ru": "Танкер, перевозивший тысячи тонн дизельного топлива, затонул у берегов Ибицы, один человек погиб.",
       "en": "A tanker carrying thousands of tons of diesel has sunk off the coast of Ibiza, resulting in one fatality."
@@ -11243,10 +10991,10 @@
         "Not something you see very often 🤯 The ball takes a huge bobble off the turf as Bruno Fernandes completes a quickfire double! #UCL"
       ],
       "sinif": "h",
-      "v": 1123883,
+      "v": 1130199,
       "l": 212,
       "rp": 12,
-      "vt": "2026-11-27T07:22:16+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Çempionlar Liqasında Bruno Fernandesin zərbəsindən sonra top meydançada gözlənilmədən böyük tullanış edir.",
       "ru": "В матче Лиги чемпионов мяч после удара Бруну Фернандеша неожиданно сильно подпрыгивает на газоне.",
       "en": "During the Champions League match, the ball takes a massive, unexpected bobble off the turf."
@@ -12986,10 +12734,10 @@
         "WATCH: Flames and thick black smoke billow into the sky above an oil refinery in Bangkok, Thailand, as a fire leaves at least 7 people injured, 4 of them seriously. Bangchak Corp. shut down all production units at the facility, which can process up to 120,000 barrels of oil per day. The cause of the"
       ],
       "sinif": "h",
-      "v": 146376,
-      "l": 617,
-      "rp": 175,
-      "vt": "2026-11-27T07:05:32+00:00",
+      "v": 161121,
+      "l": 684,
+      "rp": 181,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Taylandın Banqkok şəhərində neft emalı zavodunda güclü yanğın baş verib, 7 nəfər xəsarət alıb.",
       "ru": "В Бангкоке на нефтеперерабатывающем заводе произошел мощный пожар, пострадали семь человек.",
       "en": "A massive fire broke out at an oil refinery in Bangkok, Thailand, leaving at least seven people injured."
@@ -13112,10 +12860,10 @@
         "The moment he realizes he was adopted by tiny kittens..🐈🐾🥺❤️"
       ],
       "sinif": "h",
-      "v": 68165,
-      "l": 1602,
-      "rp": 106,
-      "vt": "2026-11-27T07:05:32+00:00",
+      "v": 74403,
+      "l": 1810,
+      "rp": 116,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Minik kedicikler tarafından sahiplendiğini anladığı o tatlı an.",
       "ru": "Трогательный момент, когда пес осознает, что его усыновили крошечные котята.",
       "en": "The heartwarming moment when a dog realizes he was adopted by tiny kittens."
@@ -13259,10 +13007,10 @@
         "Eski bir soğutucunun restorasyon işlemi."
       ],
       "sinif": "u",
-      "v": 13877,
-      "l": 22,
-      "rp": 3,
-      "vt": "2026-11-27T07:22:16+00:00",
+      "v": 18771,
+      "l": 31,
+      "rp": 5,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Eski ve yıpranmış bir soğutucunun profesyonel restorasyon işlem aşamaları.",
       "ru": "Поэтапный процесс качественной реставрации старого сломанного холодильника.",
       "en": "The step-by-step restoration process of an old and worn-out refrigerator."
@@ -13385,10 +13133,10 @@
         "Air traffic control audio captures the moments after a FedEx cargo jet overshoots a runway at Miami International Airport and comes to a stop just feet from a busy road. The incident prompts an FAA ground stop and major flight delays during the busy Thanksgiving travel rush. No injuries are reported"
       ],
       "sinif": "h",
-      "v": 113279,
-      "l": 246,
+      "v": 120732,
+      "l": 270,
       "rp": 58,
-      "vt": "2026-11-27T07:22:16+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Mayami hava limanında yük təyyarəsi uçuş zolağından çıxaraq işlək yola çox yaxın məsafədə dayanıb.",
       "ru": "Грузовой самолет выкатился за пределы полосы в аэропорту Майами и остановился у дороги.",
       "en": "A cargo jet overshot the runway at Miami International Airport and stopped near a busy road."
@@ -13847,10 +13595,10 @@
         "Deniz, Deniz Goal! ⚽"
       ],
       "sinif": "h",
-      "v": 349274,
-      "l": 33951,
-      "rp": 1005,
-      "vt": "2026-11-27T07:22:16+00:00",
+      "v": 412566,
+      "l": 36988,
+      "rp": 1093,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Qalatasaray matçında Denizli gözəl qola imza ataraq komandasını sevindirib.",
       "ru": "Дениз забил красивый гол в официальном матче за Галатасарай.",
       "en": "Deniz scored a brilliant goal during the Galatasaray match, thrilling the fans."
@@ -13952,10 +13700,10 @@
         "1st: Anthony Gordon 2nd: Cucho Hernández 3rd: Antonio Nusa 4th: Kylian Mbappé Anthony Gordon takes Player of the Week! 👏 @PlayStationEU | #UCLPOTW"
       ],
       "sinif": "h",
-      "v": 953271,
-      "l": 8814,
-      "rp": 661,
-      "vt": "2026-11-27T07:05:32+00:00",
+      "v": 1198033,
+      "l": 10912,
+      "rp": 776,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Entoni Qordon Çempionlar Liqasında həftənin oyunçusu seçilib.",
       "ru": "Энтони Гордон признан игроком недели в Лиге чемпионов УЕФА.",
       "en": "Anthony Gordon has been named Player of the Week in the UEFA Champions League."
@@ -14162,10 +13910,10 @@
         "KAAN’ın mühendislik simülatöründen görüntüler. KAAN test pilotları, HAVELSAN’ın geliştirdiği simülatörlerle uçağın uçuş karakteristiği ve sistemlerinin geliştirilmesinde rol oynarken aynı zamanda uçakla sanal deneyim kazanıyor."
       ],
       "sinif": "h",
-      "v": 14465,
-      "l": 411,
-      "rp": 39,
-      "vt": "2026-11-27T07:22:16+00:00",
+      "v": 16765,
+      "l": 486,
+      "rp": 49,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "HAVELSAN-ın hazırladığı simulyator vasitəsilə KAAN test pilotları uçuş təcrübəsi qazanırlar.",
       "ru": "Испытательные пилоты истребителя KAAN отрабатывают навыки на симуляторах от HAVELSAN.",
       "en": "KAAN test pilots gain virtual flight experience using advanced simulators developed by HAVELSAN."
@@ -14414,10 +14162,10 @@
         "Just Florian Wirtz things ✨ @LFC"
       ],
       "sinif": "h",
-      "v": 360381,
-      "l": 7746,
-      "rp": 714,
-      "vt": "2026-11-27T07:05:32+00:00",
+      "v": 429102,
+      "l": 9254,
+      "rp": 816,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Florian Wirtz Premyer Liqada möhtəşəm anları ilə diqqət çəkir.",
       "ru": "Флориан Виртц демонстрирует свое мастерство в матчах Премьер-лиги.",
       "en": "Florian Wirtz showcases his brilliant skills on the Premier League pitch."
@@ -14687,10 +14435,10 @@
         "Video captures dramatic high-tide flooding as rising water overtakes train tracks in Hoboken, New Jersey."
       ],
       "sinif": "h",
-      "v": 122797,
-      "l": 1399,
+      "v": 122973,
+      "l": 1401,
       "rp": 268,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Nyu-Cersidə qabarma zamanı suyun dəmir yolu xətlərini basdığı dramatik anlar kameraya düşüb.",
       "ru": "Видео запечатлело драматичное наводнение в Нью-Джерси, где вода затопила железнодорожные пути.",
       "en": "Video captures dramatic high-tide flooding as rising water overtakes train tracks in New Jersey."
@@ -14729,10 +14477,10 @@
         "A man died yesterday after plunging from the 27th floor of a five-star hotel in Nha Trang, Vietnam. Hotel staff tried to intervene but were unable to prevent his death."
       ],
       "sinif": "h",
-      "v": 1075485,
-      "l": 3822,
+      "v": 1076307,
+      "l": 3825,
       "rp": 256,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Vyetnamın Nya Çang şəhərində beşulduzlu otelin 27-ci mərtəbəsindən yıxılan şəxs həlak olub.",
       "ru": "Мужчина погиб после падения с 27-го этажа пятизвездочного отеля в Нячанге, Вьетнам.",
       "en": "A man died yesterday after plunging from the 27th floor of a five-star hotel in Nha Trang, Vietnam."
@@ -15674,10 +15422,10 @@
         "🦅 #BJKHBS | #UEL"
       ],
       "sinif": "h",
-      "v": 229882,
-      "l": 17816,
-      "rp": 692,
-      "vt": "2026-11-27T07:05:32+00:00",
+      "v": 264748,
+      "l": 20506,
+      "rp": 788,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Beşiktaş komandası Avropa Liqası matçı üçün stadionuna gəliş anlarını azarkeşləri ilə bölüşüb.",
       "ru": "Футболисты турецкого клуба Бешикташ прибыли на стадион перед ответственным еврокубковым матчем.",
       "en": "The Besiktas squad arrived at the stadium with great focus ahead of their European fixture."
@@ -15779,10 +15527,10 @@
         "Range Rover, inanılmaz bir reklam filmi için dünyanın en büyük hız kesicisini yaptı."
       ],
       "sinif": "u",
-      "v": 147751,
-      "l": 353,
-      "rp": 1,
-      "vt": "2026-11-27T15:05:51+00:00",
+      "v": 166088,
+      "l": 398,
+      "rp": 3,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Range Rover reklam kampaniyası üçün dünyanınn ən nəhəng sürət kəsicisini (yol dirəncini) quraşdırıb.",
       "ru": "Range Rover построил «лежачий полицейский» невероятных размеров для съемок зрелищного рекламного ролика.",
       "en": "Range Rover built one of the world's largest speed bumps to produce an incredible promotional video."
@@ -16220,10 +15968,10 @@
         "Şişe ve iplikle yapılan etkileyici damla sulama sistemi."
       ],
       "sinif": "u",
-      "v": 10142,
-      "l": 38,
+      "v": 10323,
+      "l": 42,
       "rp": 6,
-      "vt": "2026-11-27T15:05:51+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Şüşə və sap istifadə edilərək damla suvarma sistemi düzəldildi.",
       "ru": "Простой способ создания капельного полива с помощью бутылки и нити.",
       "en": "An effective drip irrigation system is built simply using a bottle and thread."
@@ -16367,10 +16115,10 @@
         "Daha Yüksek Sesle! #FreePalestine https://x.com/ukaftbl/status/2126026956189860125/video/1"
       ],
       "sinif": "h",
-      "v": 206492,
-      "l": 19143,
-      "rp": 1925,
-      "vt": "2026-11-27T07:05:32+00:00",
+      "v": 218409,
+      "l": 20116,
+      "rp": 2015,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Fələstinə dəstək məqsədilə tribunalarda şüarlar səsləndirilir və çağırışlar edilir.",
       "ru": "Трибуны скандируют лозунги в поддержку Палестины.",
       "en": "Crowds chant slogans in support of Palestine during the demonstration."
@@ -16556,10 +16304,10 @@
         "A bright fireball streaked across the sky during a Christmas lights event in Fort Wayne, Indiana, on Wednesday."
       ],
       "sinif": "h",
-      "v": 85813,
-      "l": 734,
+      "v": 85974,
+      "l": 735,
       "rp": 129,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "İndianada Milad işıqlandırması zamanı səmada parlaq atəştopu göründü.",
       "ru": "Яркий огненный шар промелькнул в небе во время рождественского шоу в Индиане.",
       "en": "A bright fireball streaked across the sky during a Christmas event in Indiana."
@@ -17102,10 +16850,10 @@
         "🥊 THANKSGIVING BRAWL: Rams-Packers fans fist fight at thanksgiving eve football game."
       ],
       "sinif": "h",
-      "v": 144474,
+      "v": 144609,
       "l": 1139,
       "rp": 142,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Şükran günü matçında azarkeşlər arasında yumruqlu dava düşüb.",
       "ru": "Во время матча в День благодарения между фанатами вспыхнула драка.",
       "en": "A fist fight broke out between fans during a Thanksgiving football game."
@@ -17606,10 +17354,10 @@
         "Happy Thanksgiving 🦃"
       ],
       "sinif": "u",
-      "v": 1403990,
-      "l": 5800,
+      "v": 1406688,
+      "l": 5811,
       "rp": 370,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Şükran Günü münasibətilə hazırlanan bayram süfrəsi və ənənəvi hinduşka yeməyi.",
       "ru": "Традиционная праздничная индейка и угощения, приготовленные ко Дню благодарения.",
       "en": "A traditional Thanksgiving dinner table spread prepared for the holiday celebration."
@@ -17711,10 +17459,10 @@
         "Coca-Cola kutusundan mini ocak yapımı."
       ],
       "sinif": "u",
-      "v": 10527,
-      "l": 59,
+      "v": 10872,
+      "l": 61,
       "rp": 5,
-      "vt": "2026-11-27T15:05:51+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Coca-Cola qutusundan mini ocağın düzəldilməsi və əl işinin praktiki hazırlanma prosesi.",
       "ru": "Процесс изготовления мини-печи из обычной алюминиевой банки из-под Coca-Cola своими руками.",
       "en": "The practical DIY process of making a mini stove out of a Coca-Cola aluminum can."
@@ -17753,10 +17501,10 @@
         "A tree fell on a power line and cut all the power in my neighborhood before the thanksgiving food got finished"
       ],
       "sinif": "h",
-      "v": 37379,
-      "l": 259,
+      "v": 38113,
+      "l": 261,
       "rp": 4,
-      "vt": "2026-11-27T15:05:51+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Şükran günü yeməyi hazırlanmamışdan əvvəl ağac elektrik xəttinə düşərək bütün məhəlləni işıqsız qoydu.",
       "ru": "Дерево упало на линию электропередачи, оставив весь район без света перед праздником.",
       "en": "A tree fell on a power line, cutting off power to the neighborhood right before Thanksgiving."
@@ -17774,10 +17522,10 @@
         "BREAKING: More than 750,000 Americans are without power on Thanksgiving as storms continue to batter states across the country."
       ],
       "sinif": "h",
-      "v": 317977,
-      "l": 2907,
+      "v": 319328,
+      "l": 2909,
       "rp": 650,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Şiddətli fırtınalar səbəbindən ABŞ-da 750 mindən çox amerikalı Şükran günündə işıqsız qalıb.",
       "ru": "Из-за штормов более 750 тысяч американцев остались без электричества в День благодарения.",
       "en": "More than 750,000 Americans were left without power on Thanksgiving as severe storms hit."
@@ -18131,10 +17879,10 @@
         "Spider-Man is a Thanksgiving movie"
       ],
       "sinif": "u",
-      "v": 113523,
-      "l": 3591,
-      "rp": 226,
-      "vt": "2026-11-27T15:05:51+00:00",
+      "v": 114489,
+      "l": 3609,
+      "rp": 227,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Hörmətli Höqlerin paylaşımında maraqlı vizual səhnə nümayiş olunur.",
       "ru": "В публикации интернет-архива представлен занимательный ретро-момент.",
       "en": "An entertaining visual moment is featured from the internet archive."
@@ -18278,10 +18026,10 @@
         "This is crazy, GTA 5 is starting to look / feel like Roblox."
       ],
       "sinif": "h",
-      "v": 74631,
-      "l": 737,
+      "v": 76671,
+      "l": 753,
       "rp": 21,
-      "vt": "2026-11-27T15:05:51+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "GTA 5 oyununun qrafikası və fiziki görüntüləri getdikcə Robloxa bənzəməyə başlayıb.",
       "ru": "Графика и физика в игре GTA 5 стали настолько реалистичными, что визуально напоминают Роблокс.",
       "en": "The graphics and physics in GTA 5 are starting to look and feel surprisingly like Roblox."
@@ -18425,10 +18173,10 @@
         "This is so creative."
       ],
       "sinif": "u",
-      "v": 68135,
-      "l": 788,
-      "rp": 73,
-      "vt": "2026-11-27T15:05:51+00:00",
+      "v": 69841,
+      "l": 808,
+      "rp": 74,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Gündəlik həyatı asanlaşdıran və son dərəcə yaradıcı şəkildə hazırlanmış faydalı ev ixtirası.",
       "ru": "Чрезвычайно креативное и полезное изобретение для дома, значительно облегчающее быт.",
       "en": "A clever and highly creative DIY household invention designed to make everyday life easier."
@@ -18530,10 +18278,10 @@
         "🤔 WATCH: A “NY TX TEST” ALERT INTERRUPTS THE BEARS-LIONS THANKSGIVING BROADCAST."
       ],
       "sinif": "h",
-      "v": 4469138,
-      "l": 16138,
-      "rp": 896,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "v": 4479501,
+      "l": 16148,
+      "rp": 898,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Bears-Lions matçı zamanı efirə ABŞ-ın təcili xəbərdarlıq sistemi daxil olub.",
       "ru": "Во время матча «Беарз» — «Лайонс» в трансляцию неожиданно вмешалось экстренное оповещение США.",
       "en": "An emergency broadcast alert unexpectedly interrupted the Bears-Lions Thanksgiving game."
@@ -18551,10 +18299,10 @@
         "Physically at the Thanksgiving table. Mentally in Vice City."
       ],
       "sinif": "h",
-      "v": 490424,
-      "l": 36648,
-      "rp": 2932,
-      "vt": "2026-11-27T15:05:51+00:00",
+      "v": 495232,
+      "l": 36941,
+      "rp": 2954,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Şükran günü süfrəsində fiziki olaraq oturub, xəyalən Vice City-də olanlar.",
       "ru": "Физически за праздничным столом на День благодарения, а мысленно в Вайс-Сити.",
       "en": "Physically sitting at the Thanksgiving table, but mentally in Vice City."
@@ -18614,10 +18362,10 @@
         "What can we say, they love food as much as we do 🤷‍♂️"
       ],
       "sinif": "h",
-      "v": 352716,
-      "l": 1617,
-      "rp": 55,
-      "vt": "2026-11-27T15:05:51+00:00",
+      "v": 357032,
+      "l": 1660,
+      "rp": 57,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "UFC döyüşçülərinin də yeməyi bizim qədər çox sevdiyi anlar.",
       "ru": "Момент, показывающий, что бойцы UFC любят поесть не меньше нас.",
       "en": "A fun look at how UFC fighters love food just as much as anyone else."
@@ -18635,10 +18383,10 @@
         "BREAKING: Newly released footage appears to show British-Iraqi man Mohammad al-Hassani directing an attack in London remotely from a warehouse in Iraq."
       ],
       "sinif": "h",
-      "v": 422092,
-      "l": 5987,
-      "rp": 1733,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "v": 424452,
+      "l": 6039,
+      "rp": 1746,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Yeni yayımlanan kadrlarda İraqdan Londondakı hücumu idarə edən şəxs görünür.",
       "ru": "На недавно опубликованных кадрах запечатлен мужчина, предположительно руководивший атакой в Лондоне из Ирака.",
       "en": "Newly released footage appears to show a man directing an attack in London remotely from Iraq."
@@ -20039,10 +19787,10 @@
         "This woman went viral for showing the Black Friday deals at Target are misleading and the same prices they have been advertising all month"
       ],
       "sinif": "h",
-      "v": 193071,
-      "l": 2544,
-      "rp": 557,
-      "vt": "2026-11-27T07:05:32+00:00",
+      "v": 916504,
+      "l": 12278,
+      "rp": 2866,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Qadın \"Target\" mağazasındakı \"Qara Cümə\" endirimlərinin saxta olduğunu sübut edərək viral olub.",
       "ru": "Женщина стала вирусной, показав, что скидки в Black Friday в магазине Target оказались фиктивными.",
       "en": "A woman went viral for showing that Target's Black Friday deals were misleading."
@@ -20081,10 +19829,10 @@
         "MORE FOOTBALL BRAWLS: A brawl broke out between Lions and Bears fans today."
       ],
       "sinif": "h",
-      "v": 95086,
-      "l": 700,
+      "v": 96781,
+      "l": 705,
       "rp": 77,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Amerika futbolu oyunundan sonra azarkeşlər arasında kütləvi dava düşüb.",
       "ru": "После матча по американскому футболу между фанатами вспыхнула массовая драка.",
       "en": "A massive brawl breaks out between rival NFL fans following a football game."
@@ -20102,10 +19850,10 @@
         "WATCH: Video from the Ohio Department of Transportation shows a semi-truck losing control while turning and skidding across the gap between two off-ramps. Authorities pulled the truck back onto the road and towed it away. No injuries were reported."
       ],
       "sinif": "h",
-      "v": 100561,
-      "l": 700,
+      "v": 101520,
+      "l": 706,
       "rp": 74,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Ohayoda yük maşınının idarəetməni itirərək sürüşdüyü təhlükəli anlar kameraya düşüb.",
       "ru": "Момент потери управления грузовиком на скользкой дороге в Огайо попал на видео.",
       "en": "Dashcam captures the tense moment a semi-truck loses control and skids in Ohio."
@@ -20123,10 +19871,10 @@
         "THANKSGIVING FOOTBALL FIGHT: Eagles and cowboys fans get into it during today’s football game."
       ],
       "sinif": "h",
-      "v": 268369,
-      "l": 1659,
-      "rp": 165,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "v": 271681,
+      "l": 1677,
+      "rp": 166,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Futbol matçı zamanı tribunada azarkeşlər arasında dava düşüb.",
       "ru": "Во время матча между болельщиками команд завязалась потасовка на трибунах.",
       "en": "Fans clash in the stands during a heated Thanksgiving football game."
@@ -20312,10 +20060,10 @@
         "Dizel ve benzinli motorlar arasındaki gerçek fark nedir? İki motor da aynı dört zamanlı çalışma sistemini kullanır ancak yakıtı farklı şekillerde ateşler. Benzinli motor: Sıkıştırılmış hava ve yakıt karışımı, bujiyle ateşlenir. Dizel motor: Hava, doğrudan silindire püskürtülen yakıtı ateşleyecek sıc"
       ],
       "sinif": "u",
-      "v": 13217,
-      "l": 114,
+      "v": 13673,
+      "l": 119,
       "rp": 20,
-      "vt": "2026-11-27T15:05:51+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Dizel və benzin mühərrikləri arasındakı əsas fərq yanacağın alovlanma üsuludur.",
       "ru": "Главное различие между дизельным и бензиновым мотором заключается в воспламенении.",
       "en": "The main difference between diesel and gasoline engines lies in ignition."
@@ -20354,10 +20102,10 @@
         "Egzoz gazı bir motorun gücünü nasıl artırabilir?"
       ],
       "sinif": "u",
-      "v": 4248,
+      "v": 4338,
       "l": 12,
       "rp": 0,
-      "vt": "2026-11-27T15:05:51+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Egzoz qazlarının mühərrikin gücünü necə artıra biləcəyi izah edilir.",
       "ru": "Видео объясняет, каким образом выхлопные газы могут увеличить мощность мотора.",
       "en": "An explanation of how exhaust gases can actually increase an engine's power."
@@ -20417,10 +20165,10 @@
         "BILLS WALK IT OFF AGAINST THE CHIEFS TO END THANKSGIVING FOOTBALL!!"
       ],
       "sinif": "h",
-      "v": 64852,
-      "l": 879,
+      "v": 65273,
+      "l": 883,
       "rp": 71,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Şif-çifs oyununun sonunda \"Bills\" komandası qələbə qazanaraq azarkeşləri sevindirdi.",
       "ru": "Биллс» вырывают победу у «Чифс» в концовке драматичного матча.",
       "en": "Bills walk it off against the Chiefs to end an exciting Thanksgiving game."
@@ -20501,10 +20249,10 @@
         "Gaz lambasının nasıl çalıştığını biliyor musun?"
       ],
       "sinif": "u",
-      "v": 8666,
-      "l": 22,
+      "v": 8859,
+      "l": 23,
       "rp": 1,
-      "vt": "2026-11-27T15:05:51+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Qaz lincinin necə işlədiyini və onun mexanizmini izah edən maraqlı video.",
       "ru": "Познавательное видео о том, как устроена и работает керосиновая лампа.",
       "en": "An educational video explaining how an old kerosene lamp actually works."
@@ -20732,10 +20480,10 @@
         "Bazen en basit malzemelerle en kullanışlı araçlar yapılabilir."
       ],
       "sinif": "u",
-      "v": 7721,
-      "l": 39,
+      "v": 8175,
+      "l": 42,
       "rp": 5,
-      "vt": "2026-11-27T15:05:51+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Sadə materiallardan istifadə edərək faydalı alətin hazırlanması.",
       "ru": "Создание полезного инструмента своими руками из простых материалов.",
       "en": "Making a useful everyday tool using simple and basic materials."
@@ -21803,10 +21551,10 @@
         "Bu türbin kanadı, kendi erime noktasından daha sıcak gazların içinde çalışmasına rağmen erimiyor. Jet motorunun parça parça nasıl çalıştığı: Havayı içine çeker, sıkıştırır, yakar ve dışarı atar."
       ],
       "sinif": "u",
-      "v": 4713,
+      "v": 4869,
       "l": 25,
-      "rp": 1,
-      "vt": "2026-11-27T15:05:51+00:00",
+      "rp": 0,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Jet mühərrikinin və türbin pərlərinin necə işləməsi nümayiş olunur.",
       "ru": "Показан принцип работы струйного двигателя и турбинных лопастей.",
       "en": "Demonstration of how a jet engine and its turbine blades operate."
@@ -22160,10 +21908,10 @@
         "Bugün gökyüzünde gördüğünüz her uçuş, hayal kurmaktan vazgeçmeyen biri sayesinde mümkün oldu."
       ],
       "sinif": "h",
-      "v": 12882,
-      "l": 98,
+      "v": 13375,
+      "l": 105,
       "rp": 6,
-      "vt": "2026-11-27T15:05:51+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Təyyarələrin göyə qalxması və müasir aviasiyanın maraqlı kadrları.",
       "ru": "Захватывающие кадры полета самолетов и современной авиации.",
       "en": "Captivating footage of airplane flight and modern aviation."
@@ -22181,10 +21929,10 @@
         "Thank you ❤️"
       ],
       "sinif": "h",
-      "v": 173267,
-      "l": 2408,
-      "rp": 100,
-      "vt": "2026-11-27T15:05:51+00:00",
+      "v": 177501,
+      "l": 2453,
+      "rp": 104,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "UFC döyüşündən sonra idmançının emosional və yaddaqalan anı.",
       "ru": "Эмоциональный момент бойца после поединка на турнире UFC.",
       "en": "An emotional moment of a fighter following a UFC match."
@@ -22286,10 +22034,10 @@
         "El gol de 𝐎𝐲𝐚𝐫𝐳𝐚𝐛𝐚𝐥 en El Sardinero. ⚽ RacingRealSociedad | LALIGAEASPORTS | LALIGAHighlights | @RealSociedad"
       ],
       "sinif": "h",
-      "v": 17923,
-      "l": 71,
-      "rp": 6,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "v": 18132,
+      "l": 72,
+      "rp": 7,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "İspaniya La Liqası matçında Oyarzabalın vurduğu gözəl qol.",
       "ru": "Красивый гол Оярсабала в матче испанской Ла Лиги.",
       "en": "Oyarzabal scores a brilliant goal in a La Liga match."
@@ -22328,10 +22076,10 @@
         "Rio Ngumoha's magic feet ✨ #UCL"
       ],
       "sinif": "h",
-      "v": 227152,
-      "l": 6057,
-      "rp": 439,
-      "vt": "2026-11-27T15:18:08+00:00",
+      "v": 235442,
+      "l": 6325,
+      "rp": 454,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "UEFA Çempionlar Liqasında Rio Nqumohanın möhtəşəm ayaq hərəkətləri və fəndləri.",
       "ru": "Великолепный дриблинг и финты Рио Нгумохи в Лиге чемпионов УЕФА.",
       "en": "Rio Ngumoha's impressive footwork and dribbling skills in the UEFA Champions League."
@@ -22412,10 +22160,10 @@
         "Samsun’un Çarşamba ilçesindeki ilkokulda kantin görevlisi boğazına simit parçası kaçan öğrenciyi Heimlich manevrası yaparak kurtardı."
       ],
       "sinif": "h",
-      "v": 14667,
+      "v": 14756,
       "l": 30,
       "rp": 1,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Samsunda kantin işçisi boğazına simit qalan şagirdi Heymlix manevrası ilə xilas edib.",
       "ru": "В Самсуне работник столовой спас подавившегося ученика маневром Хаймлиха.",
       "en": "In Samsun, a cafeteria worker saved a choking student using the Heimlich maneuver."
@@ -22475,10 +22223,10 @@
         "Bozuk vana değişim işlemi."
       ],
       "sinif": "u",
-      "v": 15234,
-      "l": 39,
+      "v": 15686,
+      "l": 40,
       "rp": 2,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Ustanın sıradan çıxmış su vanasını yenisi ilə əvəzləməsi və təmir prosesi.",
       "ru": "Процесс демонтажа и замены неисправного водяного вентиля мастером.",
       "en": "The process of a craftsman replacing a faulty water valve with a new one."
@@ -22664,10 +22412,10 @@
         "Kusursuz pileler yapmak için pratik bir dikiş yöntemi! 🧵"
       ],
       "sinif": "u",
-      "v": 6473,
-      "l": 16,
+      "v": 7232,
+      "l": 19,
       "rp": 0,
-      "vt": "2026-11-27T15:05:51+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Pərdələrdə qüsursuz və səliqəli pilelər hazırlamaq üçün çox praktiki və asan tikiş üsulu.",
       "ru": "Практичный и удобный метод шитья для создания идеальных и ровных складках на шторах.",
       "en": "A practical and easy sewing method demonstrated for making flawless and neat curtain pleats."
@@ -22706,10 +22454,10 @@
         "Was three plates deep and in a food coma but my cousin asked if I wanted to play GTA 6"
       ],
       "sinif": "h",
-      "v": 23735,
-      "l": 425,
-      "rp": 36,
-      "vt": "2026-11-27T15:05:51+00:00",
+      "v": 25305,
+      "l": 450,
+      "rp": 39,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Bayram yeməyindən sonra GTA 6 oynamaq təklifinə gəncin verdiyi emosional reaksiya.",
       "ru": "Реакция парня на предложение сыграть в GTA 6 после сытного обеда.",
       "en": "A gamer's reaction to being invited to play GTA 6 after a heavy meal."
@@ -22790,10 +22538,10 @@
         "Pochettino passion 😤 #UCL"
       ],
       "sinif": "h",
-      "v": 343980,
-      "l": 8147,
-      "rp": 431,
-      "vt": "2026-11-27T15:18:08+00:00",
+      "v": 368087,
+      "l": 8658,
+      "rp": 455,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Çempionlar Liqası oyununda Maurisio Poçettinonun emosional anları.",
       "ru": "Эмоциональный момент с Маурисио Почеттино на матче Лиги чемпионов.",
       "en": "Mauricio Pochettino's passionate moments during a Champions League match."
@@ -22853,10 +22601,10 @@
         "El testarazo de Lucas Boyé. 💥 AlavésDépor | LALIGAEASPORTS | LALIGAHighlights"
       ],
       "sinif": "h",
-      "v": 34223,
-      "l": 181,
-      "rp": 18,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "v": 35245,
+      "l": 187,
+      "rp": 19,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "La Liqa matçında Lukas Boyenin başla vurduğu təsirli qol anı.",
       "ru": "Впечатляющий гол головой Лукаса Бойе в матче испанской Ла Лиги.",
       "en": "Lucas Boyé's impressive header goal in a Spanish LaLiga match."
@@ -22874,10 +22622,10 @@
         "Fastest time to complete a puzzle cube mile 🏃‍➡️⏱️ 5 min 9.25 sec by George Scholey 🇬🇧 Speedcubing champion and multiple record holder George solved a cube every 400 m (1,312 ft) of this mile long attempt, which took place at Central Tech high school in Toronto, Canada"
       ],
       "sinif": "h",
-      "v": 11097,
+      "v": 11419,
       "l": 52,
       "rp": 11,
-      "vt": "2026-11-27T15:05:51+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Qaçaraq Ruba kubikini ən sürətli yığan idmançının yeni dünya rekordu.",
       "ru": "Мировой рекорд по сборке кубика Рубика во время бега на милю.",
       "en": "World record for solving a Rubik's cube while running a mile."
@@ -22895,10 +22643,10 @@
         "Türkiye tatilinde bir karaoke barda tanıştığı Türk ile evlenen İngiliz kadın, yıllar içindeki değişimlerini paylaştı;"
       ],
       "sinif": "h",
-      "v": 177510,
-      "l": 277,
-      "rp": 2,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "v": 183282,
+      "l": 292,
+      "rp": 3,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Karaoke barda türklə tanış olub ərə gedən britaniyalı qadının illərlə dəyişimi.",
       "ru": "Британка, вышавшая замуж за турка после караоке, показала свои изменения.",
       "en": "A British woman who married a Turk after meeting in a karaoke bar over time."
@@ -22937,10 +22685,10 @@
         "Bu yöntemle eski tenceremi yeniledim."
       ],
       "sinif": "u",
-      "v": 5095,
-      "l": 15,
+      "v": 5427,
+      "l": 19,
       "rp": 2,
-      "vt": "2026-11-27T15:05:51+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Köhnə qazanın xüsusi üsulla təmizlənərək yenilənməsi prosesi.",
       "ru": "Процесс обновления и очистки старой кастрюли особым способом.",
       "en": "Process of cleaning and restoring an old pot using a special method."
@@ -23063,10 +22811,10 @@
         "Hatay'da TikTok yayını açan ve 'Devlet benim' diyerek şehitlere, polise ve devlete küfreden şahıs, ters kelepçe ile evinden alındı."
       ],
       "sinif": "h",
-      "v": 33382,
-      "l": 136,
+      "v": 33884,
+      "l": 139,
       "rp": 10,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Hatayda canlı yayımda dövlət nümayəndələrinə söyüş söyən şəxs saxlanıldı.",
       "ru": "В Хатае задержали стримера, оскорблявшего полицейских в прямом эфире.",
       "en": "A streamer in Hatay was detained after insulting police on a live broadcast."
@@ -23084,10 +22832,10 @@
         "Trey Nyoni said no ⛔️"
       ],
       "sinif": "h",
-      "v": 239474,
-      "l": 5667,
-      "rp": 348,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "v": 245376,
+      "l": 5868,
+      "rp": 363,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Liverpulun gənc oyunçusu Trey Nyoni rəqib hücumunun qarşısını ustalıqla alır.",
       "ru": "Молодой игрок «Ливерпуля» Трей Ньони блестяще останавливает атаку соперника.",
       "en": "Liverpool youngster Trey Nyoni pulls off a brilliant defensive stop."
@@ -23168,10 +22916,10 @@
         "Extraordinary scenes in Bolivia 🤯 A referee punched a player as tempers flared at the end of the 2026 Bolivian Cup final between Always Ready and Real Potosí 😬"
       ],
       "sinif": "h",
-      "v": 29629,
-      "l": 273,
+      "v": 30209,
+      "l": 279,
       "rp": 27,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Boliviya kubokunun finalında hakim futbolçuya yumruq zərbəsi endirib.",
       "ru": "Судья ударил кулаком игрока в финале Кубка Боливии.",
       "en": "A referee punches a player during the Bolivian Cup final."
@@ -23336,10 +23084,10 @@
         "Arda Güler's assist 😮‍💨 #UCL"
       ],
       "sinif": "h",
-      "v": 427938,
-      "l": 12784,
-      "rp": 683,
-      "vt": "2026-11-27T15:18:08+00:00",
+      "v": 481296,
+      "l": 14417,
+      "rp": 776,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Çempionlar Liqasında Arda Gülərin verdiyi gözəl məhsuldar ötürmə anı.",
       "ru": "Голевая передача Арды Гюлера в матче Лиги чемпионов.",
       "en": "Arda Güler's impressive assist in the Champions League match."
@@ -23399,10 +23147,10 @@
         "Did you know? 🧐 Dryland rehearsals help artistic swimmers perfect their timing, coordination, and synchronisation before bringing their routines to life in the pool! 💦 #Olympics #ArtisticSwimming"
       ],
       "sinif": "u",
-      "v": 13210,
-      "l": 8,
+      "v": 13682,
+      "l": 11,
       "rp": 2,
-      "vt": "2026-11-27T15:18:08+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Bədii üzgüçülərin hovuzdan əvvəl quru quruda sinxron hərəkət məşqi.",
       "ru": "Синхронная тренировка артисток плавания на суше перед бассейном.",
       "en": "Artistic swimmers rehearsing synchronization on land before the pool."
@@ -23441,10 +23189,10 @@
         "Kolay köşe yapımı."
       ],
       "sinif": "u",
-      "v": 5353,
+      "v": 5562,
       "l": 25,
       "rp": 3,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Dülgərlik işində asan və səliqəli küncbirləşdirmə texnikası.",
       "ru": "Простая техника быстрого и аккуратного соединения углов в столярке.",
       "en": "Simple technique for making clean wood joints and corners."
@@ -23546,10 +23294,10 @@
         "🔴⚫ Milan producing a brilliant second-half comeback in Piraeus 😮‍💨 #UEL | @acmilan"
       ],
       "sinif": "h",
-      "v": 939861,
-      "l": 17338,
-      "rp": 962,
-      "vt": "2026-11-27T15:18:08+00:00",
+      "v": 1079239,
+      "l": 19594,
+      "rp": 1092,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Milan Pireydə matçda parlaq ikinci hissə geri dönüşünə imza atdı.",
       "ru": "Милан оформил яркий камбэк во втором тайме матча в Пирее.",
       "en": "AC Milan produced a brilliant second-half comeback during their match in Piraeus."
@@ -23672,10 +23420,10 @@
         "Yollarda kullanılması gereken sistem."
       ],
       "sinif": "u",
-      "v": 12125,
-      "l": 46,
-      "rp": 6,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "v": 13008,
+      "l": 51,
+      "rp": 7,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Yollarda istifadə edilməsi lazım olan təhlükəsizlik sisteminin işləmə mexanizmi.",
       "ru": "Принцип работы системы безопасности, которая должна использоваться на дорогах.",
       "en": "A safety system mechanism that needs to be implemented on roads."
@@ -23777,10 +23525,10 @@
         "🚨 İstanbul Emniyet Müdürlüğü ve MİT'in düzenlenlediği operasyonla 3 ayrı suçtan aranan Selim Işık yakalandı. “Tilki Selim” lakaplı Selim Işık, saunadaki gizli bölmede saklanırken gözaltına alındı."
       ],
       "sinif": "h",
-      "v": 114173,
-      "l": 156,
-      "rp": 11,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "v": 127906,
+      "l": 165,
+      "rp": 12,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "İstanbulda keçirilən əməliyyatla “Tilki Selim” ləqəbli Selim Işık saunadakı gizli bölmədə saxlanılıb.",
       "ru": "В Стамбуле в ходе операции полиция задержала Селима Ишика по кличке «Тилки Селим», скрывавшегося в тайнике.",
       "en": "Selim Isık, nicknamed 'Fox Selim', was captured hiding in a secret compartment of a sauna in Istanbul."
@@ -23819,10 +23567,10 @@
         "Hatay'da bir ay boyunca harçlıklarını biriktiren öğrenciler, mahalle bakkalının veresiye defterindeki borçları ödedi."
       ],
       "sinif": "h",
-      "v": 13229,
-      "l": 51,
+      "v": 13388,
+      "l": 52,
       "rp": 5,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Hatayda məktəblilər bir ay boyunca harçlıqlarını yığaraq mahalle bakkalının veresiye defterindeki borcları ödəyiblər.",
       "ru": "В Хатае школьники целый месяц собирали карманные деньги, чтобы погасить долги в долговой книге местного бакалейщика.",
       "en": "In Hatay, students saved their pocket money for a month to pay off the debts in the local grocer's ledger."
@@ -23840,10 +23588,10 @@
         "The beauty of artistic gymnastics through Zhong Qi's performance at #Dakar2026! 💕 The gymnast from the People's Republic of China clinched bronze in the women's all-around final. 🥉👏 #YouthOlympics"
       ],
       "sinif": "h",
-      "v": 10746,
-      "l": 10,
+      "v": 11082,
+      "l": 13,
       "rp": 0,
-      "vt": "2026-11-27T15:18:08+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Dakar 2026 Gənclər Olimpiya Oyunlarında çinli gimnast Çonq Qi qadınların çoxnövçülük finalında bürünc medal qazanıb.",
       "ru": "На Юношеских Олимпийских играх в Дакаре китайская гимнастка Чжун Ци завоевала бронзу в абсолютном первенстве.",
       "en": "At the Dakar 2026 Youth Olympic Games, Chinese gymnast Zhong Qi clinched bronze in the all-around final."
@@ -23945,10 +23693,10 @@
         "PRESIDENT TRUMP: \"I'm pleased to announce that I have officially approved major disaster declarations for FEMA and emergency relief funding for the state of Florida in the wake of the severe storms and flooding that has ravaged the state since October.\""
       ],
       "sinif": "h",
-      "v": 60700,
-      "l": 888,
+      "v": 61378,
+      "l": 891,
       "rp": 95,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "ABŞ prezidenti Donald Tramp Floridada baş verən güclü fırtına və daşqınlar üçün Fえている bəyannaməsini təsdiqləyib.",
       "ru": "Президент Трамп одобрил декларации о стихийных бедствиях из-за штормов во Флориде.",
       "en": "President Trump announced disaster declarations and emergency funding for Florida after severe storms."
@@ -24008,10 +23756,10 @@
         "Gordon and Jack cooking up some mischief in Vegas 😂 Watch the full LEGO race on our official YouTube channel now! 📺 #F1"
       ],
       "sinif": "h",
-      "v": 105898,
-      "l": 410,
-      "rp": 35,
-      "vt": "2026-11-27T15:18:08+00:00",
+      "v": 111703,
+      "l": 434,
+      "rp": 36,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Formula 1-in rəsmi kanalında Las-Veqasda LEGO yarışının əyləncəli kadrları paylaşıb.",
       "ru": "На официальном канале Формулы-1 показали забавные кадры гонки LEGO в Лас-Вегасе.",
       "en": "On the official F1 channel, Gordon and Jack cook up some mischief in a fun LEGO race in Vegas."
@@ -24050,10 +23798,10 @@
         "🔥 Enes Nalbantoğlu'nun muazzam golü 90+4'te Yeşilyurt'a galibiyeti getirdi! MS: Yeşilyurt 4-3 Ağrı 1970 #MemleketiminMaçıTivibuda"
       ],
       "sinif": "h",
-      "v": 33267,
-      "l": 280,
-      "rp": 20,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "v": 34282,
+      "l": 286,
+      "rp": 21,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Enes Nalbantoğlunun 90+4-cü dəqiqədə vurduğu möhtəşəm qol Yeşilyurta qələbə qazandırıb.",
       "ru": "Великолепный гол Энеса Налбантоглу на 90+4 минуте принес победу Ешильюрту.",
       "en": "Enes Nalbantoğlu's stunning 90+4th minute goal brought victory to Yeşilyurt."
@@ -24092,10 +23840,10 @@
         "Hatay’da 77 yıl hapis cezasıyla aranan firari şahıs, kurye kılığına giren polisin kapıyı çalmasıyla yakalandı:"
       ],
       "sinif": "h",
-      "v": 29633,
-      "l": 40,
+      "v": 31869,
+      "l": 43,
       "rp": 1,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Hatayda 77 il hapis cezasıyla aranan firari, kurye kılığına giren polisin əməliyyatı ilə tutulub.",
       "ru": "В Хатае беглец, разыскиваемый на 77 лет тюрьмы, был пойман переодетым в курьера полицейским.",
       "en": "In Hatay, a fugitive wanted with 77 years in prison was captured when police disguised as a courier knocked."
@@ -24155,10 +23903,10 @@
         "13 years later and still wants his backpack.. 😊"
       ],
       "sinif": "h",
-      "v": 91126,
-      "l": 4103,
-      "rp": 271,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "v": 99986,
+      "l": 4532,
+      "rp": 308,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "13 il keçməsinə baxmayaraq, bu sevimli şirniyyat çantasından əl çəkmir.",
       "ru": "Спустя 13 лет этот пес все так же преданно не хочет расставаться со своим рюкзаком.",
       "en": "Thirteen years later, this loyal dog still refuses to part with his favorite backpack."
@@ -24239,10 +23987,10 @@
         "Dog's reaction to hearing all his favorite words..🐕🐾😅"
       ],
       "sinif": "h",
-      "v": 16270,
-      "l": 554,
-      "rp": 43,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "v": 16753,
+      "l": 570,
+      "rp": 44,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "İt sevimli sözlərini eşidərkən ecazkar və şirin reaksiyalar verir.",
       "ru": "Пес забавно и очень эмоционально реагирует на каждое свое любимое слово.",
       "en": "This dog shows the most adorable and expressive reaction to hearing his favorite words."
@@ -24302,10 +24050,10 @@
         "More than 605,000 customers across the East Coast are without power this morning after a powerful Thanksgiving storm battered the region, flooding communities and disrupting travel."
       ],
       "sinif": "h",
-      "v": 38251,
-      "l": 387,
-      "rp": 130,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "v": 39479,
+      "l": 401,
+      "rp": 134,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Güclü qasırğadan sonra Şərq sahilində yüz minlərlə abonent işıqsız qalıb.",
       "ru": "Более 600 тысяч потребителей остались без электричества после разрушительного шторма.",
       "en": "More than 600,000 customers lost power after a severe storm struck the East Coast."
@@ -24386,10 +24134,10 @@
         "🚨🔵🔴 Rodri, back available and today in team training with Barcelona squad. 🔛 @FCBarcelona 🎥"
       ],
       "sinif": "h",
-      "v": 836189,
-      "l": 14766,
-      "rp": 774,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "v": 850697,
+      "l": 15260,
+      "rp": 808,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Rodri zədədən sonra yenidən 'Barselona'nın komanda məşqlərinə qoşulub.",
       "ru": "Родри вернулся к тренировкам в составе «Барселоны» после травмы.",
       "en": "Rodri has returned to team training with the Barcelona squad."
@@ -24428,10 +24176,10 @@
         "GTA 6 has alternate ways to fast travel but be honest - are you really trying to spend LESS time in driving around Leonida? #gta6"
       ],
       "sinif": "h",
-      "v": 65333,
-      "l": 382,
+      "v": 69204,
+      "l": 409,
       "rp": 30,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "GTA 6 oyununda sürətli səyahət üçün müxtəlif yollar təqdim olunur.",
       "ru": "В игре GTA 6 представлены различные способы быстрого перемещения.",
       "en": "GTA 6 features alternative ways to fast travel across the map."
@@ -24512,10 +24260,10 @@
         "Police are searching for five suspects in a Nov. 22 burglary at a boutique on Montague Street in Tampa. Investigators say the suspects used a stolen gray Dodge Ram to crash into the store around 5:25 a.m. Four suspects, wearing gloves and face coverings, entered and stole about $330,000 worth of des"
       ],
       "sinif": "h",
-      "v": 42469,
-      "l": 204,
-      "rp": 63,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "v": 44223,
+      "l": 219,
+      "rp": 66,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Tampada oğrular avtomobillə mağazaya çırpılaraq 330 min dollarlıq mal oğurlayıblar.",
       "ru": "В Тампе грабители въехали на машине в бутик и украли товары на $330 000.",
       "en": "Burglars rammed a truck into a Tampa boutique and stole $330k worth of goods."
@@ -24575,10 +24323,10 @@
         "Yaralı bir Rus askeri, tahliye sırasında bir ATV römorkundan oldukça dikkat çekici bir biçimde düştü."
       ],
       "sinif": "h",
-      "v": 39939,
-      "l": 143,
+      "v": 42181,
+      "l": 152,
       "rp": 2,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Yaralı əsgərin təxliyə zamanı ATV qoşqusundan yıxılması anı.",
       "ru": "Момент падения раненого солдата с прицепа квадроцикла при эвакуации.",
       "en": "Footage of an injured soldier falling off an ATV trailer during evacuation."
@@ -24596,10 +24344,10 @@
         "🎥 𝐅𝐨𝐨𝐭𝐛𝐚𝐥𝐥 𝐚𝐬 𝐂𝐢𝐧𝐞𝐦𝐚 | CSKA Sofya #UECL"
       ],
       "sinif": "h",
-      "v": 51275,
-      "l": 4794,
-      "rp": 267,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "v": 53522,
+      "l": 4940,
+      "rp": 275,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Trabzonspor' CSKA Sofiya matçının kinematoqrafik icmalını təqdim edib.",
       "ru": "Трабзонспор представил кинематографический обзор матча с ЦСКА София.",
       "en": "Trabzonspor shared a cinematic highlight video of their CSKA Sofia match."
@@ -24617,10 +24365,10 @@
         "Buzdolabı kapak contası nasıl tamir edilir?"
       ],
       "sinif": "u",
-      "v": 5789,
-      "l": 29,
+      "v": 6109,
+      "l": 33,
       "rp": 4,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Soyuducunun qapı rezinlərinin necə təmir olunması nümayiş etdirilir.",
       "ru": "Показан процесс ремонта уплотнительной резинки двери холодильника.",
       "en": "Demonstrating how to repair a refrigerator door gasket seal."
@@ -24659,10 +24407,10 @@
         "Barcola's interception ⚡️ Szobo's assist 🤝 Isak's finish 👊"
       ],
       "sinif": "h",
-      "v": 97464,
-      "l": 2576,
-      "rp": 207,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "v": 99955,
+      "l": 2705,
+      "rp": 218,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Çempionlar Liqasında sürətli hücum möhtəşəm qolla tamamlandı.",
       "ru": "Быстрая атака в Лиге чемпионов завершилась великолепным голом.",
       "en": "A lightning-fast attack in the Champions League ended with a stunning goal."
@@ -24701,10 +24449,10 @@
         "📻 \"Everyone ok?\" Isack sets off a bit early from his pit box 😮 #F1 #QatarGP"
       ],
       "sinif": "h",
-      "v": 172331,
-      "l": 1582,
-      "rp": 101,
-      "vt": "2026-11-27T15:18:08+00:00",
+      "v": 227257,
+      "l": 2098,
+      "rp": 118,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Formula 1 Qətər Qran-prisində pit-stop zamanı maraqlı an.",
       "ru": "Забавный момент во время пит-стопа на Гран-при Формулы-1 в Катаре.",
       "en": "An amusing moment during the pit stop at the Qatar F1 Grand Prix."
@@ -24722,10 +24470,10 @@
         "UN CABEZAZO, TRES PUNTOS. ❤️ Budimir decidió en El Sadar el OsasunaMálaga LALIGAEASPORTS | LALIGAHighlights | @Osasuna"
       ],
       "sinif": "h",
-      "v": 27458,
-      "l": 163,
+      "v": 28551,
+      "l": 175,
       "rp": 20,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "La Liqada son dəqiqələrdə vurulan qol üç xal qazandırdı.",
       "ru": "Победный гол головой на последних минутах матча Ла Лиги.",
       "en": "A dramatic late header secured all three points in La Liga."
@@ -24743,10 +24491,10 @@
         "Andrea Cambiaso with a ridiculous finish from outside the box 🥵 #UEL | @juventusfc"
       ],
       "sinif": "h",
-      "v": 22119,
-      "l": 182,
-      "rp": 20,
-      "vt": "2026-11-27T15:18:08+00:00",
+      "v": 25951,
+      "l": 242,
+      "rp": 24,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Cari mövsümdə diqqət çəkən fantastik uzaq məsafə zərbəsi.",
       "ru": "Фантастический дальний удар, ставший украшением еврокубкового матча.",
       "en": "A fantastic long-range strike that lit up the European night."
@@ -24785,10 +24533,10 @@
         "Mikel Arteta takes aim 🎯 🔴 @Arsenal"
       ],
       "sinif": "h",
-      "v": 158550,
-      "l": 3936,
-      "rp": 420,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "v": 165286,
+      "l": 4164,
+      "rp": 448,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Mikel Arteta \"Arsenal\" komandası ilə məşq zamanı dəqiq zərbə hədəfinə tuş gəlir.",
       "ru": "Микель Артета демонстрирует точный удар на тренировке команды «Арсенал».",
       "en": "Mikel Arteta shows off his precision shooting during an Arsenal training session."
@@ -24827,10 +24575,10 @@
         "Barcola 🫢 #UCL"
       ],
       "sinif": "h",
-      "v": 107421,
-      "l": 1060,
-      "rp": 95,
-      "vt": "2026-11-27T15:18:08+00:00",
+      "v": 131064,
+      "l": 1513,
+      "rp": 134,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Çempionlar Liqasında Barcola matçın ən yaddaqalan anlarından birinə imza atır.",
       "ru": "Баркола создает один из самых ярких моментов матча в Лиге чемпионов.",
       "en": "Barcola delivers a standout moment during the Champions League match."
@@ -24848,10 +24596,10 @@
         "Lautaro charging through the middle 🐂 #UCL"
       ],
       "sinif": "h",
-      "v": 86820,
-      "l": 646,
-      "rp": 62,
-      "vt": "2026-11-27T15:18:08+00:00",
+      "v": 123050,
+      "l": 1121,
+      "rp": 89,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Lautaro Çempionlar Liqasında mərkəzdən irəliyə doğru sürətlə irəliləyir.",
       "ru": "Лаутаро стремительно прорывается через центр поля в Лиге чемпионов.",
       "en": "Lautaro charges powerfully through the middle in the Champions League."
@@ -24869,10 +24617,10 @@
         "Bournemouth's comeback win against Celta earns them Performance of the Week honours 🏅👏 #UELPOTW"
       ],
       "sinif": "h",
-      "v": 16984,
-      "l": 141,
-      "rp": 14,
-      "vt": "2026-11-27T15:18:08+00:00",
+      "v": 20238,
+      "l": 195,
+      "rp": 16,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Bornmut \"Selta\" ilə matçda möhtəşəm geri dönüş edərək həftənin komandası olur.",
       "ru": "Борнмут» совершает волевую победу над «Селтой» и удостаивается награды.",
       "en": "Bournemouth secures a stunning comeback win against Celta to earn honors."
@@ -24890,10 +24638,10 @@
         "RCD Espanyol. Elche CF. Celta. Tres victorias en los últimos minutos y un mismo héroe: CARLOS ESPÍ. 🦸‍♂️ LALIGAEASPORTS | LALIGAHighlights | @realmadrid"
       ],
       "sinif": "h",
-      "v": 20740,
-      "l": 205,
-      "rp": 18,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "v": 24677,
+      "l": 295,
+      "rp": 27,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "La Liqada son dəqiqələrdə qələbə qazandıran qəhrəman Karlos Espi fərqlənir.",
       "ru": "Карлос Эспи приносит победу своей команде на последних минутах в Ла Лиге.",
       "en": "Carlos Espi emerges as the late-game hero with a crucial goal in La Liga."
@@ -24953,10 +24701,10 @@
         "When you accidentally pet another cat on GTA VI and your cat sees it..the look of utter betrayal..🐈🐾😅"
       ],
       "sinif": "h",
-      "v": 27981,
-      "l": 1703,
-      "rp": 114,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "v": 41964,
+      "l": 2611,
+      "rp": 179,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "GTA VI oyununda başqa pişiyi sığallayanda öz pişiyinin qısqanclıq dolu baxışları.",
       "ru": "Удивленный и ревнивый взгляд кота в GTA VI, когда вы случайно гладите другого питомца.",
       "en": "The utterly betrayed look of a cat in GTA VI when you accidentally pet another animal."
@@ -24995,10 +24743,10 @@
         "Placement, perfect 🤌 ⚫️ @NUFC"
       ],
       "sinif": "h",
-      "v": 132983,
-      "l": 707,
-      "rp": 62,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "v": 143142,
+      "l": 817,
+      "rp": 69,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "İngiltərə Premyer Liqasında qeydə alınan dəqiq və sərrast zərbə anı.",
       "ru": "Момент точного и безупречного удара в матче Английской Премьер-лиги.",
       "en": "A brilliant and precise placement shot captured in the English Premier League."
@@ -25058,10 +24806,10 @@
         "CHAPTER 1 SPOILER! Most players found Jason in the hospital fast enough but there are fatal consequences for anyone that didn't #gta6"
       ],
       "sinif": "h",
-      "v": 119680,
-      "l": 1194,
-      "rp": 29,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "v": 128885,
+      "l": 1316,
+      "rp": 30,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "GTA 6 oyununun birinci fəslində Jason-u xilas etməyin vacibliyi və ölümcül nəticələri.",
       "ru": "Важность быстрого поиска Джейсона в первой главе GTA 6 и фатальные последствия при опоздании.",
       "en": "The crucial timing and fatal consequences of finding Jason fast enough in Chapter 1 of GTA 6."
@@ -25079,10 +24827,10 @@
         "Önder Özen, Galatasaray maçının ertelenmesi konusunda 'bahane yok, devam' açıklamasında bulundu."
       ],
       "sinif": "h",
-      "v": 104858,
-      "l": 425,
-      "rp": 11,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "v": 113362,
+      "l": 471,
+      "rp": 12,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Öndər Özen Qalatasaray matçının təxirə salınması ilə bağlı bəhanə axtarmadıqlarını söyləyib.",
       "ru": "Ендер Озен заявил, что у них нет отговорок по поводу переноса матча с Галатасараем.",
       "en": "Önder Özen stated that they have no excuses regarding the postponement of the Galatasaray match."
@@ -25100,10 +24848,10 @@
         "A pregnant inmate serving time for auto theft escaped custody after allegedly stealing a prison transport SUV while guards stopped at Whataburger. The 26-year-old, Rebecca Taylor, was reportedly unrestrained because of her pregnancy and climbed into the driver’s seat before speeding away. The SUV an"
       ],
       "sinif": "h",
-      "v": 32669,
-      "l": 145,
-      "rp": 37,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "v": 35074,
+      "l": 155,
+      "rp": 38,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Hamilə məhbus qadın nəzarətçilərin yemək alarkən həbsxana avtomobilini qaçırıb uzaqlaşması.",
       "ru": "Беременная заключенная угнала тюремный внедорожник, пока охранники покупали еду.",
       "en": "A pregnant inmate managed to steal a prison transport SUV while guards stopped for food."
@@ -25142,10 +24890,10 @@
         "Basamak süpürgelik kurulum işlemi."
       ],
       "sinif": "u",
-      "v": 3573,
-      "l": 9,
+      "v": 3769,
+      "l": 10,
       "rp": 0,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Pilləkən süpurgəliyinin quraşdırılması prosesi addım-addım göstərilib.",
       "ru": "Пошаговый процесс установки плинтуса на лестничном пролете.",
       "en": "Step-by-step process of installing stair baseboards."
@@ -25205,10 +24953,10 @@
         "Shepherd cat and his shepherd dog on paw patrol..🐕🐾🐈😅"
       ],
       "sinif": "h",
-      "v": 9030,
-      "l": 587,
-      "rp": 52,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "v": 9647,
+      "l": 657,
+      "rp": 62,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Pişik və çoban iti patrulda birgə çalışırlar.",
       "ru": "Кот-пастух и настоящая овчарка несут совместную службу на патруле.",
       "en": "A shepherd cat and a shepherd dog team up on paw patrol duty."
@@ -25226,10 +24974,10 @@
         "Gabriel ➡️ Madueke ➡️ Gyökeres #UCL"
       ],
       "sinif": "h",
-      "v": 41720,
-      "l": 232,
-      "rp": 31,
-      "vt": "2026-11-27T15:18:08+00:00",
+      "v": 83049,
+      "l": 1382,
+      "rp": 145,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Çempionlar Liqasında Gabriel, Madueke və Gyökeresin iştirakı ilə gözəl hücum anı.",
       "ru": "Яркая комбинация с участием Габриэля, Мадуэке и Дьекереша в Лиге чемпионов.",
       "en": "A brilliant attacking sequence involving Gabriel, Madueke and Gyokeres in the UCL."
@@ -25289,10 +25037,10 @@
         "✍️ Con la firma de @DenisSuarez6. Así fue su gol en la victoria del @Alaves ante el Dépor. AlavésDépor | LALIGAEASPORTS | LALIGAHighlights"
       ],
       "sinif": "h",
-      "v": 11994,
-      "l": 32,
+      "v": 14090,
+      "l": 43,
       "rp": 9,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Denis Suaresin \"Alaves\"in qələbə qazandığı matçda vurduğu qol.",
       "ru": "Эффектный гол Дениса Суареса в победном матче «Алавеса».",
       "en": "Denis Suarez scores a brilliant goal in Alaves' victory."
@@ -25331,10 +25079,10 @@
         "Biathlon is back! 🙌 As a new season begins, let's look back at Oceane Michelon's precision during #MilanoCortina2026. 👏 #Olympics"
       ],
       "sinif": "h",
-      "v": 10682,
-      "l": 13,
+      "v": 11243,
+      "l": 19,
       "rp": 1,
-      "vt": "2026-11-27T15:18:08+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Oceane Mişelon Milano-Kortina 2026 biatlon yarışında dəqiq atışları ilə diqqət çəkib.",
       "ru": "Осеан Мишелон продемонстрировала отличную точность в биатлоне перед Олимпиадой-2026.",
       "en": "Oceane Michelon showed impressive precision in biathlon ahead of Milano-Cortina 2026."
@@ -25520,10 +25268,10 @@
         "Yurda dönen Beşiktaş kafilesini karşılayanlar arasında Fenerbahçeli ve Galatasaraylı taraftarlar da yer aldı."
       ],
       "sinif": "h",
-      "v": 24589,
-      "l": 1021,
-      "rp": 31,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "v": 25906,
+      "l": 1147,
+      "rp": 33,
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Yurda dönen Beşiktaş kafilesini havalimanında Fenerbahçeli ve Galatasaraylı taraftarlar da karşıladı.",
       "ru": "Вернувшуюся команду Бешикташ в аэропорту встретили и болельщики Фенербахче с Галатасараем.",
       "en": "Returning Besiktas squad was welcomed at the airport by Fenerbahce and Galatasaray fans too."
@@ -25625,10 +25373,10 @@
         "SON DAKİKA | Gürcistan'ın Ankara Büyükelçisi, Dışişleri Bakanlığı'na çağrıldı."
       ],
       "sinif": "h",
-      "v": 11615,
-      "l": 43,
+      "v": 12697,
+      "l": 44,
       "rp": 1,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Gürcistan'ın Ankara Büyükelçisi, yaşanan olayların ardından Dışişleri Bakanlığı'na çağrıldı.",
       "ru": "Посол Грузии в Анкаре был вызван в Министерство иностранных дел после инцидентов.",
       "en": "Georgia's Ambassador to Ankara was summoned to the Ministry of Foreign Affairs."
@@ -25646,13 +25394,160 @@
         "SON DAKİKA | Resmî Gazete’de yayımlanan kararla kamu alacaklarında gecikme zammı yüzde 3,7’den yüzde 3,2’ye, yıllık tecil faizi ise yüzde 39’dan yüzde 29’a çekildi."
       ],
       "sinif": "h",
-      "v": 15933,
+      "v": 16178,
       "l": 14,
       "rp": 4,
-      "vt": "2026-11-27T15:36:24+00:00",
+      "vt": "2026-11-27T15:50:39+00:00",
       "c": "Resmî Gazete'de yayımlanan kararla kamu alacaklarında gecikme zammı ve faiz oranları indirildi.",
       "ru": "Опубликованным в Официальном вестнике решением снижены пени и ставки налогов.",
       "en": "Late payment charges and interest rates for public receivables were reduced by a decree."
+    },
+    {
+      "id": "2126314851379089840",
+      "handle": "ConflictTR",
+      "post": "https://x.com/ConflictTR/status/2126314851379089840",
+      "video": "https://video.twimg.com/amplify_video/2126298436446146560/vid/avc1/464x848/eoJ5SQjOQeHmp9H7.mp4?tag=29",
+      "poster": "https://pbs.twimg.com/amplify_video_thumb/2126298436446146560/img/4j4upT-uqYNkCIo2.jpg",
+      "w": 464,
+      "h": 848,
+      "at": "2026-11-27T13:59:00+00:00",
+      "src": [
+        "Rus FAB-3000 mühimmatının oluşturduğu yıkım."
+      ],
+      "sinif": "h",
+      "v": 27946,
+      "l": 87,
+      "rp": 3,
+      "vt": "2026-11-27T15:50:39+00:00",
+      "c": "Rusiyanın FAB-3000 tipli güclü mühimmatının yaratdığı dağıntı anbaan əks olunub.",
+      "ru": "Мощные разрушения, вызванные применением российской фугасной бомбы ФАБ-3000.",
+      "en": "Footage captures the immense destruction caused by the Russian FAB-3000 munition."
+    },
+    {
+      "id": "2126342931237806336",
+      "handle": "F1",
+      "post": "https://x.com/F1/status/2126342931237806336",
+      "video": "https://video.twimg.com/amplify_video/2126340530841833472/vid/avc1/480x852/fJBPK_68nanyl-9K.mp4?tag=29",
+      "poster": "https://pbs.twimg.com/media/HYJHj97WwAAeKQI.jpg",
+      "w": 1080,
+      "h": 1920,
+      "at": "2026-11-27T15:50:35+00:00",
+      "src": [
+        "Sparkling save from Pierre ✨ #F1 #QatarGP @AlpineF1Team"
+      ],
+      "sinif": "h",
+      "v": 28307,
+      "l": 111,
+      "rp": 13,
+      "vt": "2026-11-27T15:50:39+00:00",
+      "c": "Formula 1 Qətər Qran-prisində Pyerin möhtəşəm xilasetmə anı diqqət çəkib.",
+      "ru": "Пилот Пьер демонстрирует потрясающее спасение болида на Гран-при Катара.",
+      "en": "Pierre delivers a sparkling and crucial save during the Formula 1 Qatar Grand Prix."
+    },
+    {
+      "id": "2126256002333061621",
+      "handle": "ABC",
+      "post": "https://x.com/ABC/status/2126256002333061621",
+      "video": "https://video.twimg.com/ext_tw_video/2126255969072250880/pu/vid/avc1/480x852/m3kFwozZ2qcr4cRW.mp4?tag=12",
+      "poster": "https://pbs.twimg.com/ext_tw_video_thumb/2126255969072250880/pu/img/wH563V7RPwYQqLBZ.jpg",
+      "w": 720,
+      "h": 1280,
+      "at": "2026-11-27T10:05:09+00:00",
+      "src": [
+        "Newly released footage shows the moments leading up to the deadly tanker fire near Cairo, Egypt. @ABC News' Hanna Battah has the latest. https://abcnews.link/vUMUyeG?utm_source=twitter&utm_medium=social&utm_campaign=dhtwitter&utm_content=app.dashsocial.com%2Fabcnews%2Flibrary%2Fmedia%2F753146541"
+      ],
+      "sinif": "h",
+      "v": 40946,
+      "l": 130,
+      "rp": 46,
+      "vt": "2026-11-27T15:50:39+00:00",
+      "c": "Misirdə yanacaq daşıyan maşının yaxınlığında baş verən dəhşətli yanğın anı kameraya düşüb.",
+      "ru": "Момент страшного взрыва и пожара бензовоза возле Каира попал на видео.",
+      "en": "Newly released footage shows the moments leading up to the deadly tanker fire near Cairo."
+    },
+    {
+      "id": "2126330291962966031",
+      "handle": "ABC",
+      "post": "https://x.com/ABC/status/2126330291962966031",
+      "video": "https://video.twimg.com/ext_tw_video/2126330275676512257/pu/vid/avc1/480x852/wH6Qx--ea6jTtHhD.mp4?tag=12",
+      "poster": "https://pbs.twimg.com/ext_tw_video_thumb/2126330275676512257/pu/img/EgNc0uadO3xPD2k1.jpg",
+      "w": 1080,
+      "h": 1920,
+      "at": "2026-11-27T15:00:21+00:00",
+      "src": [
+        "Environmental Protection Agency personnel are awaiting results following the Army's detonation of a stockpile of lead azide in Iowa. Hundreds of samples from homes, parks and drinking water were taken after the detonation, the EPA said. https://abcnews.visitlink.me/aNoVJr"
+      ],
+      "sinif": "h",
+      "v": 12510,
+      "l": 20,
+      "rp": 8,
+      "vt": "2026-11-27T15:50:39+00:00",
+      "c": "Ayovada hərbi sursatların partladılmasından sonra ətraf mühitdən nümunələr götürülüb.",
+      "ru": "В Айове проверяют экологию после контролируемого взрыва запасов боеприпасов армией.",
+      "en": "Environmental personnel await test results following a military munitions detonation in Iowa."
+    },
+    {
+      "id": "2126269852268798368",
+      "handle": "ABC",
+      "post": "https://x.com/ABC/status/2126269852268798368",
+      "video": "https://video.twimg.com/ext_tw_video/2126269827132301313/pu/vid/avc1/480x852/ynWuG5tZHtegPGjA.mp4?tag=12",
+      "poster": "https://pbs.twimg.com/ext_tw_video_thumb/2126269827132301313/pu/img/XNjfMSbkihOPb7m3.jpg",
+      "w": 720,
+      "h": 1280,
+      "at": "2026-11-27T11:00:11+00:00",
+      "src": [
+        "Authorities in Florida are on the lookout for suspects involved in this smash-and-grab. @SophieFlayABC has the details. https://abcnews.link/vUMUyeG?utm_source=twitter&utm_medium=social&utm_campaign=dhtwitter&utm_content=app.dashsocial.com%2Fabcnews%2Flibrary%2Fmedia%2F753163329"
+      ],
+      "sinif": "h",
+      "v": 20686,
+      "l": 25,
+      "rp": 6,
+      "vt": "2026-11-27T15:50:39+00:00",
+      "c": "Floridada mağazaya hücum edərək oğurluq törədən şəxslər axtarışa verilib.",
+      "ru": "В Флориде разыскивают подозреваемых, причастных к дерзкому ограблению магазина.",
+      "en": "Authorities in Florida are on the lookout for suspects involved in a smash-and-grab robbery."
+    },
+    {
+      "id": "2126330222874374146",
+      "handle": "TamirveTadilat",
+      "post": "https://x.com/TamirveTadilat/status/2126330222874374146",
+      "video": "https://video.twimg.com/amplify_video/1977285501057953793/vid/avc1/480x852/IH0H-X9RbVFJzreo.mp4?tag=21",
+      "poster": "https://pbs.twimg.com/amplify_video_thumb/1977285501057953793/img/xM_ewnMfPOwN3Rgo.jpg",
+      "w": 720,
+      "h": 1280,
+      "at": "2026-11-27T15:00:05+00:00",
+      "src": [
+        "Batarya tamir işlemi."
+      ],
+      "sinif": "u",
+      "v": 3045,
+      "l": 11,
+      "rp": 1,
+      "vt": "2026-11-27T15:50:39+00:00",
+      "c": "Avtomobilin batareyasının təmir edilməsi prosesi lentə alınıb.",
+      "ru": "Процесс профессионального ремонта автомобильной аккумуляторной батареи.",
+      "en": "A detailed look at the battery repair process performed by technicians."
+    },
+    {
+      "id": "2126284920335073613",
+      "handle": "muhendisIiktr",
+      "post": "https://x.com/muhendisIiktr/status/2126284920335073613",
+      "video": "https://video.twimg.com/amplify_video/2126278249701396480/vid/avc1/480x852/DmNg-3SCydPz69sU.mp4?tag=29",
+      "poster": "https://pbs.twimg.com/amplify_video_thumb/2126278249701396480/img/9eE91lDX0Cf84uTj.jpg",
+      "w": 720,
+      "h": 1280,
+      "at": "2026-11-27T12:00:04+00:00",
+      "src": [
+        "Mazda’nın döner motoru nasıl çalışıyor? Wankel motorunda pistonların yerini dönen üçgen biçimli bir rotor alır. Rotor, fıstık biçimli bir haznenin içinde döner. Üç köşesindeki sızdırmazlık keçeleri, hazne içinde üç ayrı bölme oluşturur. Bu bölmeler sırayla yakıt-hava karışımını alır, sıkıştırır, ate"
+      ],
+      "sinif": "u",
+      "v": 3244,
+      "l": 17,
+      "rp": 1,
+      "vt": "2026-11-27T15:50:39+00:00",
+      "c": "Mazda-nın Vankel tipli dönən mühərrikinin işləmə mexanizmi nümayiş olunub.",
+      "ru": "Наглядно показано, как работает уникальный роторно-поршневой двигатель Ванкеля.",
+      "en": "An engineering breakdown demonstrates how Mazda's rotary Wankel engine functions."
     }
   ]
 }
