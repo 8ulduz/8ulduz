@@ -335,11 +335,21 @@ milli_step() {
   return 0
 }
 
+# Şəkil keşi (sahib 2026-11-27: «Bəli, qur»; docs/img-worker.md): ilk ekranın təzə şəkilləri img Worker-dən bir dəfə soruşulur ki,
+# R2-yə düşsün və ilk oxucu soyuq wsrv.nl-i gözləməsin. Yalnız IMG_HOST (repo dəyişəni) qoyulanda; yavaş dövrədədir, xəbər dövrəsi
+# gözləmir. Ən çox 45 s (skriptin öz həddi 35 s, 3 paralel sorğu); alınmasa növbəti dövrə yenə soruşur.
+sekil_isit() {
+  [ -n "${IMG_HOST:-}" ] && command -v node >/dev/null 2>&1 || return 0
+  env -u GH_TOKEN -u GITHUB_TOKEN timeout -k 5 45 node "$REPO_DIR/.github/scripts/sekil-isit.cjs" "$REPO_DIR" "$WORK/data/first.json" "$STATE/sekil-isit.json" || echo "şəkil isitməsi xəta verdi"
+  return 0
+}
+
 slow_loop() {
   while :; do
     local began=$SECONDS left
     run_py --slow "$SLOW_LIMIT" || echo "yavaş dövrə xəta verdi"
     milli_step
+    sekil_isit
     left=$((SLOW_EVERY - (SECONDS - began)))
     [ "$left" -gt 0 ] && sleep "$left"
   done

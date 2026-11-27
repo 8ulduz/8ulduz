@@ -49,6 +49,8 @@ jobs:
           # Açar yoxdursa boşdur: futbol kodu onu oxumur, sayt indiki kimi işləyir (Vikipediya, OpenLigaDB, pfl.az).
           FOOTBALL_DATA_KEY: ${{ secrets.FOOTBALL_DATA_KEY }}
           API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+          # Şəkil keşinin isidilməsi (docs/img-worker.md): repo dəyişəni (sirr deyil), məs. img.8ulduz.az. Boşdursa yavaş dövrə şəkil soruşmur.
+          IMG_HOST: ${{ vars.IMG_HOST }}
         run: bash .github/scripts/pipeline.sh
       - name: İşlək kodu yadda saxla
         if: ${{ always() && hashFiles('.lkg/.yeni') != '' }}
