@@ -176,6 +176,12 @@ Sahib: «nə heyvan nə təbiət nə kosmos ... eyni məsələni neçə dəfə d
 - **Ölüm anı, qan, meyit göstərilmir** (`x_yazici.py`-dakı qayda qalır, dünya göstərişinə də yazılıb). X videosunun kadrında belə şey görünsə video paylaşılmır (aşağıda «X videoları»).
 - Yoxlama: `tests/video-movzu.test.cjs`.
 
+## Eyni adam — eyni hadisə (2026-11-27)
+
+05:20-də «Fira Cəlilovanın bağ evində oğurluq» videosu getdi. 07:47-də kanal yolu Baku.es-in «Novxanıda aparıcı Fira Cəlilovanın bağ evinə basqın edilib» Reels-ini seçdi: mövzu qaydası (`social.cjs` `sameTopic`) 4+ ortaq söz kökü istəyirdi, burada isə 2 idi (fira, cəlil). Video paylaşılmadı, çünki kadr yoxlaması başqa saytın başlıq blokunu tutdu. Amma eyni hadisədən ikinci video ola bilərdi.
+
+İndi başlıqda yanaşı iki böyük hərfli söz (ad və soyad, `topicOf` `cut`) 4 saat içində iki başlıqda varsa, bu eyni hadisədir. Hər xəbərdə olan adlar (İlham Əliyev, Prezident) sayılmır. Bu qayda xəbər, kanal videoları və sosial paylaşım üçün eynidir.
+
 ## Seçim: bir hadisə, öz görüntü, gecə (sahibin qərarı, 2026-11-27)
 
 Sahib rəqibin Reels-ini göstərdi: Baku.ws, «"Beşiktaş"ın 10-dan çox azarkeşi saxlanılıb», stadionun öz kadrı ilə. Bizdə bu hadisənin videosu olmadı. Düzəliş «A» təsdiqləndi: «A B ni də» (B və Telegram yolu — mənbə videosunun yeni yolları, `video-menbe.cjs`, ayrıca işdir).

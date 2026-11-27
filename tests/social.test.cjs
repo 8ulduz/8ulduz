@@ -715,3 +715,17 @@ test("social: Instagram respects the official 24 h publishing limit (content_pub
   await S.run({ articles: [one], env, now: NOW, fetch: bad.fetch, state: {}, log: s => l2.push(s) });
   assert.ok(l2.some(s => s.startsWith("instagram: alınmadı — HTTP 403 (status: IN_PROGRESS,IN_PROGRESS,IN_PROGRESS) {")), "status jurnalda kəsilmir");
 });
+
+// 2026-11-27: 05:20 «Fira Cəlilovanın bağ evində oğurluq» videosundan 2,5 saat sonra kanal yolu «Novxanıda aparıcı Fira Cəlilovanın bağ evinə
+// basqın edilib»-i seçdi: ortaq söz kökü 2 idi (fira, cəlil), söz qaydası (4+) tutmurdu. İndi eyni ad və soyad 4 saat içində eyni hadisədir.
+test("social: the same person's name and surname in two titles within hours is the same event; leadership names and old saved topics don't trip it", () => {
+  const now = Date.parse("2026-11-27T07:48:00Z") / 1000;
+  const T = (title, h = 0) => S.topicOf({ title }, now + h * 3600);
+  assert.deepEqual(T("Novxanıda aparıcı Fira Cəlilovanın bağ evinə basqın edilib").cut, ["fira cəlil"]);
+  assert.ok(S.sameTopic(T("Fira Cəlilovanın bağ evində oğurluq", -2.5), T("Novxanıda aparıcı Fira Cəlilovanın bağ evinə basqın edilib")));
+  assert.ok(!S.sameTopic(T("Fira Cəlilovanın bağ evində oğurluq", -5), T("Fira Cəlilova yeni mahnı yayımladı")), "4 saatdan sonra yox");
+  assert.deepEqual(T("Prezident İlham Əliyev Türkiyəyə səfərə gedib").cut, [], "hər xəbərdə olan adlar sayılmır");
+  assert.ok(!S.sameTopic(T("İlham Əliyev Türkiyəyə səfərə gedib", -1), T("İlham Əliyev Polşa Prezidentinə başsağlığı verib")));
+  const kohne = { ...T("Fira Cəlilovanın bağ evində oğurluq", -1) }; delete kohne.cut;
+  assert.equal(S.sameTopic(kohne, T("Novxanıda aparıcı Fira Cəlilovanın bağ evinə basqın edilib")), false, "köhnə siyahıda cut yoxdur — xəta yox");
+});
