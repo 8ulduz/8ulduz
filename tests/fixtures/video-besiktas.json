@@ -1,0 +1,268 @@
+{
+ "_": "Lentin özü (data/news.json, main 7c8b2e1aef, 2026-11-26 19:00 UTC): «Beşiktaş» – «Hapoel Beer-Şeva» matçındakı davanın 7 parçası (1–6 mənbə) və ən böyük öz görüntüsüz xəbər (Bakıda yanğın, 4 parça). 19:17 pəncərəsində dünya videosu getdi, 19:47-də gündəlik hədd doldu: hadisə video olmadı. Bizim.Media-nın səhifəsində öz faylı var idi (cdn.bizim.media). tests/video-secim.test.cjs.",
+ "now": "2026-11-26T19:17:00Z",
+ "mp4": "https://cdn.bizim.media/video/2026/11/27/60001.mp4",
+ "menbe": "21245f3709e7b289",
+ "articles": [
+  {
+   "id": "258f1f3248c57c0e",
+   "title": "Gürcüstanda “Beşiktaş”ın oyununda dava düşdü - Polis müdaxilə etdi",
+   "summary": "",
+   "category": "cemiyyet",
+   "lang": "az",
+   "source": "Oxu24.com",
+   "sourceUrl": "https://oxu24.com/az/dunya/178574/gurcustanda-besiktasin-oyununda-dava-dusdu-polis-mudaxile-etdi",
+   "publishedAt": "2026-11-26T18:44:00+00:00",
+   "alts": [
+    {
+     "source": "Milli.az",
+     "sourceUrl": "https://news.milli.az/sport/1352683.html",
+     "title": "“Beşiktaş”ın oyununda dava - yarımçıq dayandırıdı",
+     "publishedAt": "2026-11-26T18:30:00+00:00"
+    },
+    {
+     "source": "Qafqazinfo",
+     "sourceUrl": "https://www.qafqazinfo.az/news/detail/gurcustanda-besiktasin-oyununda-dava-dusdu-polis-mudaxile-etdi-529943",
+     "title": "Gürcüstanda “Beşiktaş”ın oyununda dava düşdü",
+     "publishedAt": "2026-11-26T18:28:00+00:00"
+    },
+    {
+     "source": "APA Sport",
+     "sourceUrl": "https://apasport.az/xeberler/besiktasin-oyununda-kutlevi-dava-oyun-dayandi-237409",
+     "title": "“Beşiktaş”ın oyununda kütləvi dava - OYUN DAYANDI - VİDEO",
+     "publishedAt": "2026-11-26T18:20:28+00:00"
+    },
+    {
+     "source": "Qol.az",
+     "sourceUrl": "https://qol.az/news/233632-besiktasin-matcinda-dava-dusdu-video",
+     "title": "“Beşiktaş”ın matçında dava düşdü - Video",
+     "publishedAt": "2026-11-26T17:30:16+00:00"
+    }
+   ]
+  },
+  {
+   "id": "21245f3709e7b289",
+   "title": "“Beşiktaş” – “Hapoel” matçında insident yarandı - Video",
+   "summary": "UEFA Avropa Liqasında mübarizəsini davam etdirən “Beşiktaş” V turun matçında “Hapoel Beer-Şeva”nı qəbul edir. Bizim.Media xəbər verir ki, Gürcüstanın Batumi şəhərində keçirilən matçda stadionda insident yaşanıb.…",
+   "category": "idman",
+   "lang": "az",
+   "source": "Bizim.Media",
+   "sourceUrl": "https://bizim.media/az/idman/649914/besiktas-hapoel-matcinda-insident-yarandi-video/",
+   "publishedAt": "2026-11-26T18:14:55+00:00",
+   "video": true,
+   "alts": [
+    {
+     "source": "Mia.az",
+     "sourceUrl": "https://mia.az/w1110415/avropa-liqasinda-dava-besiktas-azarkesleriine-hucum-oldu-xesaret-alan-var-oyun-dayandi",
+     "title": "Avropa Liqasında dava: \"Beşiktaş\" azarkeşləriinə hücum oldu, xəsarət alan var - Oyun dayandı",
+     "publishedAt": "2026-11-26T17:42:00+00:00"
+    }
+   ]
+  },
+  {
+   "id": "3e27e77e1eac4691",
+   "title": "“Beşiktaş” və “Hapoel” azarkeşləri arasında dava stadiondan kənarda davam edir - Anbaan video",
+   "summary": "Batumidə “Beşiktaş” və “Hapoel” azarkeşləri arasında qarşıdurma davam edir. Bizim.Media xəbər verir ki, Türkiyənin “Beşiktaş” və İsrailin “Hapoel” komandalarının azarkeşləri arasında baş verən toqquşmalar stadiondan…",
+   "category": "idman",
+   "lang": "az",
+   "source": "Bizim.Media",
+   "sourceUrl": "https://bizim.media/az/idman/649917/besiktas-ve-hapoel-azarkesleri-arasinda-dava-stadiondan-kenarda-davam-edir-anbaan-video/",
+   "publishedAt": "2026-11-26T18:46:47+00:00",
+   "video": true,
+   "alts": []
+  },
+  {
+   "id": "403f525eb7df0965",
+   "title": "“Beşiktaş”ın oyunu azarkeşlərə müdaxiləyə görə dayandırıldı",
+   "summary": "UEFA Avropa Liqasının əsas mərhələsində keçirilən “Beşiktaş” (Türkiyə) – “Hapoel” (İsrail) qarşılaşması tribunada baş verən hadisələr səbəbindən 25-ci dəqiqədə dayandırılıb. Yenicag.az xəbər verir ki, Gürcüstanın Batumi…",
+   "category": "idman",
+   "lang": "az",
+   "source": "Yenicag.az",
+   "sourceUrl": "https://yenicag.az/besiktas-in-oyunu-azarkeslere-mudaxileye-gore-dayandirildi",
+   "publishedAt": "2026-11-26T18:29:20+00:00",
+   "alts": [
+    {
+     "source": "Moderator.az",
+     "sourceUrl": "https://moderator.az/az/idman/1040373/besiktas-hapoel-beer-seva-matci-yarimciq-dayandirildi-polisle-azarkesler-arasinda-toqqusma/",
+     "title": "\"Beşiktaş\" - \"Hapoel Beer-Şeva\" matçı yarımçıq dayandırıldı: Polislə azarkeşlər arasında toqquşma",
+     "publishedAt": "2026-11-26T18:53:36+00:00"
+    },
+    {
+     "source": "Modern.az",
+     "sourceUrl": "https://modern.az/az/idman/855678/felestin-bayragi-acmaq-isteyen-besiktas-azarkesine-gurcustan-polisi-mane-oldu/",
+     "title": "Fələstin bayrağı açmaq istəyən “Beşiktaş” azarkeşinə Gürcüstan polisi mane oldu",
+     "publishedAt": "2026-11-26T18:37:00+00:00"
+    },
+    {
+     "source": "Axar.az",
+     "sourceUrl": "https://axar.az/news/planet/1152894.html",
+     "title": "\"Beşiktaş\" - \"Hapoel\" matçında dava: Oyun yarımçıq dayandırıldı",
+     "publishedAt": "2026-11-26T18:36:00+00:00"
+    },
+    {
+     "source": "Oxu.az",
+     "sourceUrl": "https://oxu.az/idman/besiktas-hapoel-beer-seva-matci-yarimciq-dayandirildi-polisle-azarkesler-arasinda-toqqusma",
+     "title": "Beşiktaş\" - \"Hapoel Beer-Şeva\" matçı yarımçıq dayandırıldı: Polislə azarkeşlər arasında toqquşma",
+     "publishedAt": "2026-11-26T18:26:00+00:00"
+    },
+    {
+     "source": "APA",
+     "sourceUrl": "https://apa.az/asia/besiktas-hapoel-beer-seva-matcinda-azarkesler-arasinda-qarsidurma-bas-verib-1017627",
+     "title": "“Beşiktaş” – “Hapoel Beer Şeva” matçında azarkeşlər arasında qarşıdurma baş verib",
+     "publishedAt": "2026-11-26T18:23:21+00:00"
+    }
+   ]
+  },
+  {
+   "id": "762813a47a76ce54",
+   "title": "\"Beşiktaş\" - \"Hapoel Beer-Şeva\" matçında insident: Xəsarət alan var",
+   "summary": "",
+   "category": "idman",
+   "lang": "az",
+   "source": "Publika.az",
+   "sourceUrl": "https://publika.az/news/idman/650346.html",
+   "publishedAt": "2026-11-26T18:57:00+00:00",
+   "alts": []
+  },
+  {
+   "id": "0f5b0d5fb34863aa",
+   "title": "\"Beşiktaş\" – \"Hapoel\" azarkeşləri arasındakı davaya görə oyun dayandırıldı",
+   "summary": "",
+   "category": "idman",
+   "lang": "az",
+   "source": "Teleqraf",
+   "sourceUrl": "https://teleqraf.az/news/idman/577235.html",
+   "publishedAt": "2026-11-26T18:25:00+00:00",
+   "alts": []
+  },
+  {
+   "id": "4e227dcd23f557ac",
+   "title": "“Beşiktaş”ın matçında dava düşdü",
+   "summary": "",
+   "category": "idman",
+   "lang": "az",
+   "source": "Qol.az",
+   "sourceUrl": "https://qol.az/news/233632-besiktasin-matcinda-dava-dusdu",
+   "publishedAt": "2026-11-26T17:30:16+00:00",
+   "alts": []
+  },
+  {
+   "id": "3cc6da7925359e56",
+   "title": "Bakıda yaşayış binasında yanğın oldu",
+   "summary": "Bakının Səbail rayonunda fərdi yaşayış evində yanğın baş verib.Metbuat.az xəbər verir ki, Fövqəladə Hallar Nazirliyinin (FHN) məlumatına görə, hadisə rayonun Xanlar küçəsində qeydə alınıb.Əraziyə FHN-in Dövlət Yanğından…",
+   "category": "cemiyyet",
+   "lang": "az",
+   "source": "Metbuat",
+   "sourceUrl": "https://metbuat.az/news/1567618/bakida-yasayis-binasinda-yangin-oldu.html",
+   "publishedAt": "2026-11-26T17:09:00+00:00",
+   "alts": [
+    {
+     "source": "Azpolitika.info",
+     "sourceUrl": "https://azpolitika.info/?p=848085",
+     "title": "Bakıda ikimərtəbəli yaşayış evində yanğın olub",
+     "publishedAt": "2026-11-26T17:12:36+00:00"
+    },
+    {
+     "source": "Olke.az",
+     "sourceUrl": "https://olke.az/hadise/489397/bakida-ikimertebeli-yasayis-evinde-yangin-olub/",
+     "title": "Bakıda ikimərtəbəli yaşayış evində yanğın olub",
+     "publishedAt": "2026-11-26T16:50:33+00:00"
+    },
+    {
+     "source": "Modern.az",
+     "sourceUrl": "https://modern.az/az/hadise/855663/bakida-ikimertebeli-ev-yandi/",
+     "title": "Bakıda ikimərtəbəli ev yandı",
+     "publishedAt": "2026-11-26T16:41:00+00:00"
+    },
+    {
+     "source": "Axar.az",
+     "sourceUrl": "https://axar.az/news/hadise/1152858.html",
+     "title": "Bakıda ikimərtəbəli evdə yanğın oldu",
+     "publishedAt": "2026-11-26T16:24:00+00:00"
+    },
+    {
+     "source": "Teleqraf",
+     "sourceUrl": "https://teleqraf.az/news/hadise/577226.html",
+     "title": "Bakıda ikimərtəbəli yaşayış evində yanğın oldu",
+     "publishedAt": "2026-11-26T16:22:00+00:00"
+    },
+    {
+     "source": "Lent.az",
+     "sourceUrl": "https://lent.az/xeber/hadise/bakida-ikimertebeli-yasayis-evi-yandi-40698111",
+     "title": "Bakıda ikimərtəbəli yaşayış evi yandı",
+     "publishedAt": "2026-11-26T16:17:00+00:00"
+    },
+    {
+     "source": "APA",
+     "sourceUrl": "https://apa.az/incident/bakida-ikimertebeli-yasayis-evinde-yangin-olub-1017613",
+     "title": "Bakıda ikimərtəbəli yaşayış evində yanğın olub",
+     "publishedAt": "2026-11-26T16:10:36+00:00"
+    },
+    {
+     "source": "Oxu24.com",
+     "sourceUrl": "https://oxu24.com/az/cemiyyet/178532/bakida-yasayis-binasinda-yangin-olub-foto",
+     "title": "Bakıda yaşayış binasında yanğın olub - FOTO",
+     "publishedAt": "2026-11-26T12:38:00+00:00"
+    }
+   ]
+  },
+  {
+   "id": "76b1580fcf972bd3",
+   "title": "Səbaildə fərdi ev yandı",
+   "summary": "Fövqəladə Hallar Nazirliyinin “112” qaynar telefon xəttinə Bakı şəhərinin Səbail rayonu, Xanlar küçəsində fərdi yaşayış evində yanğın baş verməsi barədə məlumat daxil olub. Bizim.Media xəbər verir ki, məlumatla əlaqədar…",
+   "category": "siyaset",
+   "lang": "az",
+   "source": "Bizim.Media",
+   "sourceUrl": "https://bizim.media/az/cemiyyet/649903/sebailde-ferdi-ev-yandi/",
+   "publishedAt": "2026-11-26T16:42:27+00:00",
+   "alts": [
+    {
+     "source": "Yenicag.az",
+     "sourceUrl": "https://yenicag.az/sebailde-ferdi-yasayis-evinde-yangin-oldu",
+     "title": "Səbaildə fərdi yaşayış evində yanğın oldu",
+     "publishedAt": "2026-11-26T16:26:56+00:00"
+    },
+    {
+     "source": "News24.az",
+     "sourceUrl": "https://news24.az/hadise/sebailde-ferdi-yasayis-evinde-yangin-olub",
+     "title": "Səbaildə fərdi yaşayış evində yanğın olub",
+     "publishedAt": "2026-11-26T16:12:00+00:00"
+    },
+    {
+     "source": "Milli.az",
+     "sourceUrl": "https://news.milli.az/incedent/1352669.html",
+     "title": "Səbaildə fərdi yaşayış evində yanğın olub",
+     "publishedAt": "2026-11-26T16:11:00+00:00"
+    },
+    {
+     "source": "Qafqazinfo",
+     "sourceUrl": "https://www.qafqazinfo.az/news/detail/sebailde-ferdi-yasayis-evinde-yangin-olub-529933",
+     "title": "Səbaildə fərdi yaşayış evində yanğın olub",
+     "publishedAt": "2026-11-26T16:05:00+00:00"
+    }
+   ]
+  },
+  {
+   "id": "b765b4c69c9213e2",
+   "title": "Bakıda ikimərtəbəli yaşayış evində yanğın olub",
+   "summary": "",
+   "category": "cemiyyet",
+   "lang": "az",
+   "source": "Oxu24.com",
+   "sourceUrl": "https://oxu24.com/az/cemiyyet/178557/bakida-ikimertebeli-yasayis-evinde-yangin-olub",
+   "publishedAt": "2026-11-26T16:31:00+00:00",
+   "alts": []
+  },
+  {
+   "id": "412fd13dd784895b",
+   "title": "Bakıda ev yandı",
+   "summary": "Fövqəladə Hallar Nazirliyinin “112” qaynar telefon xəttinə Bakı şəhərinin Səbail rayonu, Xanlar küçəsində fərdi yaşayış evində yanğın baş verməsi barədə məlumat daxil olub. NOCOMMENT.az xəbər verir ki, məlumatla…",
+   "category": "siyaset",
+   "lang": "az",
+   "source": "Nocomment.az",
+   "sourceUrl": "https://nocomment.az/hadise/bakida-ev-yandi-4-561616",
+   "publishedAt": "2026-11-26T16:17:00+00:00",
+   "alts": []
+  }
+ ]
+}
