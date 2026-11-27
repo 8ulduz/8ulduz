@@ -8,8 +8,12 @@
 // mətnində yazılır: «Görüntü: Bizim.Media». Səs götürülmür (diktor mətni bizimdir), su nişanı silinmir.
 // Yalnız xəbərin öz hissəsindən (meqale: səhifədəki sonrakı xəbərlər yox) və yalnız saytın öz faylı, öz pleyeri və ya platforma
 // pleyeri (ozunku: başqa saytın faylı yox) — 2026-11-26 Publika.az səhvi, aşağıda.
+// Telegram postu (2026-11-27, sahib: «A B ni də.. B tək oxuaz la məhdud qalmasın»): xəbərin içindəki Telegram pəncərəsi
+// (data-telegram-post="kanal/123", t.me/kanal/123?embed=1 çərçivəsi, mətndəki t.me/kanal/123 keçidi) — postun ictimai pəncərəsində
+// birbaşa fayl var (telesco.pe). Saytın öz faylı yoxdursa götürülür, istənilən kanaldan, müxalifət kanalı və mənbəsi istisna
+// (video-kanal.cjs tgEmbed: yoxlama, kredit «<Kanal> (Telegram)»).
 // Nə götürülmür:
-//   - YouTube, Instagram, TikTok, Telegram pəncərəsi: orada fayl yoxdur, platformanın qorumasını aşmaq olmaz — bank klipi ilə davam;
+//   - YouTube, Instagram, TikTok pəncərəsi: orada fayl yoxdur, platformanın qorumasını aşmaq olmaz — bank klipi ilə davam;
 //   - X videoları (video.twimg.com) və saytın öz səhifələri (8ULDUZ): X videoları yalnız yerləşdirilir (docs/youtube.md);
 //   - reklam və saytın hər səhifəsində olan fayl (banner; baş səhifədə də varsa atılır);
 //   - film, serial, musiqi klipi və treyler kadrı (profil lent.yayim) — YouTube Content ID və Meta Rights Manager avtomatik tanıyır.
@@ -72,13 +76,31 @@ function meqale(html) {
 // faylı götürülmür: Publika-dakı TRT faylı kimi görüntü onlarındır və «Görüntü: Publika.az» yanlış olardı; xarici yayımçının görüntüsü
 // qırmızı xətt 2-yə də toxuna bilər. Saytın öz pleyeri və platformanın pleyeri isə öz faylını verir — oradan gələn fayla inanılır.
 const PLATFORMA = ["bax.tv", "newstube.az"];
+// Eyni media qrupunun saytları: birinin səhifəsindəki digərinin faylı da öz faylıdır. Yalnız sübutu olan cüt (2026-11-27):
+//   lent.az ↔ apa.az — lent.az/haqqimizda: «APA Media Group-un tərkibində fəaliyyət göstərən Lent.az», «Lent.az-da dərc olunan bütün
+//   xəbərlər, fotoşəkillər, reportajlar… APA Media Group-un intellektual mülkiyyətidir»; apa.az/about: «APA İnformasiya Agentliyi APA
+//   Media Group-un tərkibində fəaliyyət göstərən…». Lent.az-ın videoları cdn.apa.az/storage/apa.az/video-cdn/… faylıdır (Beşiktaş xəbəri,
+//   2026-11-26); hər iki saytın Telegram kanalının əlaqəsi eynidir (@BOTAPAGroup).
+const QRUP = [["apa.az", "lent.az"]];
 const sayt = u => {
   try {
     const p = new URL(u).hostname.toLowerCase().replace(/^www\./, "").split(".");
     return p.slice(p.length > 2 && /^(com|org|net|gov|edu|co|info|biz|ac|mil|name)$/.test(p[p.length - 2]) ? -3 : -2).join(".");
   } catch { return ""; }
 };
-const ozunku = (u, ev) => { const h = sayt(u); return Boolean(h) && (h === sayt(ev) || PLATFORMA.includes(h)); };
+const qrupdan = (a, b) => QRUP.some(q => q.includes(a) && q.includes(b));
+const ozunku = (u, ev) => { const h = sayt(u), e = sayt(ev); return Boolean(h) && (h === e || PLATFORMA.includes(h) || qrupdan(h, e)); };
+
+// Xəbərin içindəki Telegram postları («kanal/123»): pəncərə (data-telegram-post), çərçivə (t.me/kanal/123?embed=1) və mətndəki keçid.
+// Kanalın öz səhifəsi (t.me/kanal), qrup dəvəti, paylaşma və bağlı kanal (t.me/c/…) post deyil. Ən çox TG_MAX.
+const TG_MAX = 2;
+const TG_POST = [/\bdata-telegram-post\s*=\s*["']([A-Za-z][A-Za-z0-9_]{3,31})\/(\d{1,10})["']/gi,
+  /(?:https?:)?\/\/(?:www\.)?(?:t|telegram)\.me\/(?!(?:s|c|joinchat|share|addstickers|proxy|iv)\/)([A-Za-z][A-Za-z0-9_]{3,31})\/(\d{1,10})(?=[?"'#\s<&/]|$)/gi];
+function telegramlar(html) {
+  const s = String(html || "").replace(/\\\//g, "/"), out = [];
+  for (const re of TG_POST) for (const m of s.matchAll(re)) { const p = `${m[1]}/${m[2]}`; if (!out.some(x => x.toLowerCase() === p.toLowerCase())) out.push(p); }
+  return out.slice(0, TG_MAX);
+}
 
 // Faylın imzası: MP4/MOV (4-cü baytdan «ftyp») və ya WebM/Matroska (EBML). HTML və xəta səhifəsi video kimi saxlanmasın.
 const videodur = buf => buf.length >= 12 && (buf.subarray(4, 8).toString("latin1") === "ftyp" || buf.readUInt32BE(0) === 0x1A45DFA3);
@@ -116,7 +138,7 @@ async function menbeVideo(a, page, { env = process.env, fetch: f = globalThis.fe
     const html = s.html || await oxu(s.url, f);
     if (!html) continue;
     // Yalnız xəbərin öz hissəsi (meqale) və saytın öz faylı, öz pleyeri və ya platforma pleyeri (ozunku).
-    const l = linkler(meqale(html), s.url);
+    const parca = meqale(html), l = linkler(parca, s.url);
     const yad = [...new Set([...l.fayl, ...l.cercive].filter(u => !ozunku(u, s.url)).map(u => sayt(u) || u))];
     if (yad.length) log(`mənbə videosu: ${s.source} — başqa saytın faylı və pleyeri götürülmür (${yad.join(", ")})`);
     l.fayl = l.fayl.filter(u => ozunku(u, s.url));
@@ -131,7 +153,14 @@ async function menbeVideo(a, page, { env = process.env, fetch: f = globalThis.fe
     };
     let fayl = await temiz(l.fayl);
     for (const c of l.cercive) { if (fayl.length) break; fayl = await temiz(linkler(await oxu(c, f, s.url), c).fayl); }
-    if (!fayl.length) continue;
+    if (!fayl.length) {
+      // Saytın öz faylı yoxdur: xəbərin içindəki Telegram postunun videosu (video-kanal.cjs tgEmbed — müxalifət yoxlaması, kredit).
+      for (const post of telegramlar(parca)) {
+        const tg = await require("./video-kanal.cjs").tgEmbed(post, { fetch: f, log, dir, sehife: s.url }).catch(e => { log(`mənbə videosu: Telegram ${post} — ${String(e?.message || e).slice(0, 120)}`); return null; });
+        if (tg) return tg;
+      }
+      continue;
+    }
     for (const url of fayl.slice(0, 2)) {
       const err = await indir(url, path.join(dir, FAYL), f, s.url).catch(e => String(e?.message || e).slice(0, 120));
       if (err) { log(`mənbə videosu: ${s.source} — ${err} (${url})`); continue; }
@@ -144,4 +173,4 @@ async function menbeVideo(a, page, { env = process.env, fetch: f = globalThis.fe
   return null;
 }
 
-module.exports = { menbeVideo, linkler, meqale, sayt, ozunku, PLATFORMA, videodur, yayim, indir, FAYL, MAX_BYTES, MIN_BYTES, YAD, REKLAM };
+module.exports = { menbeVideo, linkler, meqale, sayt, ozunku, PLATFORMA, QRUP, telegramlar, TG_MAX, videodur, yayim, indir, FAYL, MAX_BYTES, MIN_BYTES, YAD, REKLAM };

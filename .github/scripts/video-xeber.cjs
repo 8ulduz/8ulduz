@@ -619,6 +619,8 @@ function storyFields(a) {
     ...(a.kind === "dunya" ? { kind: "dunya", url: a.url || "https://8ulduz.az/bolme/dunya/" } : {}),
     // X videosu («Çox baxılan», video-dunya.cjs xHazirla): keçid saytın Videolentinədir.
     ...(a.kind === "x" ? { kind: "x", url: a.url || "https://8ulduz.az/#/videolent" } : {}),
+    // Kanal videosu (video-kanal.cjs): sourceUrl Telegram/Instagram postudur — YouTube və TikTok yükləyicisi onu mənbə qaydası ilə ötürür.
+    ...(a.kind === "kanal" ? { kind: "kanal", url: a.url || "https://8ulduz.az/", sayt: a.sayt || "" } : {}),
     ...(Array.isArray(a.hashtags) && a.hashtags.length ? { hashtags: a.hashtags.slice(0, 3) } : {}) };   // YouTube/TikTok yükləyicisi oxuyur
 }
 
@@ -648,8 +650,9 @@ async function render(a, out, opt = {}) {
   let policy = opt.policy, cats = opt.cats;
   if (!policy || !cats) {
     const app = require("./topics.cjs").loadApp(ROOT);    // qayda faylı oxunmasa xəta: video olmur
-    // Dünya və X videoları (kind): mənbə lentin siyahısında deyil — xarici mənbə qaydası (topics.cjs xariciPozur).
-    policy ||= x => (x?.kind === "dunya" || x?.kind === "x" ? app.xariciPozur(x) : app.policyViolation(x));
+    // Dünya və X videoları (kind): mənbə lentin siyahısında deyil — xarici mənbə qaydası (topics.cjs xariciPozur). Kanal videosu
+    // (video-kanal.cjs): mənbə siyahıdakı saytdır, ünvanı isə Telegram/Instagram postudur — qayda saytın öz ünvanı (sayt) ilə yoxlanır.
+    policy ||= x => (x?.kind === "kanal" ? app.policyViolation({ ...x, sourceUrl: x.sayt || "" }) : x?.kind === "dunya" || x?.kind === "x" ? app.xariciPozur(x) : app.policyViolation(x));
     cats ||= app.CATS;
   }
   if (policy(a)) throw new Error(`xəbər saytın qaydasından keçmir: ${clean(a.title)}`);
