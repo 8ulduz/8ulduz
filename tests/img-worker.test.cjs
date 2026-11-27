@@ -290,7 +290,10 @@ test("img-worker 10: the config deploys to the 8ulduz.az zone only (custom domai
   assert.match(toml, /^routes = \[\{ pattern = "img\.8ulduz\.az", custom_domain = true \}\]$/m);
   assert.match(toml, /\[\[r2_buckets\]\]\nbinding = "SEKIL"\nbucket_name = "8ulduz-sekil"/);
   assert.ok(!/\[vars\]|secret|token|api_key|account_id/i.test(toml.replace(/^#.*$/gm, "")), "sirr və hesab nömrəsi yoxdur");
-  assert.ok(read(".github/img-worker/worker.js").includes("env?.SEKIL"));
+  const code = read(".github/img-worker/worker.js");
+  assert.ok(code.includes("env?.SEKIL"));
+  // Səhifə açıq olarkən soruşulan ünvan yönləndirməməlidir (3xx bfcache-i söndürür; tests/fixtures/ucuncu-terefler.json «yonlendirir»).
+  assert.ok(!/Response\.redirect|status:\s*3\d\d|Location/.test(code), "Worker heç vaxt 3xx vermir");
   const doc = read("docs/img-worker.md");
   for (const k of ["8ulduz-sekil", "SEKIL", "img.8ulduz.az", "/saglam", "30", "lifecycle add 8ulduz-sekil", "--expire-days 30", "wrangler login --browser=false", "IMG_HOST", "1027", "X-Sekil"]) assert.ok(doc.includes(k), "docs/img-worker.md: " + k);
 });
