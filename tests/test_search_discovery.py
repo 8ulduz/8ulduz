@@ -100,6 +100,12 @@ class StoryPagesTest(unittest.TestCase):
         linked = updater.section_page('bolgeler', 'Bölgələr', 'x', [self.story(sid)], stories={sid: [1, 4, 'bolgeler'], extra: [2, 4, 'bolgeler']}, titles={extra: ('Köhnə bölgə xəbəri', 'APA')})
         self.assertIn(f'href="../../xeber/{extra}/"', linked)
         self.assertIn('Köhnə bölgə xəbəri', linked)
+        # 2026-11-27: sətrin 5-ci sahəsi xronologiya sayıdır (rəqəm), başlıq deyil — bölmə səhifələri bir gün yazılmadı (TypeError)
+        xs = 'cd' * 8
+        with tempfile.TemporaryDirectory() as tmp, patch.object(updater, 'CACHE_DIR', pathlib.Path(tmp)), patch.object(updater, 'STORY_DIR', pathlib.Path(tmp) / 'xeber'):
+            titles = updater._story_titles({xs: [3, 4, 'bolgeler', updater.STORY_VER, 5]}, [])
+            self.assertNotIn(xs, titles)
+            updater.section_page('bolgeler', 'Bölgələr', 'x', [], stories={xs: [3, 4, 'bolgeler', updater.STORY_VER, 5]}, titles=titles)
 
     def test_related_stories_are_same_category_story_links(self):
         a, b, other = self.story('1' * 16), self.story('2' * 16), self.story('3' * 16, category='idman')

@@ -734,7 +734,8 @@ test('sport sub-sections open their own teams and close when you leave',()=>{
   assert.ok(!top.includes('data-club="Qarabağ"'),'komandalar bağlıdır');
   S.club='Futbol';S.sportTab='Futbol';S.milli=[{id:'ml-d',name:'Millətlər Liqası D',teams:['Azərbaycan','Litva']},{id:'asiya-kuboku',name:'Asiya Kuboku 2027',teams:['Səudiyyə Ərəbistanı','İraq']}];
   const foot=subNav('idman');
-  for(const name of ['Galatasaray','Real Madrid'])assert.ok(foot.includes('data-club="'+name+'"'),name);
+  // sahib 2026-11-27 («futbol bölməsi niyə ən birinci hala qayıdıb?»): dünya liqaları gələnə qədər də köhnə klub düymələri yoxdur
+  for(const name of ['Galatasaray','Real Madrid'])assert.ok(!foot.includes('data-club="'+name+'"'),name);
   // sahib 2026-11-07 (ikinci qeyd): liqaların yanında «Milli komandalar» — altında ölkələr yox, yarışlar (liqalar kimi)
   assert.ok(!foot.includes('data-club="Milli komanda"')&&foot.includes('href="#/komanda/ml-d"')&&foot.includes('<span>Asiya Kuboku 2027</span>'),'Milli komandalar');
   assert.ok(!foot.includes('href="#/komanda/milli-komandalar/azerbaycan"')&&!foot.includes('>Azərbaycan</a>'),'menyuda ölkə adları yoxdur');
@@ -756,7 +757,8 @@ test('hover menu: one list for the section, a second list only for a tab with it
   S.milli=[{id:'ml-d',name:'Millətlər Liqası D',teams:['Azərbaycan','Litva']},{id:'asiya-kuboku',name:'Asiya Kuboku 2027',teams:['Səudiyyə Ərəbistanı','İraq']}];
   const football=navPopHtml('idman','Futbol');
   assert.ok(football.includes('pop-col two'),'Futbol ikinci siyahını açır');
-  for(const name of ['Galatasaray','Real Madrid'])assert.ok(football.includes('data-club="'+name+'"'),name);
+  for(const name of ['Galatasaray','Real Madrid'])assert.ok(!football.includes('data-club="'+name+'"'),name+': köhnə klub düymələri yoxdur (sahib 2026-11-27)');
+  assert.ok(football.includes('href="#/komanda/premyer-liqa"'),'Azərbaycan liqaları dünya liqalarını gözləmir');
   // Yarışın üstünə gələndə liqa kimi: iştirakçı ölkələr və «cədvəl və komandalar ›»
   const nat=navPopHtml('idman','Futbol','asiya-kuboku');
   for(const [slug,name] of [['seudiyye-erebistani','Səudiyyə Ərəbistanı'],['iraq','İraq']])assert.ok(nat.includes('href="#/komanda/asiya-kuboku/'+slug+'">'+name+'</a>'),name);
@@ -2543,7 +2545,9 @@ test('sports menu: leagues instead of clubs, clubs open from the league', () => 
   const rows = names => [{ rows: names.map(([team, full]) => ({ team, full })) }];
   S.football = { leagues: [{ short: 'Premyer Liqa', table: [{ team: 'Qarabağ' }, { team: 'Sabah' }] }] };
   S.sports = null; S.sportsAsked = true;
-  assert.ok(navPopHtml('idman', 'Futbol').includes('data-club="Galatasaray"'), 'məlumat çatana qədər klubların düymələri qalır');
+  // Sahib 2026-11-27 («futbol bölməsi niyə ən birinci hala qayıdıb?»): məlumat çatana qədər köhnə klub düymələri (ilk görünüş) çəkilmir,
+  // Azərbaycan liqaları dərhal var; dünya liqaları gələndə menyu yerində yenilənir (navData, aşağıdakı test).
+  assert.ok(!navPopHtml('idman', 'Futbol').includes('data-club="Galatasaray"') && navPopHtml('idman', 'Futbol').includes('href="#/komanda/premyer-liqa"'), 'köhnə klub düymələri yoxdur, Azərbaycan liqaları var');
   assert.ok(navPopHtml('idman', 'Basketbol').includes('data-club="NBA"'));
   S.sports = { leagues: [
     { id: 'eng.1', sport: 'football', short: 'İngiltərə', name: 'Premyer Liqa (İngiltərə)', groups: rows([['Man City', 'Manchester City']]) },
@@ -2571,6 +2575,36 @@ test('sports menu: leagues instead of clubs, clubs open from the league', () => 
   assert.ok(bb.includes('href="#/komanda/nba/los-angeles-lakers"') && !bb.includes('data-club="NBA"'));
   assert.ok(!navPopHtml('idman', 'Basketbol').includes('turkiye'), 'basketbolda futbol liqası yoxdur');
   assert.ok(!navPopHtml('bolgeler', 'Bakı').includes('#/komanda/'));
+});
+// Sahib 2026-11-27 («futbol bölməsi niyə ən birinci hala qayıdıb?», «tutula-tutula»): «Futbol»a toxunan oxucu üçün bütöv çəkiliş
+// (requestRender) 8 s-dən, sürüşdürdükcə dəqiqələrlə gecikir (readerBusy) — dünya liqaları menyuya o vaxta qədər düşmürdü. Menyu yerində yazılır.
+test('owner 2026-11-27: world leagues reach the İdman sub-menu at once, even while the reader is busy', () => {
+  const rows = { innerHTML: 'köhnə' }, doc = { documentElement: { dataset: {} }, addEventListener() {}, querySelector: s => s === '.sub-rows' ? rows : null, createElement() { return {}; } };
+  const ctx = app({ document: doc, location: { hash: '#/bolme/idman' } }), { S } = ctx.api;
+  S.data = { articles: [] }; S.club = 'Futbol'; S.sportTab = 'Futbol'; S.touchAt = Date.now();
+  S.sports = { leagues: [{ id: 'tur.1', sport: 'football', short: 'Türkiyə', name: 'Süper Liq', groups: [{ rows: [{ team: 'Galatasaray' }] }] }] };
+  vm.runInContext('navData', ctx)();
+  assert.ok(rows.innerHTML.includes('<b>Türkiyə</b><span style="font-weight:400">Süper Liq</span>'), 'dünya liqası menyuda');
+  assert.ok(rows.innerHTML.includes('href="#/komanda/premyer-liqa"') && !rows.innerHTML.includes('data-club="Galatasaray"'));
+  const other = app({ document: doc, location: { hash: '#/bolme/bolgeler' } });
+  rows.innerHTML = 'köhnə'; vm.runInContext('navData', other)();
+  assert.equal(rows.innerHTML, 'köhnə', 'başqa bölmənin alt menyusuna toxunmur');
+});
+// «Futbol» süzgəci (sectionView): dəqiqəlik hər yeniləmədə ~900 sətir × klub qrupları = 14 000 clubMatches (telefonda 256–500 ms) idi; nəticə
+// xəbər (nömrə + başlıq) və düymə üzrə yadda qalır. Başlıq dəyişəndə (eyni nömrə) yenidən hesablanır.
+test('speed 2026-11-27: the İdman tab filter is remembered per story and tab, recomputed when the title changes', () => {
+  const ctx = app(), { S, sectionView } = ctx.api;
+  const at = new Date().toISOString(), row = (id, title) => ({ id, title, lang: 'az', category: 'idman', source: 'APA Sport', sourceUrl: 'https://apasport.az/' + id + title.length, publishedAt: at });
+  S.data = { articles: [row('1', 'Qarabağ qalib gəldi'), row('2', 'Basketbolçumuz qalib gəldi')] }; S.club = 'Futbol';
+  const first = sectionView('idman');
+  assert.ok(first.includes('Qarabağ qalib gəldi') && !first.includes('Basketbolçumuz'));
+  const real = vm.runInContext('clubMatches', ctx);
+  vm.runInContext('clubMatches = (a, c) => (globalThis.__calls++, __real(a, c))', Object.assign(ctx, { __real: real, __calls: 0 }));
+  S.data = { articles: S.data.articles.map(a => ({ ...a })) }; // dəqiqəlik lent: eyni xəbərlər, yeni obyektlər
+  assert.equal(sectionView('idman'), first);
+  assert.equal(ctx.__calls, 0, 'eyni xəbər üçün süzgəc yenidən hesablanmır');
+  S.data = { articles: [row('1', 'Qarabağ qalib gəldi'), row('2', 'Futbolçumuz qalib gəldi')] };
+  assert.ok(sectionView('idman').includes('Futbolçumuz qalib gəldi'), 'başlıq dəyişdi: yenidən');
 });
 
 // Sürət (qırmızı xətt 3): pipeline baş səhifənin ilk ekranını index.html-ə hazır yazır (.github/scripts/prerender.cjs),
