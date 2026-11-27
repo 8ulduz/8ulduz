@@ -2410,8 +2410,6 @@ _STORY_HTML = """<!doctype html>
     <link rel="alternate" type="application/rss+xml" title="8ulduz" href="__SITE__feed.xml" />
     <link rel="manifest" href="__SITE__manifest.webmanifest" />
     <link rel="icon" href="__SITE__assets/icon-192.png" sizes="192x192" />
-    <!-- Xəbərin şəkli (app.js articleView, 960 px) wsrv.nl-dəndir: bağlantı app.js gələnə qədər açılır (2026-11-27) -->
-    <link rel="preconnect" href="https://wsrv.nl" />
     <link rel="modulepreload" href="../../assets/app.min.js" />
     <link rel="stylesheet" href="../../assets/app.css" />
     <script src="../../assets/config.js" defer></script>
