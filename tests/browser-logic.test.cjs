@@ -646,6 +646,19 @@ test('speed red line: images are resized and the original stays as the fallback'
   S.proxyFails=8;
   assert.equal(sized(url,480),url,'xidmət işləmirsə birbaşa mənbədən');
 });
+// Keçid anı və CI-nin sürət yoxlaması (2026-11-27, «slayd şəkli yükləmə 2 > 1»): hazır ilk ekran hələ wsrv.nl ilə qurulubsa, app.js eyni slayd
+// şəklini img.8ulduz.az-dan ikinci dəfə istəməməlidir — eyni sorğu hazır ekranın ünvanı ilə qalır; başqa en və ya başqa şəkil Worker-dən.
+test('image cache: the prerendered hero keeps its own address when the same query is asked from the other host (no second download)', () => {
+  const src = 'https://apa.az/a.jpg', q = w => `?url=${encodeURIComponent(src)}&w=${w}&we&output=webp&q=70`, pre = 'https://wsrv.nl/' + q(640);
+  const doc = { documentElement: { dataset: {} }, addEventListener() {}, createElement() { return {}; },
+    querySelector: s => s === '#view .pre-skel[data-prerender] .hero-main img[src]' ? { getAttribute: n => n === 'src' ? pre : null } : null };
+  const { sized } = app({ document: doc }).api;
+  assert.equal(sized(src, 640), pre, 'hazır ekranın slayd şəkli eyni ünvanla');
+  assert.equal(sized(src, 480), 'https://img.8ulduz.az/' + q(480), 'başqa en Worker-dən');
+  assert.ok(sized('https://apa.az/b.jpg', 640).startsWith('https://img.8ulduz.az/?url='), 'başqa şəkil Worker-dən');
+  assert.equal(app().api.sized(src, 640), 'https://img.8ulduz.az/' + q(640), 'hazır ekran yoxdursa Worker');
+});
+
 test('image cache (owner 2026-11-27 «Bəli, qur», docs/img-worker.md): every picture tries img.8ulduz.az, then the same wsrv.nl query, then the original; after two Worker failures the visit goes straight to wsrv.nl', () => {
   const on = {};
   const ctx = app({ document: { documentElement: { dataset: {} }, addEventListener(n, f) { on[n] = f; }, querySelector() { return null; }, createElement() { return {}; } } });

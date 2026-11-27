@@ -516,7 +516,9 @@ let imgBad = 0;
 function sized(url, width, logo) {
   const host = hostOf(url);
   if (!url || !host || (!logo && ((S.proxyFails || 0) >= PROXY_MAX_FAILS || (proxyBad.get(host) || 0) >= 2)) || PROXY_SKIP.test(host) || /\.(?:svg|gif)(?:[?#]|$)/i.test(url)) return url;
-  return `${imgBad < 2 ? IMG : WSRV}?url=${encodeURIComponent(url)}&w=${width}&we&output=webp&q=70`;
+  // Hazır ilk ekranın slayd şəkli (PRE_HERO) eyni sorğu ilə başqa hostdadırsa (keçiddə wsrv.nl, Worker sayğacı) o ünvan qalır: şəkil iki dəfə yüklənmir.
+  const q = `?url=${encodeURIComponent(url)}&w=${width}&we&output=webp&q=70`;
+  return PRE_HERO.endsWith(q) ? PRE_HERO : (imgBad < 2 ? IMG : WSRV) + q;
 }
 // Ekranın eni bir dəfə oxunur: innerWidth hər oxunuşda məcburi yerləşdirmə edir (Chrome sürüşmə zolağını hesablayır), çəkiliş tapşırığında 4× telefonda 72–195 ms idi (2026-11-09 izi). resize-da yenilənir.
 let viewW = globalThis.innerWidth || 0;
