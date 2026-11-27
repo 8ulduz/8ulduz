@@ -529,7 +529,8 @@ function img(a, cls = "", eager = false, linked = false, width = 480, later = fa
   const [url, ...rest] = imageCandidates(a);
   if (!url) return ""; // şəkilsiz xəbər qutu tutmur: kart yalnız mətndir
   const small = sized(url, width), others = small === url ? rest : [url, ...rest];
-  const load = later ? "" : eager && !heavyImage(small) ? 'fetchpriority="high"' : 'loading="lazy"'; // ağır orijinal ilk ekranla yarışmır
+  // eager 1: ilk ekranın kartı — tənbəl deyil (hazır HTML-də brauzer onu CSS-i gözləmədən istəyir), amma slayd şəklindən aşağı prioritetdə.
+  const load = later ? "" : !eager || heavyImage(small) ? 'loading="lazy"' : `fetchpriority="${eager === 1 ? "low" : "high"}"`; // ağır orijinal ilk ekranla yarışmır
   const src = `<img ${later ? "data-src" : "src"}="${esc(small)}" data-image-alternatives="${esc(JSON.stringify(others))}" alt="" ${load} decoding="async" referrerpolicy="no-referrer" data-fail="alt">`;
   const tag = linked ? "a" : "div";
   return `<${tag} class="img ${cls}"${linked ? ` href="${safeHref(a.sourceUrl)}" ${OUT} aria-label="${txt(a.title)}"` : ""}>${src}</${tag}>`;
@@ -566,7 +567,7 @@ const chromeLink = u => appLink(u, "com.android.chrome", "S.android.support.cust
 const shareBtn = a => safeHref(a.sourceUrl) === "#" ? "" : `<button type="button" class="share" data-act="dinle" data-id="${esc(a.id)}">${S.dinOn === a.id ? "■ Bitir" : "Dinlə"}</button><button type="button" class="share" data-act="share" data-share="${esc(shareUrl(a))}" title="Paylaş">Paylaş</button>`;
 const starBtn = a => { const on = isSaved(a.id), label = on ? "Saxlanmışlardan çıxar" : "Yadda saxla"; return `<span class="star${on ? " on" : ""}" data-act="star" data-save="${esc(a.id)}" role="button" tabindex="0" aria-pressed="${on ? "true" : "false"}" title="${label}" aria-label="${label}"><span aria-hidden="true">${on ? "★" : "☆"}</span></span>`; };
 const card = a => cardAt(a, "h3");
-function cardAt(a, hx, cls = "") { const xv = XV.test(a.xv?.u), pic = xv ? img(a, "", false, false, 360).replace('<div class="img ', `<div data-xv="${esc(a.xv.u)}" role="button" tabindex="0" aria-label="Videonu oynat" class="img `) : img(a, "", false, true, 360); return `<article class="card${cls}${pic ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${pic}<div class="b">${badges(a, route().name !== "section", "pop")}<a class="card-hit" href="${safeHref(a.sourceUrl)}" ${OUT}><${hx} lang="${esc(langOf(a))}">${txt(a.title)}</${hx}></a>${meta(a)}</div></article>`; }
+function cardAt(a, hx, cls = "", first) { const xv = XV.test(a.xv?.u), pic = xv ? img(a, "", false, false, 360).replace('<div class="img ', `<div data-xv="${esc(a.xv.u)}" role="button" tabindex="0" aria-label="Videonu oynat" class="img `) : img(a, "", first && 1, true, 360); return `<article class="card${cls}${pic ? "" : " noimg"}" data-cat="${esc(a.category)}">${starBtn(a)}${pic}<div class="b">${badges(a, route().name !== "section", "pop")}<a class="card-hit" href="${safeHref(a.sourceUrl)}" ${OUT}><${hx} lang="${esc(langOf(a))}">${txt(a.title)}</${hx}></a>${meta(a)}</div></article>`; }
 
 // Şəkli sınan slayd çıxarılır.
 function dropHeroSlide(slide) {
@@ -2183,7 +2184,9 @@ function latestBlock(list) {
   const ranked = picFirst(byDate(list));   // sahib 2026-11-20: «Ən yeni / Ən çox mənbə» seçimi silindi — həmişə ən yeni
   const count = S.latestCount || 8;
   S.homeLatest = { d: S.data, ranked, list };   // «Daha çox xəbər» yalnız yeni kartları əlavə edir (moreLatest)
-  return `<section id="son-xeberler"><div class="sec-h"><h2>Son xəbərlər</h2></div><div class="latest-grid">${ranked.slice(0, count).map(card).join("")}</div>${ranked.length > count ? '<button class="loadmore" data-act="latest-more">Daha çox xəbər</button>' : ""}</section>`;
+  // İlk iki kart telefonun ilk ekranındadır (slayderin altında): şəkli tənbəl deyil. Hazır HTML-də (index.html) «lazy» şəkil app.css gəlib
+  // səhifə yerləşənə qədər istənmirdi (yavaş 4G: ~1,3 s), app.js-in uzun tapşırığı başlayanda gələn şəkil isə o bitənə qədər çəkilmir.
+  return `<section id="son-xeberler"><div class="sec-h"><h2>Son xəbərlər</h2></div><div class="latest-grid">${ranked.slice(0, count).map((a, i) => cardAt(a, "h3", "", i < 2)).join("")}</div>${ranked.length > count ? '<button class="loadmore" data-act="latest-more">Daha çox xəbər</button>' : ""}</section>`;
 }
 // Video lenti (sahib, 2026-11-24): «Son xəbərlər»dən sonra daimi oynayan üfüqi video kartlar — öz videolarımız, X-in hadisə və xəbər
 // videoları, telekanalların videoları. Burada yalnız başlıq və yer (hündürlük qabaqcadan: kartlar gələndə səhifə atlamır); kartları və
