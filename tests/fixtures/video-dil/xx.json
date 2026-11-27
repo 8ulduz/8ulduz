@@ -16,11 +16,13 @@
   "lent": {
     "dil": "xx",
     "min_menbe": 1,
+    "min_menbe_kadr": 1,
     "ceki": {
       "bolme": { "idman": 2 },
       "zeif": "xxsummit",
       "zeif_emsal": 0.5,
       "video_emsal": 3,
+      "menbe_emsal": 5,
       "guclu": [{ "ad": "xxcrash", "emsal": 4, "x": 5, "soz": "xxcrash" }]
     },
     "yayim": "xxmatch"
