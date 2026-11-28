@@ -625,14 +625,14 @@ test('speed red line: images are resized and the original stays as the fallback'
   const ctx=app(),{S,sized,img,card}=ctx.api;
   S.og={};
   const url='https://apa.az/a b.jpg';
-  assert.equal(sized(url,480),'https://wsrv.nl/?url='+encodeURIComponent(url)+'&w=480&we&output=webp&q=70');
+  assert.equal(sized(url,480),'https://img.8ulduz.az/?url='+encodeURIComponent(url)+'&w=480&we&output=webp&q=70');
   assert.equal(sized('https://apa.az/a.svg',480),'https://apa.az/a.svg');
   assert.equal(sized('https://apa.az/a.gif?x=1',480),'https://apa.az/a.gif?x=1');
   assert.equal(sized('https://metbuat.az/a.jpg',480),'https://metbuat.az/a.jpg','wsrv 404 verən sayt birbaşa');
   assert.equal(sized('https://cdn.sporx.com/a.jpg',480),'https://cdn.sporx.com/a.jpg');
-  assert.ok(sized('https://files.modern.az/a.jfif',320).includes('wsrv.nl'),'jfif kiçildilir');
+  assert.ok(sized('https://files.modern.az/a.jfif',320).includes('img.8ulduz.az'),'jfif kiçildilir');
   const html=img({imageUrl:'https://apa.az/a.jpg',category:'gundem'});
-  assert.ok(html.includes('wsrv.nl'));
+  assert.ok(html.includes('https://img.8ulduz.az/?url='));
   assert.ok(html.includes('data-image-alternatives="[&quot;https://apa.az/a.jpg&quot;]"'),'alınmasa əsl ünvan');
   assert.ok(!html.includes('image-fallback'),'şəkli olan kartda ehtiyat loqo yoxdur');
   assert.equal(img({category:'gundem'}),'','şəkli olmayanda qutu yoxdur');
@@ -645,6 +645,70 @@ test('speed red line: images are resized and the original stays as the fallback'
   assert.ok(img({imageUrl:'https://apa.az/a.jpg'}).includes('loading="lazy"') && img({imageUrl:'https://apa.az/a.jpg'}).includes('decoding="async"'));
   S.proxyFails=8;
   assert.equal(sized(url,480),url,'xidmət işləmirsə birbaşa mənbədən');
+});
+// Keçid anı və CI-nin sürət yoxlaması (2026-11-27, «slayd şəkli yükləmə 2 > 1»): hazır ilk ekran hələ wsrv.nl ilə qurulubsa, app.js eyni slayd
+// şəklini img.8ulduz.az-dan ikinci dəfə istəməməlidir — eyni sorğu hazır ekranın ünvanı ilə qalır; başqa en və ya başqa şəkil Worker-dən.
+test('image cache: the prerendered hero keeps its own address when the same query is asked from the other host (no second download)', () => {
+  const src = 'https://apa.az/a.jpg', q = w => `?url=${encodeURIComponent(src)}&w=${w}&we&output=webp&q=70`, pre = 'https://wsrv.nl/' + q(640);
+  const doc = { documentElement: { dataset: {} }, addEventListener() {}, createElement() { return {}; },
+    querySelector: s => s === '#view .pre-skel[data-prerender] .hero-main img[src]' ? { getAttribute: n => n === 'src' ? pre : null } : null };
+  const { sized } = app({ document: doc }).api;
+  assert.equal(sized(src, 640), pre, 'hazır ekranın slayd şəkli eyni ünvanla');
+  assert.equal(sized(src, 480), 'https://img.8ulduz.az/' + q(480), 'başqa en Worker-dən');
+  assert.ok(sized('https://apa.az/b.jpg', 640).startsWith('https://img.8ulduz.az/?url='), 'başqa şəkil Worker-dən');
+  assert.equal(app().api.sized(src, 640), 'https://img.8ulduz.az/' + q(640), 'hazır ekran yoxdursa Worker');
+});
+
+test('image cache (owner 2026-11-27 «Bəli, qur», docs/img-worker.md): every picture tries img.8ulduz.az, then the same wsrv.nl query, then the original; after two Worker failures the visit goes straight to wsrv.nl', () => {
+  const on = {};
+  const ctx = app({ document: { documentElement: { dataset: {} }, addEventListener(n, f) { on[n] = f; }, querySelector() { return null; }, createElement() { return {}; } } });
+  const { S, sized, img, heavyImage } = ctx.api;
+  S.og = {};
+  const src = 'https://apa.az/a.jpg', q = `?url=${encodeURIComponent(src)}&w=360&we&output=webp&q=70`, IMG = 'https://img.8ulduz.az/' + q, WSRV = 'https://wsrv.nl/' + q;
+  const bad = () => vm.runInContext('imgBad', ctx);
+  assert.equal(sized(src, 360), IMG, 'sorğu wsrv.nl-inkinin eynisidir, yalnız host fərqlidir');
+  assert.equal(heavyImage(IMG), false, 'Worker-in şəkli ağır orijinal deyil');
+  // Saxta <img>: yalnız xəta işləyicilərinin işlətdiyi sahələr; load dinləyiciləri bir dəfəlikdir.
+  const pic = (s, fail = 'alt', alts = [src]) => { const ls = {}; return { tagName: 'IMG', src: s, isConnected: true, style: {}, dataset: { fail, imageAlternatives: JSON.stringify(alts) }, naturalWidth: 0, addEventListener(n, f) { (ls[n] ||= []).push(f); }, fire(n) { const f = ls[n] || []; ls[n] = []; f.forEach(g => g()); }, closest() { return null; }, remove() { this.gone = true; } }; };
+  let stopped = 0;
+  const ev = t => ({ target: t, stopPropagation() { stopped++; } });
+  // 1) Worker alınmadı → eyni sorğu wsrv.nl-dən; hadisə şəklə çatmır, ehtiyat siyahısı (orijinal) toxunulmur.
+  const a = pic(IMG);
+  on.error(ev(a));
+  assert.equal(a.src, WSRV);
+  assert.equal(stopped, 1, 'modulların öz xəta işləyicisi (vlent data-alt) hələ işləmir');
+  assert.equal(a.dataset.imageAlternatives, JSON.stringify([src]));
+  // 2) wsrv.nl də alınmadı → orijinal (imgFail); orijinal gəlsə cəza mənbəyə/wsrv.nl-ə, Worker-ə yox.
+  on.error(ev(a));
+  assert.equal(a.src, src);
+  assert.equal(stopped, 1);
+  a.fire('load');
+  assert.equal(bad(), 0, 'şəklin özü wsrv.nl-dən də gəlmirsə Worker günahkar sayılmır');
+  assert.equal(S.proxyFails, 1, 'wsrv.nl-in əvvəlki qaydası qalır');
+  // 3) Worker alınmadı, wsrv.nl gəldi → Worker bir xəta; ikincidən sonra bu ziyarətin şəkilləri birbaşa wsrv.nl-dən.
+  for (let i = 1; i <= 2; i++) {
+    const b = pic(sized(`https://report.az/${i}.jpg`, 360));
+    assert.ok(b.src.startsWith('https://img.8ulduz.az/?url='), String(i));
+    on.error(ev(b));
+    assert.ok(b.src.startsWith('https://wsrv.nl/?url='));
+    b.fire('load');
+    assert.equal(bad(), i);
+  }
+  assert.equal(sized(src, 360), WSRV, 'iki xətadan sonra (limit 1027, server dayanıb) birbaşa wsrv.nl');
+  assert.ok(img({ imageUrl: src }).includes(`src="${WSRV.replace('w=360', 'w=480').replace(/&/g, '&amp;')}"`), 'kartlar da');
+  assert.ok(sized('https://pfl.az/l.png', 96, 1).startsWith('https://wsrv.nl/?url='), 'loqolar da');
+  // 4) Ehtiyat siyahısı olmayan şəkillər də (loqo «hide», video şəkli «rm», Videolent kartı) əvvəl wsrv.nl-ə keçir, silinmir.
+  for (const fail of ['hide', 'rm', undefined]) {
+    const c = pic(IMG, fail);
+    on.error(ev(c));
+    assert.equal(c.src, WSRV, String(fail));
+    assert.ok(!c.gone && c.style.visibility !== 'hidden', String(fail));
+  }
+  // 5) Başqa ünvanın xətası əvvəlki kimidir; hazır ilk ekranda app.js-dən əvvəl qırılmış şəkil də əvvəl wsrv.nl-ə keçir.
+  const d = pic('https://apa.az/b.jpg', 'rm');
+  on.error(ev(d));
+  assert.ok(d.gone);
+  assert.ok(fs.readFileSync(path.join(root, 'assets/app.js'), 'utf8').includes('if (i.complete && (i.naturalWidth || 0) < 2) viaWsrv(i) || imgFail(i);'));
 });
 test('phone cards also open the source in a new tab', () => {
   const ctx = app({ matchMedia: q => ({ matches: String(q).includes('hover:none') }) });
@@ -2220,7 +2284,7 @@ test('speed red line: un-proxied originals are still shown, but never with high 
   assert.equal(phone.heavyImage('https://wsrv.nl/?url=x'), false);
   for (const ctx of [phone, desktop]) {
     assert.ok(ctx.cardAt(heavy, 'h3').includes('metbuat.az/uploads/1/tramp.jpg'), 'şəkil həmişə görünür («şəkil gəlmir» olmasın)');
-    assert.ok(ctx.cardAt(light, 'h3').includes('https://wsrv.nl/'), 'kiçildilən şəkil proksidən gəlir');
+    assert.ok(ctx.cardAt(light, 'h3').includes('https://img.8ulduz.az/'), 'kiçildilən şəkil şəkil keşindən gəlir');
     assert.ok(ctx.img(heavy, '', true).includes('loading="lazy"') && !ctx.img(heavy, '', true).includes('fetchpriority'), 'ağır orijinal yüksək prioritet almır');
     assert.ok(ctx.img(light, '', true).includes('fetchpriority="high"'), 'kiçildilən ilk şəkil yüksək prioritetdədir');
   }
@@ -2230,7 +2294,7 @@ test('speed red line: un-proxied originals are still shown, but never with high 
 test('speed: Qafqazinfo and Sportinfo pictures come through wsrv.nl (2026-11-27: 29 + 13 of 29 + 13 came, 380 → 8 KB and 145 → 11 KB on average), but stay last so the chosen picture does not change', () => {
   const { img, sized, heavyImage, imageCandidates } = app().api;
   for (const u of ['https://qafqazinfo.az/uploads/1795789767/bernhem.jpg', 'https://www.sportinfo.az/media/2026/11/27/a.jpg']) {
-    assert.equal(sized(u, 360), `https://wsrv.nl/?url=${encodeURIComponent(u)}&w=360&we&output=webp&q=70`, 'kiçildilmiş şəkil: ' + u);
+    assert.equal(sized(u, 360), `https://img.8ulduz.az/?url=${encodeURIComponent(u)}&w=360&we&output=webp&q=70`, 'kiçildilmiş şəkil: ' + u);
     assert.equal(heavyImage(u), false, 'ağır orijinal sayılmır: ' + u);
     assert.ok(img({ imageUrl: u }, '', true).includes('fetchpriority="high"'), 'ilk ekranda yüksək prioritet: ' + u);
     assert.deepEqual([...imageCandidates({ imageUrl: u, alts: [{ imageUrl: 'https://apa.az/2.jpg' }] })], ['https://apa.az/2.jpg', u], 'sıra əvvəlki kimidir: ' + u);

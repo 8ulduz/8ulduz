@@ -500,3 +500,20 @@ test('Videolent «Çox baxılan»: one button in the lazy module — the default
   const budce = JSON.parse(fs.readFileSync(path.join(root, 'tests/budce.json'), 'utf8'));
   assert.ok(Buffer.byteLength(src) < budce.kod['tenbel.js'], 'tənbəl modul büdcəsi (tests/budce.json)');
 });
+
+test('Videolent: the poster comes from the image cache (img.8ulduz.az); a <video> poster gives no error event, so it is checked first and falls back to the same wsrv.nl query (owner 2026-11-27, docs/img-worker.md)', async () => {
+  const { setPoster } = await import(pathToFileURL(file).href);
+  const IMG = 'https://img.8ulduz.az/?url=https%3A%2F%2Fpbs.twimg.com%2Fa.jpg&w=720&we&output=webp&q=70';
+  for (const ok of [true, false]) {
+    const v = { dataset: { poster: IMG }, poster: '' }, im = {};
+    setPoster(v, undefined, im);
+    assert.equal(v.dataset.poster, '', 'bir dəfə yoxlanır');
+    assert.equal(im.src, IMG);
+    assert.equal(im.referrerPolicy, 'no-referrer');
+    assert.equal(v.poster, '', 'yoxlanana qədər boş');
+    (ok ? im.onload : im.onerror)();
+    assert.equal(v.poster, ok ? IMG : IMG.replace('https://img.8ulduz.az/', 'https://wsrv.nl/'), ok ? 'Worker' : 'Worker alınmasa wsrv.nl');
+  }
+  const src = fs.readFileSync(file, 'utf8');
+  assert.ok(src.includes('`${IMG}?url=${encodeURIComponent(u)}&w=${w}&we&output=webp&q=70`') && src.includes('if (!v.poster && v.dataset.poster) setPoster(v);'), 'yaxın slaydların posteri setPoster ilə');
+});

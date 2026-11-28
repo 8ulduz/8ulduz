@@ -14,7 +14,11 @@ const FILE = new URL("../data/reels.json", import.meta.url).href;
 const MP4 = /^https:\/\/video\.twimg\.com\/[\w/.-]+\.mp4(\?[\w=&.-]*)?$/;
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const plain = s => { const t = document.createElement("textarea"); t.innerHTML = String(s ?? ""); return t.value; };
-const px = (u, w) => /^https:\/\/pbs\.twimg\.com\//.test(u || "") ? `https://wsrv.nl/?url=${encodeURIComponent(u)}&w=${w}&we&output=webp&q=70` : "";
+// Poster şəkil keşindən (img.8ulduz.az, docs/img-worker.md; sorğu wsrv.nl-inkinin eynisidir). <video poster> xəta vermir: poster əvvəl
+// Image ilə yoxlanır, alınmasa eyni sorğu wsrv.nl-dən (app.js viaWsrv ilə eyni ardıcıllıq; Worker-in limiti dolanda da poster görünür).
+const IMG = "https://img.8ulduz.az/", WSRV = "https://wsrv.nl/";
+const px = (u, w) => /^https:\/\/pbs\.twimg\.com\//.test(u || "") ? `${IMG}?url=${encodeURIComponent(u)}&w=${w}&we&output=webp&q=70` : "";
+export const setPoster = (v, p = v.dataset.poster, im = new Image()) => { v.dataset.poster = ""; im.referrerPolicy = "no-referrer"; im.onload = () => { v.poster = p; }; im.onerror = () => { v.poster = p.replace(IMG, WSRV); }; im.src = p; };
 const SOUND_KEY = "8u-reels-sound";
 // İzlənmiş videolar (sahib 2026-11-19: «videolar davamlı təzələnməlidir»): lent hər açılışda əvvəl görülməyənləri göstərir,
 // izlənmişlər sona keçir. Telefonda saxlanır, heç yerə göndərilmir. 2000 (sahib 2026-11-20: «heç təkrar olmayan»): lentdəki
@@ -271,7 +275,7 @@ function build(f, items, back, more, late) {
   const pos = s => slides.indexOf(s);
   const vid = s => s.querySelector("video");
   const near = i => {
-    for (const s of slides.slice(Math.max(0, i - 1), i + 3)) { const v = vid(s); if (!v.poster && v.dataset.poster) v.poster = v.dataset.poster; }
+    for (const s of slides.slice(Math.max(0, i - 1), i + 3)) { const v = vid(s); if (!v.poster && v.dataset.poster) setPoster(v); }
     // növbəti video əvvəlcədən yüklənir: sürüşdürəndə dərhal başlayır (TikTok kimi); yalnız biri — internet paketi qorunur
     const n = slides[i + 1] && vid(slides[i + 1]);
     if (n && !n.src) { n.preload = "auto"; n.src = n.dataset.src; }
